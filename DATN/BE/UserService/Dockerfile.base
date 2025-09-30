@@ -1,0 +1,6 @@
+# Dockerfile.base
+FROM maven:3.8.5-openjdk-17
+WORKDIR /app
+COPY pom.xml .
+# This is the slow step
+RUN mvn dependency:go-offline
