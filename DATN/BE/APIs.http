@@ -1,0 +1,39 @@
+
+### Combined workflow test:
+### 1. First create an order (this will trigger saga)
+POST http://localhost:8080/api/orders/create
+Content-Type: application/json
+
+{
+  "userId": "workflow_test_user",
+  "userEmail": "workflow@example.com",
+  "userName": "Workflow Test User",
+  "orderDescription": "End-to-end workflow test order",
+  "totalAmount": 999.99,
+  "shippingAddress": "Ha Noi"
+}
+
+### 2. Get all orders
+GET http://localhost:8080/api/orders/all
+
+### 3. Get order by orderId
+GET http://localhost:8080/api/orders/1
+
+### 4. Get paymentTransaction by orderId
+GET http://localhost:8080/api/payments/order/1
+
+### 5. Get payment status by orderId
+GET http://localhost:8080/api/payments/order/1/status
+
+### 6. Get order status by orderId
+GET http://localhost:8080/api/orders/1/status
+
+### Test successful cancellation
+POST http://localhost:8080/api/orders/123/cancel?reason=Changed mind
+
+### Test unauthorized access
+POST http://localhost:8080/api/orders/123/cancel
+
+### Test cancel
+POST http://localhost:8080/api/orders/173/cancel?reason="It is too bad!"
+

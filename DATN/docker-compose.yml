@@ -1,0 +1,217 @@
+services:
+  # PostgreSQL for UserService
+  postgres-user-service:
+    image: postgres:15-alpine
+    container_name: postgres-user-service
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: user_service_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_user_data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+
+  # PostgreSQL for SchedulingService
+  postgres-scheduling-service:
+    image: postgres:15-alpine
+    container_name: postgres-scheduling-service
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: scheduling_service_db
+    ports:
+      - "5433:5432"  # Different host port to avoid conflict
+    volumes:
+      - postgres_scheduling_data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+
+  # PostgreSQL for SagaOrchestratorService
+  postgres-saga-service:
+    image: postgres:15-alpine
+    container_name: postgres-saga-service
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: saga_service_db
+    ports:
+      - "5434:5432"  # Different host port to avoid conflict
+    volumes:
+      - postgres_saga_data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+
+  # Redis Cache
+  redis-cache:
+    image: redis:7-alpine
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass password
+    networks:
+      - backend-network
+
+  # Zookeeper
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - backend-network
+
+  # Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"  # External port
+      - "29092:29092"  # Internal port
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - backend-network
+
+  # Kafka UI
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    networks:
+      - backend-network
+
+  # API Gateway Service
+  api-gateway-service:
+    build:
+      context: ./BE/APIGatewayService
+      dockerfile: Dockerfile
+    container_name: api-gateway-service
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: product
+    depends_on:
+      - kafka
+      - redis-cache
+    networks:
+      - backend-network
+
+  # User Service
+  user-service:
+    build:
+      context: ./BE/UserService
+      dockerfile: Dockerfile
+    container_name: user-service
+    expose:
+      - "8081"  # Internal only: user-service:8081
+    environment:
+      SPRING_PROFILES_ACTIVE: product
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-user-service:5432/user_service_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_REDIS_HOST: redis-cache
+      SPRING_REDIS_PASSWORD: password
+    depends_on:
+      - postgres-user-service
+      - kafka
+      - redis-cache
+    networks:
+      - backend-network
+
+  # Scheduling Service
+  scheduling-service:
+    build:
+      context: ./BE/SchedulingService
+      dockerfile: Dockerfile
+    container_name: scheduling-service
+    expose:
+      - "8082"  # Internal only: scheduling-service:8082
+    environment:
+      SPRING_PROFILES_ACTIVE: product
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-scheduling-service:5432/scheduling_service_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_REDIS_HOST: redis-cache
+      SPRING_REDIS_PASSWORD: password
+    depends_on:
+      - postgres-scheduling-service
+      - kafka
+      - redis-cache
+    networks:
+      - backend-network
+
+  # Saga Orchestrator Service
+  saga-orchestrator-service:
+    build:
+      context: ./BE/SagaOrchestratorService
+      dockerfile: Dockerfile
+    container_name: saga-orchestrator-service
+    ports:
+      - "8083:8083"  # Exposed for monitoring and health checks
+    environment:
+      SPRING_PROFILES_ACTIVE: product
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-saga-service:5432/saga_service_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      - postgres-saga-service
+      - kafka
+      - user-service
+      - scheduling-service
+    networks:
+      - backend-network
+
+  # Frontend Service
+#  frontend-service:
+#    build:
+#      context: ./FE
+#      dockerfile: Dockerfile
+#    container_name: frontend-service
+#    ports:
+#      - "3000:3000"  # Frontend web interface
+#    environment:
+#      - REACT_APP_API_URL=http://localhost:8080  # API Gateway URL
+#      - NODE_ENV=production
+#    depends_on:
+#      - api-gateway-service
+#    networks:
+#      - backend-network
+
+# Define the network properly
+networks:
+  backend-network:
+    driver: bridge
+
+volumes:
+  postgres_user_data:
+  postgres_scheduling_data:
+  postgres_saga_data:

@@ -1,0 +1,10 @@
+### Test Orders Health
+GET http://localhost:8080/api/orders/health
+Accept: application/json
+
+### Test Payments Health
+GET http://localhost:8080/api/payments/health
+Accept: application/json
+
+### Rate Limit Test with Script
+GET http://localhost:8080/api/orders/test
