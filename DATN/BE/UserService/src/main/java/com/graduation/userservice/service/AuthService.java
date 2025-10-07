@@ -11,6 +11,7 @@ public interface AuthService {
     BaseResponse<?> register(RegisterRequest request);
     BaseResponse<?> verifyUser(String token);
     BaseResponse<?> login(LoginRequest request);
+    BaseResponse<?> refreshToken(String refreshToken);
     BaseResponse<?> logout(String token);
     BaseResponse<?> changePassword(ChangePasswordRequest request, Principal principal, String currentSessionToken);
 
