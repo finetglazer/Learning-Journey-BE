@@ -98,6 +98,14 @@ public class Constant {
     public static final String MSG_UPDATE_SLEEP_HOURS_FAILED = "Failed to update sleep hours";
     public static final String MSG_INVALID_TIME_FORMAT = "Invalid time format. Use HH:mm format (e.g., 22:00)";
     public static final String MSG_INVALID_TIME_RANGE_SAME = "Start time and end time cannot be the same";
+    public static final String MSG_GET_DAILY_LIMITS_SUCCESS = "Daily limits retrieved successfully";
+    public static final String MSG_GET_DAILY_LIMITS_FAILED = "Failed to retrieve daily limits";
+    public static final String MSG_UPDATE_DAILY_LIMITS_SUCCESS = "Daily limits updated successfully";
+    public static final String MSG_UPDATE_DAILY_LIMITS_FAILED = "Failed to update daily limits";
+    public static final String MSG_INVALID_ITEM_TYPE = "Invalid item type: ";
+    public static final String MSG_INVALID_HOURS_RANGE = "Hours must be between 0 and 24";
+
+
 
     // ===================== User Settings Log Messages =====================
     public static final String LOG_USER_NOT_FOUND = "User not found: {}";
@@ -106,4 +114,10 @@ public class Constant {
     public static final String LOG_UPDATE_SLEEP_HOURS_SUCCESS = "Sleep hours updated for user: {} with {} ranges";
     public static final String LOG_UPDATE_SLEEP_HOURS_FAILED = "Failed to update sleep hours for user: {}";
     public static final String LOG_INVALID_TIME_FORMAT = "Invalid time format: start={}, end={}";
+    public static final String LOG_GET_DAILY_LIMITS_SUCCESS = "Daily limits retrieved for user: {}";
+    public static final String LOG_GET_DAILY_LIMITS_FAILED = "Failed to get daily limits for user: {}";
+    public static final String LOG_UPDATE_DAILY_LIMITS_SUCCESS = "Daily limits updated for user: {} with {} item types";
+    public static final String LOG_UPDATE_DAILY_LIMITS_FAILED = "Failed to update daily limits for user: {}";
+    public static final String LOG_INVALID_ITEM_TYPE = "Invalid item type: {}";
+    public static final String LOG_INVALID_HOURS_VALUE = "Invalid hours value for {}: {}";
 }

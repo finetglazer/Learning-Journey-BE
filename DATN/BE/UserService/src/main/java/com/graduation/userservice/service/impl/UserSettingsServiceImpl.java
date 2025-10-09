@@ -2,11 +2,12 @@ package com.graduation.userservice.service.impl;
 
 import com.graduation.userservice.constant.Constant;
 import com.graduation.userservice.model.TimeRange;
+import com.graduation.userservice.model.User;
 import com.graduation.userservice.model.UserConstraints;
+import com.graduation.userservice.payload.request.UpdateDailyLimitsRequest;
 import com.graduation.userservice.payload.request.UpdateSleepHoursRequest;
-import com.graduation.userservice.payload.response.BaseResponse;
-import com.graduation.userservice.payload.response.SleepHoursResponse;
-import com.graduation.userservice.payload.response.TimeRangeDto;
+import com.graduation.userservice.payload.request.UpdateTimezoneRequest;
+import com.graduation.userservice.payload.response.*;
 import com.graduation.userservice.repository.UserConstraintsRepository;
 import com.graduation.userservice.repository.UserRepository;
 import com.graduation.userservice.service.UserSettingsService;
@@ -15,11 +16,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DateTimeException;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -31,6 +36,8 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     private final UserRepository userRepository;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+
+    private static final List<String> VALID_ITEM_TYPES = List.of("TASK", "ROUTINE");
 
     @Override
     @Transactional(readOnly = true)
@@ -115,4 +122,136 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                 timeRange.getEndTime().format(TIME_FORMATTER)
         );
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BaseResponse<?> getDailyLimits(Long userId) {
+        try {
+            if (!userRepository.existsById(userId)) {
+                log.warn(Constant.LOG_USER_NOT_FOUND, userId);
+                return new BaseResponse<>(0, Constant.MSG_USER_NOT_FOUND, null);
+            }
+
+            UserConstraints constraints = userConstraintsRepository.findByUserId(userId)
+                    .orElseGet(() -> UserConstraints.createDefault(userId));
+
+            // Convert to DTO
+            Map<String, DailyLimitDto> limitsMap = new HashMap<>();
+            for (String itemType : VALID_ITEM_TYPES) {
+                Integer hours = constraints.getDailyLimits().getOrDefault(itemType, 8); // Default 8 hours
+                // REMOVED: 'enabled' is now global
+                limitsMap.put(itemType, new DailyLimitDto(hours)); // CHANGED
+            }
+
+            // CHANGED: Create response with the global enabled flag
+            DailyLimitsResponse response = new DailyLimitsResponse(constraints.getDailyLimitFeatureEnabled(), limitsMap);
+
+            log.info(Constant.LOG_GET_DAILY_LIMITS_SUCCESS, userId);
+            return new BaseResponse<>(1, Constant.MSG_GET_DAILY_LIMITS_SUCCESS, response);
+
+        } catch (Exception e) {
+            log.error(Constant.LOG_GET_DAILY_LIMITS_FAILED, userId, e);
+            return new BaseResponse<>(0, Constant.MSG_GET_DAILY_LIMITS_FAILED, null);
+        }
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> updateDailyLimits(Long userId, UpdateDailyLimitsRequest request) {
+        try {
+            if (!userRepository.existsById(userId)) {
+                log.warn(Constant.LOG_USER_NOT_FOUND, userId);
+                return new BaseResponse<>(0, Constant.MSG_USER_NOT_FOUND, null);
+            }
+
+            // Validate item types
+            for (String itemType : request.getLimits().keySet()) {
+                if (!VALID_ITEM_TYPES.contains(itemType)) {
+                    log.warn(Constant.LOG_INVALID_ITEM_TYPE, itemType);
+                    return new BaseResponse<>(0, Constant.MSG_INVALID_ITEM_TYPE + itemType, null);
+                }
+            }
+
+            // Validate hours (must be between 0 and 24)
+            for (Map.Entry<String, DailyLimitDto> entry : request.getLimits().entrySet()) {
+                Integer hours = entry.getValue().getHours();
+                if (hours < 0 || hours > 24) {
+                    log.warn(Constant.LOG_INVALID_HOURS_VALUE, entry.getKey(), hours);
+                    return new BaseResponse<>(0, Constant.MSG_INVALID_HOURS_RANGE, null);
+                }
+            }
+
+            UserConstraints constraints = userConstraintsRepository.findByUserId(userId)
+                    .orElseGet(() -> UserConstraints.createDefault(userId));
+
+            // ADDED: Update the global feature enabled status
+            constraints.setDailyLimitFeatureEnabled(request.getEnabled());
+
+            // Update daily limits (hours only)
+            for (Map.Entry<String, DailyLimitDto> entry : request.getLimits().entrySet()) {
+                String itemType = entry.getKey();
+                DailyLimitDto limit = entry.getValue();
+                // CHANGED: Call updated method in UserConstraints
+                constraints.updateDailyLimit(itemType, limit.getHours());
+            }
+
+            userConstraintsRepository.save(constraints);
+
+            log.info(Constant.LOG_UPDATE_DAILY_LIMITS_SUCCESS, userId, request.getLimits().size());
+            return new BaseResponse<>(1, Constant.MSG_UPDATE_DAILY_LIMITS_SUCCESS, null);
+
+        } catch (Exception e) {
+            log.error(Constant.LOG_UPDATE_DAILY_LIMITS_FAILED, userId, e);
+            return new BaseResponse<>(0, Constant.MSG_UPDATE_DAILY_LIMITS_FAILED, null);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BaseResponse<?> getTimezone(Long userId) {
+        return userRepository.findById(userId)
+                .map(user -> {
+                    log.info("Successfully retrieved timezone '{}' for user {}", user.getPreferredTimezone(), userId);
+                    // Using a simple Map for the response body to match your API design
+                    return new BaseResponse<>(1, "Timezone retrieved successfully", Map.of("timezone", user.getPreferredTimezone()));
+                })
+                .orElseGet(() -> {
+                    log.warn(Constant.LOG_USER_NOT_FOUND, userId);
+                    return new BaseResponse<>(0, Constant.MSG_USER_NOT_FOUND, null);
+                });
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> updateTimezone(Long userId, UpdateTimezoneRequest request) {
+        // 1. Find the User
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            log.warn(Constant.LOG_USER_NOT_FOUND, userId);
+            return new BaseResponse<>(0, Constant.MSG_USER_NOT_FOUND, null);
+        }
+
+        String newTimezoneStr = request.getTimezone();
+
+        // 2. Validate the timezone string
+        try {
+            ZoneId.of(newTimezoneStr); // This will throw an exception if the ID is invalid
+        } catch (DateTimeException e) {
+            log.warn("Invalid timezone format provided by user {}: {}", userId, newTimezoneStr);
+            return new BaseResponse<>(0, "Invalid timezone format provided.", null);
+        }
+
+        // 3. Update the user's timezone field
+        user.setPreferredTimezone(newTimezoneStr);
+        userRepository.save(user);
+
+        // --- IMPORTANT FUTURE STEP ---
+        // When you create the CalendarItem model, you will need to add the logic here
+        // to find and convert all of the user's existing calendar items.
+        // See the "Planning for the Future" section below for the code.
+
+        log.info("Successfully updated timezone for user {} to {}", userId, newTimezoneStr);
+        return new BaseResponse<>(1, "Timezone updated successfully.", null);
+    }
+
 }
