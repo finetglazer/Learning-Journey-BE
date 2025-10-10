@@ -5,10 +5,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
-public class BaseResponse<T> {
-    private Integer status;
-    private String msg;
-    private T data;
+@AllArgsConstructor
+public class CreateItemResponse {
+    private Boolean success;
+    private Long itemId;
+    private String message;
 }

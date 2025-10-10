@@ -1,5 +1,6 @@
 package com.graduation.userservice.service.impl;
 
+import com.graduation.userservice.client.SchedulingServiceClient;
 import com.graduation.userservice.constant.Constant;
 import com.graduation.userservice.model.TimeRange;
 import com.graduation.userservice.model.User;
@@ -34,11 +35,10 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 
     private final UserConstraintsRepository userConstraintsRepository;
     private final UserRepository userRepository;
+    private final SchedulingServiceClient schedulingServiceClient; // ADD THIS
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
-
     private static final List<String> VALID_ITEM_TYPES = List.of("TASK", "ROUTINE");
-
     @Override
     @Transactional(readOnly = true)
     public BaseResponse<?> getSleepHours(Long userId) {
@@ -232,26 +232,42 @@ public class UserSettingsServiceImpl implements UserSettingsService {
         }
 
         String newTimezoneStr = request.getTimezone();
+        String oldTimezoneStr = user.getPreferredTimezone();
 
         // 2. Validate the timezone string
         try {
-            ZoneId.of(newTimezoneStr); // This will throw an exception if the ID is invalid
+            ZoneId.of(newTimezoneStr);
         } catch (DateTimeException e) {
             log.warn("Invalid timezone format provided by user {}: {}", userId, newTimezoneStr);
             return new BaseResponse<>(0, "Invalid timezone format provided.", null);
         }
 
-        // 3. Update the user's timezone field
+        // 3. Check if timezone actually changed
+        if (oldTimezoneStr.equals(newTimezoneStr)) {
+            log.info("Timezone unchanged for user {}: {}", userId, newTimezoneStr);
+            return new BaseResponse<>(1, "Timezone is already set to " + newTimezoneStr, null);
+        }
+
+        // 4. Update the user's timezone field
         user.setPreferredTimezone(newTimezoneStr);
         userRepository.save(user);
 
-        // --- IMPORTANT FUTURE STEP ---
-        // When you create the CalendarItem model, you will need to add the logic here
-        // to find and convert all of the user's existing calendar items.
-        // See the "Planning for the Future" section below for the code.
+        // 5. Call SchedulingService to convert all calendar items
+        boolean conversionSuccess = schedulingServiceClient.convertUserTimezone(
+                userId, oldTimezoneStr, newTimezoneStr
+        );
 
-        log.info("Successfully updated timezone for user {} to {}", userId, newTimezoneStr);
+        if (!conversionSuccess) {
+            log.warn("Calendar items conversion failed for user {}, but user timezone is updated", userId);
+            // Still return success since user timezone is updated
+            // Calendar items conversion failure is logged and can be retried
+            return new BaseResponse<>(1,
+                    "Timezone updated successfully. Calendar items will be synchronized shortly.",
+                    null);
+        }
+
+        log.info("Successfully updated timezone for user {} from {} to {}",
+                userId, oldTimezoneStr, newTimezoneStr);
         return new BaseResponse<>(1, "Timezone updated successfully.", null);
     }
-
 }

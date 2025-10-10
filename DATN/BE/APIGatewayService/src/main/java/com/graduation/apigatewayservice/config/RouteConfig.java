@@ -21,27 +21,21 @@ public class RouteConfig {
 
     /**
      * Apply rate limiting globally to all routes
-     * Circuit breaker and other routing configs are handled in application.properties
+     * Order: 1 (JWT filter is Order: 2, so rate limit runs first)
      */
     @Bean
     @Order(1)
     public GlobalFilter customRateLimitFilter() {
-        // Apply different rate limits based on path
         return (exchange, chain) -> {
             String path = exchange.getRequest().getPath().value();
-
             RouteRateLimitConfig routeConfig = determineRateLimitConfig(path);
-
-            log.debug("Applying rate limit for path: {} | Config hashcode: {}",
-                    path, routeConfig.getSafeHashCode());
 
             RateLimitGatewayFilter.Config config = createRateLimitConfig(
                     routeConfig.getMaxRequests(),
                     routeConfig.getWindowSeconds()
             );
 
-            return rateLimitGatewayFilter.apply(config)
-                    .filter(exchange, chain);
+            return rateLimitGatewayFilter.apply(config).filter(exchange, chain);
         };
     }
 
