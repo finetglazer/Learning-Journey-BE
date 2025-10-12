@@ -39,7 +39,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             try {
                 itemType = ItemType.valueOf(request.getType().toUpperCase());
             } catch (IllegalArgumentException e) {
-                log.warn("Invalid item type provided: {}", request.getType());
+                log.warn(Constant.LOG_INVALID_ITEM_TYPE, request.getType());
                 return new BaseResponse<>(0, Constant.MSG_INVALID_ITEM_TYPE, null);
             }
 
@@ -58,7 +58,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
 
             // 3. Validate calendar ownership
             if (!calendarRepository.existsByIdAndUserId(request.getCalendarId(), userId)) {
-                log.warn("Calendar not found or unauthorized: calendarId={}, userId={}",
+                log.warn(Constant.LOG_CALENDAR_UNAUTHORIZED,
                         request.getCalendarId(), userId);
                 return new BaseResponse<>(0, Constant.MSG_CALENDAR_NOT_FOUND, null);
             }
@@ -73,8 +73,8 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 );
 
                 if (!violations.isEmpty()) {
-                    log.warn("Constraint violations for user {}: {}", userId, violations);
-                    return new BaseResponse<>(0, "Constraint violations detected", violations);
+                    log.warn(Constant.LOG_CONSTRAINT_VIOLATIONS, userId, violations);
+                    return new BaseResponse<>(0, Constant.MSG_CONSTRAINT_VIOLATIONS, violations);
                 }
             }
 
@@ -109,7 +109,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
 
         } catch (Exception e) {
             log.error(Constant.LOG_ITEM_CREATION_FAILED, userId, e);
-            return new BaseResponse<>(0, "Failed to create calendar item", null);
+            return new BaseResponse<>(0, Constant.MSG_ITEM_CREATION_FAILED, null);
         }
     }
 
@@ -147,7 +147,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                             try {
                                 return DayOfWeek.valueOf(day.toUpperCase());
                             } catch (IllegalArgumentException e) {
-                                log.warn("Invalid day of week: {}", day);
+                                log.warn(Constant.LOG_INVALID_DAY_OF_WEEK, day);
                                 return null;
                             }
                         })
@@ -203,7 +203,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
     @Transactional
     public BaseResponse<?> convertUserTimezone(Long userId, String oldTimezone, String newTimezone) {
         try {
-            log.info("Converting timezone for user {} from {} to {}", userId, oldTimezone, newTimezone);
+            log.info(Constant.LOG_TIMEZONE_CONVERT_START, userId, oldTimezone, newTimezone);
 
             ZoneId oldZone;
             ZoneId newZone;
@@ -211,15 +211,15 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 oldZone = ZoneId.of(oldTimezone);
                 newZone = ZoneId.of(newTimezone);
             } catch (DateTimeException e) {
-                log.warn("Invalid timezone format: old={}, new={}", oldTimezone, newTimezone);
-                return new BaseResponse<>(0, "Invalid timezone format", null);
+                log.warn(Constant.LOG_INVALID_TIMEZONE, oldTimezone, newTimezone);
+                return new BaseResponse<>(0, Constant.MSG_INVALID_TIMEZONE_FORMAT, null);
             }
 
             List<CalendarItem> items = calendarItemRepository.findAllByUserId(userId);
 
             if (items.isEmpty()) {
-                log.info("No calendar items found for user {}", userId);
-                return new BaseResponse<>(1, "No calendar items to convert", null);
+                log.info(Constant.LOG_NO_ITEMS_FOR_USER, userId);
+                return new BaseResponse<>(1, Constant.MSG_NO_ITEMS_TO_CONVERT, null);
             }
 
             int convertedCount = 0;
@@ -247,14 +247,14 @@ public class CalendarItemServiceImpl implements CalendarItemService {
 
             calendarItemRepository.saveAll(items);
 
-            log.info("Successfully converted {} calendar items for user {}", convertedCount, userId);
+            log.info(Constant.LOG_CONVERSION_SUCCESS, convertedCount, userId);
             return new BaseResponse<>(1,
-                    String.format("Successfully converted %d calendar items", convertedCount),
+                    String.format(Constant.MSG_CONVERSION_SUCCESS, convertedCount),
                     null);
 
         } catch (Exception e) {
-            log.error("Failed to convert timezone for user {}", userId, e);
-            return new BaseResponse<>(0, "Failed to convert calendar items timezone", null);
+            log.error(Constant.LOG_CONVERSION_FAILED, userId, e);
+            return new BaseResponse<>(0, Constant.MSG_CONVERSION_FAILED, null);
         }
     }
 
@@ -262,33 +262,33 @@ public class CalendarItemServiceImpl implements CalendarItemService {
     @Transactional(readOnly = true)
     public BaseResponse<?> getItemById(Long userId, Long itemId) {
         try {
-            log.info("Fetching calendar item: userId={}, itemId={}", userId, itemId);
+            log.info(Constant.LOG_FETCHING_ITEM, userId, itemId);
 
             Optional<CalendarItem> itemOpt = calendarItemRepository.findById(itemId);
 
             if (itemOpt.isEmpty()) {
-                log.warn("Calendar item not found: itemId={}", itemId);
-                return new BaseResponse<>(0, "Calendar item not found", null);
+                log.warn(Constant.LOG_ITEM_NOT_FOUND, itemId);
+                return new BaseResponse<>(0, Constant.MSG_ITEM_NOT_FOUND, null);
             }
 
             CalendarItem item = itemOpt.get();
 
             // Verify ownership
             if (!item.getUserId().equals(userId)) {
-                log.warn("Unauthorized access attempt: userId={}, itemId={}, ownerId={}",
+                log.warn(Constant.LOG_UNAUTHORIZED_ACCESS,
                         userId, itemId, item.getUserId());
-                return new BaseResponse<>(0, "Unauthorized access", null);
+                return new BaseResponse<>(0, Constant.MSG_UNAUTHORIZED_ACCESS, null);
             }
 
             // Convert to DTO
             CalendarItemResponseDTO responseDTO = convertToResponseDTO(item);
 
-            log.info("Calendar item fetched successfully: itemId={}", itemId);
-            return new BaseResponse<>(1, "Calendar item retrieved successfully", responseDTO);
+            log.info(Constant.LOG_ITEM_FETCHED_SUCCESS, itemId);
+            return new BaseResponse<>(1, Constant.MSG_ITEM_FETCH_SUCCESS, responseDTO);
 
         } catch (Exception e) {
-            log.error("Failed to fetch calendar item: itemId={}", itemId, e);
-            return new BaseResponse<>(0, "Failed to fetch calendar item", null);
+            log.error(Constant.LOG_FETCHING_ITEM_FAILED, itemId, e);
+            return new BaseResponse<>(0, Constant.MSG_ITEM_FETCH_FAILED, null);
         }
     }
 
@@ -296,29 +296,29 @@ public class CalendarItemServiceImpl implements CalendarItemService {
     @Transactional
     public BaseResponse<?> updateItem(Long userId, Long itemId, UpdateCalendarItemRequest request) {
         try {
-            log.info("Updating calendar item: userId={}, itemId={}", userId, itemId);
+            log.info(Constant.LOG_UPDATING_ITEM, userId, itemId);
 
             // 1. Find existing item
             Optional<CalendarItem> itemOpt = calendarItemRepository.findById(itemId);
 
             if (itemOpt.isEmpty()) {
-                log.warn("Calendar item not found: itemId={}", itemId);
-                return new BaseResponse<>(0, "Calendar item not found", null);
+                log.warn(Constant.LOG_ITEM_NOT_FOUND, itemId);
+                return new BaseResponse<>(0, Constant.MSG_ITEM_NOT_FOUND, null);
             }
 
             CalendarItem item = itemOpt.get();
 
             // 2. Verify ownership
             if (!item.getUserId().equals(userId)) {
-                log.warn("Unauthorized update attempt: userId={}, itemId={}, ownerId={}",
+                log.warn(Constant.LOG_UNAUTHORIZED_UPDATE,
                         userId, itemId, item.getUserId());
-                return new BaseResponse<>(0, "Unauthorized access", null);
+                return new BaseResponse<>(0, Constant.MSG_UNAUTHORIZED_ACCESS, null);
             }
 
             // 2.1 Validate name of item not null or empty
             if (request.getName() != null && request.getName().trim().isEmpty()) {
-                log.warn("Invalid name provided for itemId={}", itemId);
-                return new BaseResponse<>(0, "Item name cannot be empty", null);
+                log.warn(Constant.LOG_INVALID_NAME_UPDATE, itemId);
+                return new BaseResponse<>(0, Constant.MSG_ITEM_NAME_EMPTY, null);
             }
 
             // 3. Validate new time slot if provided
@@ -328,9 +328,9 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 // Validate start < end
                 if (timeSlotDTO.getEndTime().isBefore(timeSlotDTO.getStartTime()) ||
                         timeSlotDTO.getEndTime().isEqual(timeSlotDTO.getStartTime())) {
-                    log.warn("Invalid time slot: start={}, end={}",
+                    log.warn(Constant.LOG_INVALID_TIME_SLOT,
                             timeSlotDTO.getStartTime(), timeSlotDTO.getEndTime());
-                    return new BaseResponse<>(0, "Invalid time slot: end time must be after start time", null);
+                    return new BaseResponse<>(0, Constant.MSG_INVALID_TIME_SLOT, null);
                 }
 
                 // 4. Validate constraints (excluding current item from overlap check)
@@ -343,8 +343,8 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 );
 
                 if (!violations.isEmpty()) {
-                    log.warn("Constraint violations for user {}: {}", userId, violations);
-                    return new BaseResponse<>(0, "Constraint violations detected", violations);
+                    log.warn(Constant.LOG_CONSTRAINT_VIOLATIONS, userId, violations);
+                    return new BaseResponse<>(0, Constant.MSG_CONSTRAINT_VIOLATIONS, violations);
                 }
             }
 
@@ -362,8 +362,8 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 try {
                     item.setStatus(ItemStatus.valueOf(request.getStatus().toUpperCase()));
                 } catch (IllegalArgumentException e) {
-                    log.warn("Invalid status value: {}", request.getStatus());
-                    return new BaseResponse<>(0, "Invalid status value", null);
+                    log.warn(Constant.LOG_INVALID_STATUS_UPDATE, request.getStatus());
+                    return new BaseResponse<>(0, Constant.MSG_INVALID_STATUS_VALUE, null);
                 }
             }
             if (request.getTimeSlot() != null) {
@@ -398,7 +398,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                                     try {
                                         return DayOfWeek.valueOf(day.toUpperCase());
                                     } catch (IllegalArgumentException e) {
-                                        log.warn("Invalid day of week: {}", day);
+                                        log.warn(Constant.LOG_INVALID_DAY_OF_WEEK, day);
                                         return null;
                                     }
                                 })
@@ -413,12 +413,12 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             // 7. Save updated item
             CalendarItem updatedItem = calendarItemRepository.save(item);
 
-            log.info("Calendar item updated successfully: itemId={}", itemId);
-            return new BaseResponse<>(1, "Item updated successfully", updatedItem.getId());
+            log.info(Constant.LOG_ITEM_UPDATED_SUCCESS, itemId);
+            return new BaseResponse<>(1, Constant.MSG_ITEM_UPDATE_SUCCESS, updatedItem.getId());
 
         } catch (Exception e) {
-            log.error("Failed to update calendar item: itemId={}", itemId, e);
-            return new BaseResponse<>(0, "Failed to update calendar item", null);
+            log.error(Constant.LOG_UPDATE_ITEM_FAILED, itemId, e);
+            return new BaseResponse<>(0, Constant.MSG_ITEM_UPDATE_FAILED, null);
         }
     }
 
@@ -426,34 +426,34 @@ public class CalendarItemServiceImpl implements CalendarItemService {
     @Transactional
     public BaseResponse<?> deleteItem(Long userId, Long itemId) {
         try {
-            log.info("Deleting calendar item: userId={}, itemId={}", userId, itemId);
+            log.info(Constant.LOG_DELETING_ITEM, userId, itemId);
 
             // 1. Find existing item
             Optional<CalendarItem> itemOpt = calendarItemRepository.findById(itemId);
 
             if (itemOpt.isEmpty()) {
-                log.warn("Calendar item not found: itemId={}", itemId);
-                return new BaseResponse<>(0, "Calendar item not found", null);
+                log.warn(Constant.LOG_ITEM_NOT_FOUND, itemId);
+                return new BaseResponse<>(0, Constant.MSG_ITEM_NOT_FOUND, null);
             }
 
             CalendarItem item = itemOpt.get();
 
             // 2. Verify ownership
             if (!item.getUserId().equals(userId)) {
-                log.warn("Unauthorized delete attempt: userId={}, itemId={}, ownerId={}",
+                log.warn(Constant.LOG_UNAUTHORIZED_DELETE,
                         userId, itemId, item.getUserId());
-                return new BaseResponse<>(0, "Unauthorized access", null);
+                return new BaseResponse<>(0, Constant.MSG_UNAUTHORIZED_ACCESS, null);
             }
 
             // 3. Delete the item
             calendarItemRepository.delete(item);
 
-            log.info("Calendar item deleted successfully: itemId={}", itemId);
-            return new BaseResponse<>(1, "Item deleted successfully", null);
+            log.info(Constant.LOG_ITEM_DELETED_SUCCESS, itemId);
+            return new BaseResponse<>(1, Constant.MSG_ITEM_DELETE_SUCCESS, null);
 
         } catch (Exception e) {
-            log.error("Failed to delete calendar item: itemId={}", itemId, e);
-            return new BaseResponse<>(0, "Failed to delete calendar item", null);
+            log.error(Constant.LOG_DELETE_ITEM_FAILED, itemId, e);
+            return new BaseResponse<>(0, Constant.MSG_ITEM_DELETE_FAILED, null);
         }
     }
 
@@ -473,7 +473,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
 
         // Remove the violation if only overlapping with itself
         if (overlappingItems.size() == 1 && overlappingItems.get(0).getId().equals(itemId)) {
-            violations.removeIf(v -> v.contains("overlaps with existing calendar items"));
+            violations.removeIf(v -> v.contains(Constant.VALIDATION_OVERLAP_MESSAGE));
         }
 
         return violations;
