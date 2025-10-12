@@ -1,5 +1,6 @@
 package com.graduation.userservice.service.impl;
 
+import com.graduation.userservice.client.SchedulingServiceClient;
 import com.graduation.userservice.event.PasswordResetRequestedEvent;
 import com.graduation.userservice.event.RegistrationCompleteEvent;
 import com.graduation.userservice.payload.request.ChangePasswordRequest;
@@ -44,6 +45,7 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final ApplicationEventPublisher eventPublisher;
     private final JwtProvider jwtProvider;
+    private final SchedulingServiceClient schedulingServiceClient;
 //    private final TokenBlacklistService blacklistService;
 //    private final ForgotPasswordRateLimiterService rateLimiterService;
 
@@ -128,6 +130,15 @@ public class AuthServiceImpl implements AuthService {
 
             verification.markAsUsed();
             emailVerificationRepository.save(verification);
+
+            // ADD THIS: Create default calendar after activation
+            try {
+                schedulingServiceClient.createDefaultCalendar(user.getId());
+            } catch (Exception e) {
+                logger.warn("Failed to create default calendar for user {}, but verification succeeded",
+                        user.getId(), e);
+                // Don't fail the verification if calendar creation fails
+            }
 
             logger.info(Constant.LOG_AUTH_ACCOUNT_ACTIVATED, user.getEmail());
             return new BaseResponse<>(1, Constant.MSG_VERIFICATION_SUCCESS, null);

@@ -29,7 +29,7 @@ public class Calendar {
     @Column(nullable = false)
     private CalendarType type = CalendarType.PERSONAL;
 
-    private String color;
+//    private String color;
 
     @Column(nullable = false)
     private Boolean isVisible = true;

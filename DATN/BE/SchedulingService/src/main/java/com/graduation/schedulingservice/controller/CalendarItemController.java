@@ -25,7 +25,7 @@ public class CalendarItemController {
      * @param request The calendar item creation request
      * @return Response containing the created item ID
      */
-    @PostMapping
+    @PostMapping("create")
     public ResponseEntity<BaseResponse<?>> createItem(
             @RequestHeader("X-User-Id") Long userId,
             @Valid @RequestBody CreateCalendarItemRequest request) {

@@ -16,7 +16,7 @@ public class TimeSlot {
 
     private LocalDateTime startTime;
     private LocalDateTime endTime;
-    private String timezone;
+//    private String timezone;
 
     public Duration getDuration() {
         if (startTime != null && endTime != null) {

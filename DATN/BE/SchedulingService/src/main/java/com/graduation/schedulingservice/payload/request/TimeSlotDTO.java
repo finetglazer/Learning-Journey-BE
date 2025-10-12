@@ -18,6 +18,6 @@ public class TimeSlotDTO {
     @NotNull(message = "End time is required")
     private LocalDateTime endTime;
 
-    @NotNull(message = "Timezone is required")
-    private String timezone;
+//    @NotNull(message = "Timezone is required")
+//    private String timezone;
 }

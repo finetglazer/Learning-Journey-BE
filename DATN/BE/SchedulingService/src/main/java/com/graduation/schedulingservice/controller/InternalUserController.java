@@ -3,16 +3,13 @@ package com.graduation.schedulingservice.controller;
 import com.graduation.schedulingservice.payload.request.TimezoneConversionRequest;
 import com.graduation.schedulingservice.payload.response.BaseResponse;
 import com.graduation.schedulingservice.service.CalendarItemService;
+import com.graduation.schedulingservice.service.CalendarService; // ADD THIS
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Internal API endpoints for service-to-service communication
- * These endpoints should NOT be exposed to external clients
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/internal/users")
@@ -20,11 +17,8 @@ import org.springframework.web.bind.annotation.*;
 public class InternalUserController {
 
     private final CalendarItemService calendarItemService;
+    private final CalendarService calendarService; // ADD THIS
 
-    /**
-     * Convert timezone for all calendar items of a user
-     * Called by UserService when user changes timezone
-     */
     @PutMapping("/{userId}/timezone")
     public ResponseEntity<?> convertUserTimezone(
             @PathVariable Long userId,
@@ -39,6 +33,19 @@ public class InternalUserController {
                 request.getNewTimezone()
         );
 
+        return ResponseEntity.ok(response);
+    }
+
+    // ADD THIS NEW ENDPOINT
+    /**
+     * Create default calendar for a new user
+     * Called by UserService after email verification
+     */
+    @PostMapping("/{userId}/default-calendar")
+    public ResponseEntity<?> createDefaultCalendar(@PathVariable Long userId) {
+        log.info("Creating default calendar for user {}", userId);
+
+        BaseResponse<?> response = calendarService.createDefaultCalendar(userId);
         return ResponseEntity.ok(response);
     }
 }
