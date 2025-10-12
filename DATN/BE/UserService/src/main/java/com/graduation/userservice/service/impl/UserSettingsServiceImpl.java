@@ -12,6 +12,7 @@ import com.graduation.userservice.payload.response.*;
 import com.graduation.userservice.repository.UserConstraintsRepository;
 import com.graduation.userservice.repository.UserRepository;
 import com.graduation.userservice.service.UserSettingsService;
+import com.graduation.userservice.utils.TimezoneMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,10 +36,12 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 
     private final UserConstraintsRepository userConstraintsRepository;
     private final UserRepository userRepository;
-    private final SchedulingServiceClient schedulingServiceClient; // ADD THIS
+    private final SchedulingServiceClient schedulingServiceClient;
+    private final TimezoneMapper timezoneMapper; // ADD THIS
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
     private static final List<String> VALID_ITEM_TYPES = List.of("TASK", "ROUTINE");
+
     @Override
     @Transactional(readOnly = true)
     public BaseResponse<?> getSleepHours(Long userId) {
@@ -138,13 +141,14 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             // Convert to DTO
             Map<String, DailyLimitDto> limitsMap = new HashMap<>();
             for (String itemType : VALID_ITEM_TYPES) {
-                Integer hours = constraints.getDailyLimits().getOrDefault(itemType, 8); // Default 8 hours
-                // REMOVED: 'enabled' is now global
-                limitsMap.put(itemType, new DailyLimitDto(hours)); // CHANGED
+                Integer hours = constraints.getDailyLimits().getOrDefault(itemType, 8);
+                limitsMap.put(itemType, new DailyLimitDto(hours));
             }
 
-            // CHANGED: Create response with the global enabled flag
-            DailyLimitsResponse response = new DailyLimitsResponse(constraints.getDailyLimitFeatureEnabled(), limitsMap);
+            DailyLimitsResponse response = new DailyLimitsResponse(
+                    constraints.getDailyLimitFeatureEnabled(),
+                    limitsMap
+            );
 
             log.info(Constant.LOG_GET_DAILY_LIMITS_SUCCESS, userId);
             return new BaseResponse<>(1, Constant.MSG_GET_DAILY_LIMITS_SUCCESS, response);
@@ -184,14 +188,13 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             UserConstraints constraints = userConstraintsRepository.findByUserId(userId)
                     .orElseGet(() -> UserConstraints.createDefault(userId));
 
-            // ADDED: Update the global feature enabled status
+            // Update the global feature enabled status
             constraints.setDailyLimitFeatureEnabled(request.getEnabled());
 
             // Update daily limits (hours only)
             for (Map.Entry<String, DailyLimitDto> entry : request.getLimits().entrySet()) {
                 String itemType = entry.getKey();
                 DailyLimitDto limit = entry.getValue();
-                // CHANGED: Call updated method in UserConstraints
                 constraints.updateDailyLimit(itemType, limit.getHours());
             }
 
@@ -211,9 +214,15 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     public BaseResponse<?> getTimezone(Long userId) {
         return userRepository.findById(userId)
                 .map(user -> {
-                    log.info("Successfully retrieved timezone '{}' for user {}", user.getPreferredTimezone(), userId);
-                    // Using a simple Map for the response body to match your API design
-                    return new BaseResponse<>(1, "Timezone retrieved successfully", Map.of("timezone", user.getPreferredTimezone()));
+                    // The DB stores the IANA ID, e.g., "America/New_York"
+                    String ianaId = user.getPreferredTimezone();
+
+                    // ✅ Dynamically convert it to the display format for the client
+                    String displayTimezone = timezoneMapper.toDisplayFormat(ianaId);
+
+                    log.info("Successfully retrieved timezone '{}' for user {}", displayTimezone, userId);
+                    Map<String, String> data = Map.of("timezone", displayTimezone);
+                    return new BaseResponse<>(1, "Timezone retrieved successfully", data);
                 })
                 .orElseGet(() -> {
                     log.warn(Constant.LOG_USER_NOT_FOUND, userId);
@@ -224,50 +233,50 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Override
     @Transactional
     public BaseResponse<?> updateTimezone(Long userId, UpdateTimezoneRequest request) {
-        // 1. Find the User
-        User user = userRepository.findById(userId).orElse(null);
-        if (user == null) {
-            log.warn(Constant.LOG_USER_NOT_FOUND, userId);
-            return new BaseResponse<>(0, Constant.MSG_USER_NOT_FOUND, null);
-        }
-
-        String newTimezoneStr = request.getTimezone();
-        String oldTimezoneStr = user.getPreferredTimezone();
-
-        // 2. Validate the timezone string
         try {
-            ZoneId.of(newTimezoneStr);
-        } catch (DateTimeException e) {
-            log.warn("Invalid timezone format provided by user {}: {}", userId, newTimezoneStr);
-            return new BaseResponse<>(0, "Invalid timezone format provided.", null);
+            User user = userRepository.findById(userId).orElse(null);
+            if (user == null) {
+                log.warn(Constant.LOG_USER_NOT_FOUND, userId);
+                return new BaseResponse<>(0, Constant.MSG_USER_NOT_FOUND, null);
+            }
+
+            // The request should contain the IANA ID, e.g., "America/New_York"
+            String newIanaId = request.getTimezone();
+            String oldIanaId = user.getPreferredTimezone();
+
+            // 1. Validate the new IANA ID
+            if (!timezoneMapper.isValidIanaId(newIanaId)) {
+                log.warn("Invalid or unsupported timezone IANA ID provided by user {}: {}", userId, newIanaId);
+                return new BaseResponse<>(0, "Invalid or unsupported timezone provided.", null);
+            }
+
+            // 2. Check if timezone actually changed
+            if (oldIanaId.equals(newIanaId)) {
+                log.info("Timezone unchanged for user {}: {}", userId, newIanaId);
+                return new BaseResponse<>(1, "Timezone is already set.", null);
+            }
+
+            // 3. ✅ Update the user's timezone field (store the IANA ID)
+            user.setPreferredTimezone(newIanaId);
+            userRepository.save(user);
+
+            // 4. Call SchedulingService with the IANA IDs (this part was already correct)
+            boolean conversionSuccess = schedulingServiceClient.convertUserTimezone(
+                    userId, oldIanaId, newIanaId
+            );
+
+            if (!conversionSuccess) {
+                log.warn("Calendar items conversion failed for user {}, but user timezone is updated", userId);
+                return new BaseResponse<>(1, "Timezone updated successfully. Calendar items will be synchronized shortly.", null);
+            }
+
+            String newDisplayTimezone = timezoneMapper.toDisplayFormat(newIanaId);
+            log.info("Successfully updated timezone for user {} from {} to {}", userId, oldIanaId, newIanaId);
+            return new BaseResponse<>(1, "Timezone updated to " + newDisplayTimezone, null);
+
+        } catch (Exception e) {
+            log.error("Failed to update timezone for user {}", userId, e);
+            return new BaseResponse<>(0, "Failed to update timezone", null);
         }
-
-        // 3. Check if timezone actually changed
-        if (oldTimezoneStr.equals(newTimezoneStr)) {
-            log.info("Timezone unchanged for user {}: {}", userId, newTimezoneStr);
-            return new BaseResponse<>(1, "Timezone is already set to " + newTimezoneStr, null);
-        }
-
-        // 4. Update the user's timezone field
-        user.setPreferredTimezone(newTimezoneStr);
-        userRepository.save(user);
-
-        // 5. Call SchedulingService to convert all calendar items
-        boolean conversionSuccess = schedulingServiceClient.convertUserTimezone(
-                userId, oldTimezoneStr, newTimezoneStr
-        );
-
-        if (!conversionSuccess) {
-            log.warn("Calendar items conversion failed for user {}, but user timezone is updated", userId);
-            // Still return success since user timezone is updated
-            // Calendar items conversion failure is logged and can be retried
-            return new BaseResponse<>(1,
-                    "Timezone updated successfully. Calendar items will be synchronized shortly.",
-                    null);
-        }
-
-        log.info("Successfully updated timezone for user {} from {} to {}",
-                userId, oldTimezoneStr, newTimezoneStr);
-        return new BaseResponse<>(1, "Timezone updated successfully.", null);
     }
 }

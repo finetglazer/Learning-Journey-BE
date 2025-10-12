@@ -36,8 +36,6 @@ public class UserConstraints {
     )
     private List<TimeRange> sleepHours = new ArrayList<>();
 
-    @Column(name = "allow_overlapping", nullable = false)
-    private Boolean allowOverlapping = false;
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
@@ -63,7 +61,6 @@ public class UserConstraints {
         UserConstraints constraints = new UserConstraints();
         constraints.setUserId(userId);
         constraints.setSleepHours(new ArrayList<>());
-        constraints.setAllowOverlapping(false);
         constraints.setDailyLimitFeatureEnabled(false); // CHANGED: Initialize the new field
         constraints.setUpdatedAt(LocalDateTime.now());
         return constraints;

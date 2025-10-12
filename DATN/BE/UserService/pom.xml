@@ -157,6 +157,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-client</artifactId>
         </dependency>
+
+        <!-- ModelMapper Dependency -->
+        <dependency>
+            <groupId>org.modelmapper</groupId>
+            <artifactId>modelmapper</artifactId>
+            <version>3.1.1</version> <!-- Or the latest version -->
+        </dependency>
+
     </dependencies>
 
     <build>
