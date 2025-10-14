@@ -107,4 +107,12 @@ public class Constant {
     public static final String LOG_GET_UNSCHEDULED_ITEMS = "Getting unscheduled items for userId={}, weekPlanId={}";
     public static final String LOG_GET_UNSCHEDULED_ITEMS_FAILED = "Failed to get unscheduled items for userId={}";
 
+    // ===================== CALENDAR MESSAGES =====================
+    public static final String MSG_CALENDARS_RETRIEVED_SUCCESS = "Calendars retrieved successfully";
+    public static final String MSG_CALENDARS_RETRIEVAL_FAILED = "Failed to retrieve calendars";
+
+    // ===================== CALENDAR LOGS =====================
+    public static final String LOG_GET_USER_CALENDARS = "Getting calendars for userId={}";
+    public static final String LOG_GET_USER_CALENDARS_FAILED = "Failed to get calendars for userId={}";
+
 }
