@@ -17,6 +17,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -542,6 +545,162 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             // If you add location/attendees to Event entity later, map them here
         }
 
+        return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BaseResponse<?> getItemsByDateRange(Long userId, String view, String date, List<Long> calendarIds) {
+        try {
+            // 1. Validate and parse date
+            LocalDate referenceDate;
+            try {
+                referenceDate = LocalDate.parse(date);
+            } catch (DateTimeParseException e) {
+                log.warn(Constant.LOG_INVALID_DATE_FORMAT, date);
+                return new BaseResponse<>(0, Constant.MSG_INVALID_DATE_FORMAT, null);
+            }
+
+            // 2. 5-year window validation
+            if (referenceDate.isAfter(LocalDate.now().plusYears(5)) || referenceDate.isBefore(LocalDate.now().minusYears(5))) {
+                log.warn(Constant.LOG_DATE_OUTSIDE_WINDOW, referenceDate);
+                return new BaseResponse<>(0, Constant.MSG_DATE_OUTSIDE_WINDOW, null);
+            }
+
+            // 3. Calculate date range based on view
+            DateRangeDTO dateRange = calculateDateRange(view, referenceDate);
+            if (dateRange == null) {
+                log.warn(Constant.LOG_INVALID_VIEW_TYPE, view);
+                return new BaseResponse<>(0, Constant.MSG_INVALID_VIEW_TYPE, null);
+            }
+
+            // 4. Fetch data from repository
+            List<CalendarItem> items = calendarItemRepository.findScheduledItemsByDateRange(
+                    userId, calendarIds, dateRange.getStart(), dateRange.getEnd());
+
+            // 5. Map to DTOs
+            List<ScheduledItemDTO> itemDTOs = items.stream()
+                    .map(this::mapToScheduledItemDTO)
+                    .collect(Collectors.toList());
+
+            // 6. Build and return response
+            ItemsByDateRangeResponse response = new ItemsByDateRangeResponse(itemDTOs, "startTime", dateRange);
+            return new BaseResponse<>(1, Constant.MSG_ITEMS_RETRIEVED_SUCCESS, response);
+
+        } catch (Exception e) {
+            log.error(Constant.LOG_GET_ITEMS_BY_DATE_RANGE_FAILED, userId, e);
+            return new BaseResponse<>(0, Constant.MSG_ITEMS_RETRIEVAL_FAILED, null);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BaseResponse<?> getUnscheduledItems(Long userId, Long weekPlanId) {
+        try {
+            List<CalendarItem> items;
+            // 1. Fetch data based on whether weekPlanId is provided
+            if (weekPlanId != null) {
+                items = calendarItemRepository.findUnscheduledByUserIdAndWeekPlanId(userId, weekPlanId);
+            } else {
+                items = calendarItemRepository.findUnscheduledByUserId(userId);
+            }
+
+            // 2. Separate items into routines and tasks
+            List<UnscheduledRoutineDTO> routines = new ArrayList<>();
+            List<UnscheduledTaskDTO> tasks = new ArrayList<>();
+
+            for (CalendarItem item : items) {
+                if (item instanceof Routine) {
+                    routines.add(mapToUnscheduledRoutineDTO((Routine) item));
+                } else if (item instanceof Task) {
+                    tasks.add(mapToUnscheduledTaskDTO((Task) item));
+                }
+            }
+
+            // 3. Build and return response
+            UnscheduledItemsResponse response = new UnscheduledItemsResponse(routines, tasks);
+            return new BaseResponse<>(1, Constant.MSG_UNSCHEDULED_ITEMS_RETRIEVED_SUCCESS, response);
+
+        } catch (Exception e) {
+            log.error(Constant.LOG_GET_UNSCHEDULED_ITEMS_FAILED, userId, e);
+            return new BaseResponse<>(0, Constant.MSG_UNSCHEDULED_ITEMS_RETRIEVAL_FAILED, null);
+        }
+    }
+
+    // Private helper methods for the new logic
+    private DateRangeDTO calculateDateRange(String view, LocalDate date) {
+        LocalDateTime start, end;
+        switch (view.toUpperCase()) {
+            case "DAY":
+                start = date.atStartOfDay();
+                end = date.atTime(LocalTime.MAX);
+                break;
+            case "WEEK":
+                start = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).atStartOfDay();
+                end = date.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY)).atTime(LocalTime.MAX);
+                break;
+            case "MONTH":
+                start = date.with(TemporalAdjusters.firstDayOfMonth()).atStartOfDay();
+                end = date.with(TemporalAdjusters.lastDayOfMonth()).atTime(LocalTime.MAX);
+                break;
+            case "YEAR":
+                start = date.with(TemporalAdjusters.firstDayOfYear()).atStartOfDay();
+                end = date.with(TemporalAdjusters.lastDayOfYear()).atTime(LocalTime.MAX);
+                break;
+            default:
+                return null;
+        }
+        return new DateRangeDTO(start, end);
+    }
+
+    private ScheduledItemDTO mapToScheduledItemDTO(CalendarItem item) {
+        ScheduledItemDTO dto = new ScheduledItemDTO();
+        dto.setId(item.getId());
+        dto.setType(item.getType().name());
+        dto.setName(item.getName());
+        dto.setColor(item.getColor());
+        dto.setStatus(item.getStatus().name());
+        if (item.getTimeSlot() != null) {
+            dto.setTimeSlot(new TimeSlotResponseDTO(
+                    item.getTimeSlot().getStartTime(),
+                    item.getTimeSlot().getEndTime()
+            ));
+        }
+        return dto;
+    }
+
+    private UnscheduledRoutineDTO mapToUnscheduledRoutineDTO(Routine routine) {
+        UnscheduledRoutineDTO dto = new UnscheduledRoutineDTO();
+        dto.setId(routine.getId());
+        dto.setName(routine.getName());
+        dto.setSource(routine.getMonthPlanId() != null ? "MONTH_PLAN" : "CALENDAR");
+        dto.setCanUseFormerTiming(true); // Placeholder logic as per spec
+        return dto;
+    }
+
+    private UnscheduledTaskDTO mapToUnscheduledTaskDTO(Task task) {
+        UnscheduledTaskDTO dto = new UnscheduledTaskDTO();
+        dto.setSource(task.getMonthPlanId() != null ? "MONTH_PLAN" : "CALENDAR");
+
+        if (task.getParentBigTaskId() == null) {
+            dto.setBigTaskId(task.getId());
+            dto.setBigTaskName(task.getName());
+        } else {
+            dto.setTaskId(task.getId());
+            dto.setName(task.getName());
+        }
+
+        if (task.getSubtasks() != null && !task.getSubtasks().isEmpty()) {
+            dto.setSubtasks(task.getSubtasks().stream()
+                    .map(subtask -> new SubtaskDTO(
+                            subtask.getId(),
+                            subtask.getName(),
+                            subtask.getDescription(),
+                            subtask.getIsComplete(),
+                            subtask.getCompletedAt()
+                    ))
+                    .collect(Collectors.toList()));
+        }
         return dto;
     }
 

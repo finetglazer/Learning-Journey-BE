@@ -26,7 +26,7 @@ public abstract class CalendarItem {
     @Column(nullable = false)
     private Long calendarId;
 
-//    private Long weekPlanId;
+    private Long weekPlanId;
 
     private Long monthPlanId;
 

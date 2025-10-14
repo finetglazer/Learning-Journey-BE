@@ -11,6 +11,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/calendar/items")
@@ -122,6 +126,62 @@ public class CalendarItemController {
             log.error("Failed to delete calendar item: userId={}, itemId={}", userId, itemId, e);
             return ResponseEntity.ok(
                     new BaseResponse<>(0, "Failed to delete calendar item", null)
+            );
+        }
+    }
+
+    /**
+     * Get calendar items by date range and view type.
+     * @param userId      Extracted from X-User-Id header.
+     * @param view        View type: DAY, WEEK, MONTH, or YEAR.
+     * @param date        Reference date in YYYY-MM-DD format.
+     * @param calendarIds Comma-separated list of calendar IDs.
+     * @return Response containing the list of items.
+     */
+    @GetMapping("")
+    public ResponseEntity<BaseResponse<?>> getItemsByDateRange(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam("view") String view,
+            @RequestParam("date") String date,
+            @RequestParam("calendarIds") String calendarIds) {
+        try {
+            log.info(Constant.LOG_GET_ITEMS_BY_DATE_RANGE, userId, view, date, calendarIds);
+
+            List<Long> calendarIdList = Arrays.stream(calendarIds.split(","))
+                    .map(Long::parseLong)
+                    .collect(Collectors.toList());
+
+            BaseResponse<?> response = calendarItemService.getItemsByDateRange(userId, view, date, calendarIdList);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error(Constant.LOG_GET_ITEMS_BY_DATE_RANGE_FAILED, userId, e);
+            return ResponseEntity.ok(
+                    new BaseResponse<>(0, Constant.MSG_ITEMS_RETRIEVAL_FAILED, null)
+            );
+        }
+    }
+
+    /**
+     * Get all unscheduled items (routines and tasks).
+     * @param userId     Extracted from X-User-Id header.
+     * @param weekPlanId Optional filter for a specific week plan.
+     * @return Response containing unscheduled items.
+     */
+    @GetMapping("/unscheduled")
+    public ResponseEntity<BaseResponse<?>> getUnscheduledItems(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam(required = false) Long weekPlanId) {
+        try {
+            log.info(Constant.LOG_GET_UNSCHEDULED_ITEMS, userId, weekPlanId);
+
+            BaseResponse<?> response = calendarItemService.getUnscheduledItems(userId, weekPlanId);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error(Constant.LOG_GET_UNSCHEDULED_ITEMS_FAILED, userId, e);
+            return ResponseEntity.ok(
+                    new BaseResponse<>(0, Constant.MSG_UNSCHEDULED_ITEMS_RETRIEVAL_FAILED, null)
             );
         }
     }

@@ -87,4 +87,24 @@ public class Constant {
     public static final String ERROR_MESSAGE_ID_REQUIRED_RECORD = "messageId is required to record processing";
     public static final String ERROR_SAGA_ID_REQUIRED = "sagaId is required to record processing";
     public static final String ERROR_FAILED_TO_RECORD = "Failed to record message processing";
+
+    // ===================== ITEM RETRIEVAL MESSAGES =====================
+    public static final String MSG_ITEMS_RETRIEVED_SUCCESS = "Items retrieved successfully";
+    public static final String MSG_ITEMS_RETRIEVAL_FAILED = "Failed to retrieve items";
+    public static final String MSG_UNSCHEDULED_ITEMS_RETRIEVED_SUCCESS = "Unscheduled items retrieved successfully";
+    public static final String MSG_UNSCHEDULED_ITEMS_RETRIEVAL_FAILED = "Failed to retrieve unscheduled items";
+    public static final String MSG_INVALID_DATE_FORMAT = "Invalid date format. Please use YYYY-MM-DD.";
+    public static final String MSG_INVALID_VIEW_TYPE = "Invalid view type. Use DAY, WEEK, MONTH, or YEAR.";
+    public static final String MSG_DATE_OUTSIDE_WINDOW = "Date must be within 5 years from today.";
+
+
+    // ===================== ITEM RETRIEVAL LOGS =====================
+    public static final String LOG_GET_ITEMS_BY_DATE_RANGE = "Getting calendar items for userId={}, view={}, date={}, calendarIds={}";
+    public static final String LOG_GET_ITEMS_BY_DATE_RANGE_FAILED = "Failed to get items by date range for userId={}";
+    public static final String LOG_INVALID_DATE_FORMAT = "Invalid date format for getItemsByDateRange: {}";
+    public static final String LOG_INVALID_VIEW_TYPE = "Invalid view type for getItemsByDateRange: {}";
+    public static final String LOG_DATE_OUTSIDE_WINDOW = "Date is outside the allowed 5-year window: {}";
+    public static final String LOG_GET_UNSCHEDULED_ITEMS = "Getting unscheduled items for userId={}, weekPlanId={}";
+    public static final String LOG_GET_UNSCHEDULED_ITEMS_FAILED = "Failed to get unscheduled items for userId={}";
+
 }
