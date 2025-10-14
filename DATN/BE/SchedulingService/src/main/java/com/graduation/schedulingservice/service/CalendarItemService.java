@@ -1,5 +1,6 @@
 package com.graduation.schedulingservice.service;
 
+import com.graduation.schedulingservice.payload.request.BatchScheduleRequest;
 import com.graduation.schedulingservice.payload.request.CreateCalendarItemRequest;
 import com.graduation.schedulingservice.payload.request.UpdateCalendarItemRequest;
 import com.graduation.schedulingservice.payload.response.BaseResponse;
@@ -67,4 +68,12 @@ public interface CalendarItemService {
      * @return BaseResponse containing lists of unscheduled tasks and routines.
      */
     BaseResponse<?> getUnscheduledItems(Long userId, Long weekPlanId);
+
+    /**
+     * Schedule multiple unscheduled items at once.
+     * @param userId The authenticated user ID.
+     * @param request The batch schedule request.
+     * @return BaseResponse containing the result of the batch operation.
+     */
+    BaseResponse<?> batchScheduleItems(Long userId, BatchScheduleRequest request);
 }

@@ -3,6 +3,7 @@ package com.graduation.schedulingservice.service.impl;
 import com.graduation.schedulingservice.constant.Constant;
 import com.graduation.schedulingservice.model.*;
 import com.graduation.schedulingservice.model.enums.*;
+import com.graduation.schedulingservice.payload.request.BatchScheduleRequest;
 import com.graduation.schedulingservice.payload.request.CreateCalendarItemRequest;
 import com.graduation.schedulingservice.payload.request.TimeSlotDTO;
 import com.graduation.schedulingservice.payload.request.UpdateCalendarItemRequest;
@@ -702,6 +703,60 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                     .collect(Collectors.toList()));
         }
         return dto;
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> batchScheduleItems(Long userId, BatchScheduleRequest request) {
+        int scheduledCount = 0;
+        List<String> constraintViolations = new ArrayList<>();
+        List<CalendarItem> itemsToUpdate = new ArrayList<>();
+
+        for (BatchScheduleRequest.ItemToSchedule itemToSchedule : request.getItems()) {
+            Optional<CalendarItem> itemOpt = calendarItemRepository.findById(itemToSchedule.getItemId());
+
+            if (itemOpt.isEmpty()) {
+                constraintViolations.add("Item with ID " + itemToSchedule.getItemId() + " not found.");
+                continue;
+            }
+
+            CalendarItem item = itemOpt.get();
+
+            if (!item.getUserId().equals(userId)) {
+                constraintViolations.add("Unauthorized access to item with ID " + itemToSchedule.getItemId() + ".");
+                continue;
+            }
+
+            TimeSlotDTO timeSlotDTO = itemToSchedule.getTimeSlot();
+            if (timeSlotDTO.getEndTime().isBefore(timeSlotDTO.getStartTime()) ||
+                    timeSlotDTO.getEndTime().isEqual(timeSlotDTO.getStartTime())) {
+                constraintViolations.add("Invalid time slot for item with ID " + itemToSchedule.getItemId() + ".");
+                continue;
+            }
+
+            List<String> violations = validateConstraintsForUpdate(
+                    userId,
+                    itemToSchedule.getItemId(),
+                    timeSlotDTO.getStartTime(),
+                    timeSlotDTO.getEndTime(),
+                    item.getType()
+            );
+
+            if (!violations.isEmpty()) {
+                constraintViolations.addAll(violations);
+                continue;
+            }
+
+            item.setTimeSlot(new TimeSlot(timeSlotDTO.getStartTime(), timeSlotDTO.getEndTime()));
+            itemsToUpdate.add(item);
+            scheduledCount++;
+        }
+
+        if (!itemsToUpdate.isEmpty()) {
+            calendarItemRepository.saveAll(itemsToUpdate);
+        }
+
+        return new BaseResponse<>(1, "Batch schedule operation completed.", new BatchScheduleResponse(true, scheduledCount, constraintViolations));
     }
 
 }

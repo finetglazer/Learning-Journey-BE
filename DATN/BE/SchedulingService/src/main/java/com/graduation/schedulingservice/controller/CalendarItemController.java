@@ -1,6 +1,7 @@
 package com.graduation.schedulingservice.controller;
 
 import com.graduation.schedulingservice.constant.Constant;
+import com.graduation.schedulingservice.payload.request.BatchScheduleRequest;
 import com.graduation.schedulingservice.payload.request.CreateCalendarItemRequest;
 import com.graduation.schedulingservice.payload.request.UpdateCalendarItemRequest;
 import com.graduation.schedulingservice.payload.response.BaseResponse;
@@ -182,6 +183,30 @@ public class CalendarItemController {
             log.error(Constant.LOG_GET_UNSCHEDULED_ITEMS_FAILED, userId, e);
             return ResponseEntity.ok(
                     new BaseResponse<>(0, Constant.MSG_UNSCHEDULED_ITEMS_RETRIEVAL_FAILED, null)
+            );
+        }
+    }
+
+    /**
+     * Schedule multiple unscheduled items at once.
+     * @param userId  Extracted from X-User-Id header.
+     * @param request The batch schedule request.
+     * @return Response containing the result of the batch operation.
+     */
+    @PutMapping("/batch-schedule")
+    public ResponseEntity<BaseResponse<?>> batchScheduleItems(
+            @RequestHeader("X-User-Id") Long userId,
+            @Valid @RequestBody BatchScheduleRequest request) {
+        try {
+            log.info("Batch scheduling items for userId={}", userId);
+
+            BaseResponse<?> response = calendarItemService.batchScheduleItems(userId, request);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Failed to batch schedule items for userId={}", userId, e);
+            return ResponseEntity.ok(
+                    new BaseResponse<>(0, "Failed to batch schedule items", null)
             );
         }
     }
