@@ -26,9 +26,9 @@ public abstract class CalendarItem {
     @Column(nullable = false)
     private Long calendarId;
 
-    private Long weekPlanId;
-
     private Long monthPlanId;
+
+    private Long weekPlanId;
 
     @Column(nullable = false)
     private String name;
@@ -40,7 +40,7 @@ public abstract class CalendarItem {
     private TimeSlot timeSlot;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Transient
     private ItemType type;
 
     private String color;
@@ -54,20 +54,10 @@ public abstract class CalendarItem {
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
+    @Column(nullable = false)
     private LocalDateTime updatedAt;
 
     public boolean isScheduled() {
         return timeSlot != null && timeSlot.getStartTime() != null;
-    }
-
-    public void reschedule(TimeSlot newTimeSlot) {
-        this.timeSlot = newTimeSlot;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public void updateDetails(String name, String note) {
-        this.name = name;
-        this.note = note;
-        this.updatedAt = LocalDateTime.now();
     }
 }
