@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
-import java.time.Instant;
 import java.util.Date;
 
 @Component
@@ -16,52 +15,67 @@ public class JwtProvider {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${jwt.expirationMillis:86400000}") // default 24 hours
-    private long jwtExpirationMillis;
+    @Value("${jwt.access-token-expiration:900000}") // 15 minutes default
+    private long accessTokenExpirationMillis;
 
-    // Change the generateToken to accept User object and store email
+    @Value("${jwt.refresh-token-expiration:604800000}") // 7 days default
+    private long refreshTokenExpirationMillis;
+
+    // Generate short-lived access token (15 min)
+    public String generateAccessToken(User user) {
+        return generateToken(user, accessTokenExpirationMillis, "access");
+    }
+
+    // Generate long-lived refresh token (7 days)
+    public String generateRefreshToken(User user) {
+        return generateToken(user, refreshTokenExpirationMillis, "refresh");
+    }
+
+    // Keep old method for backward compatibility (uses access token settings)
     public String generateToken(User user) {
+        return generateAccessToken(user);
+    }
+
+    private String generateToken(User user, long expirationMillis, String tokenType) {
         Key key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
         long now = System.currentTimeMillis();
         Date issuedAt = new Date(now);
-        Date expiryDate = new Date(now + jwtExpirationMillis);
+        Date expiryDate = new Date(now + expirationMillis);
 
         return Jwts.builder()
-                .setSubject(user.getEmail())     // Store EMAIL as subject
-                .claim("userId", user.getId())   // Store USER ID as claim
+                .setSubject(user.getEmail())
+                .claim("userId", user.getId())
+                .claim("type", tokenType) // "access" or "refresh"
                 .setIssuedAt(issuedAt)
                 .setExpiration(expiryDate)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    /**
-     * Validate the token signature and expiration.
-     */
     public boolean validateToken(String token) {
         try {
-            parseClaims(token); // If parsing succeeds, token is valid
+            parseClaims(token);
             return true;
         } catch (JwtException ex) {
-            // Token is invalid or expired
             return false;
         }
     }
 
     public String getEmailFromToken(String token) {
         Claims claims = parseClaims(token);
-        return claims.getSubject(); // Returns email
+        return claims.getSubject();
     }
 
     public String getUserIdFromToken(String token) {
         Claims claims = parseClaims(token);
-        return claims.get("userId", String.class); // Returns userId from claim
+        return claims.get("userId", String.class);
     }
 
-    /**
-     * Return how many seconds remain until token expiration.
-     */
-    // Get how many seconds remain until expiry
+    public String getTokenType(String token) {
+        Claims claims = parseClaims(token);
+        return claims.get("type", String.class);
+    }
+
     public long getRemainingExpiry(String token) {
         Claims claims = parseClaims(token);
         long now = System.currentTimeMillis();
@@ -71,10 +85,6 @@ public class JwtProvider {
         return diffMillis / 1000;
     }
 
-    /**
-     * Parse and return the Claims.
-     * NOTE: We use the same secret key for validation that was used for signing.
-     */
     private Claims parseClaims(String token) {
         Key key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
         return Jwts.parserBuilder()

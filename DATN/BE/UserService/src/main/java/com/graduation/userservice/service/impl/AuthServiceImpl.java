@@ -1,5 +1,6 @@
 package com.graduation.userservice.service.impl;
 
+import com.graduation.userservice.client.SchedulingServiceClient;
 import com.graduation.userservice.event.PasswordResetRequestedEvent;
 import com.graduation.userservice.event.RegistrationCompleteEvent;
 import com.graduation.userservice.payload.request.ChangePasswordRequest;
@@ -8,6 +9,7 @@ import com.graduation.userservice.constant.Constant;
 import com.graduation.userservice.model.*;
 import com.graduation.userservice.payload.request.LoginRequest;
 import com.graduation.userservice.payload.request.RegisterRequest;
+import com.graduation.userservice.payload.response.LoginResponse;
 import com.graduation.userservice.repository.*;
 //import com.graduation.userservice.security.ForgotPasswordRateLimiterService;
 //import com.graduation.userservice.security.JwtProvider;
@@ -43,6 +45,7 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final ApplicationEventPublisher eventPublisher;
     private final JwtProvider jwtProvider;
+    private final SchedulingServiceClient schedulingServiceClient;
 //    private final TokenBlacklistService blacklistService;
 //    private final ForgotPasswordRateLimiterService rateLimiterService;
 
@@ -128,6 +131,15 @@ public class AuthServiceImpl implements AuthService {
             verification.markAsUsed();
             emailVerificationRepository.save(verification);
 
+            // ADD THIS: Create default calendar after activation
+            try {
+                schedulingServiceClient.createDefaultCalendar(user.getId());
+            } catch (Exception e) {
+                logger.warn("Failed to create default calendar for user {}, but verification succeeded",
+                        user.getId(), e);
+                // Don't fail the verification if calendar creation fails
+            }
+
             logger.info(Constant.LOG_AUTH_ACCOUNT_ACTIVATED, user.getEmail());
             return new BaseResponse<>(1, Constant.MSG_VERIFICATION_SUCCESS, null);
 
@@ -159,17 +171,75 @@ public class AuthServiceImpl implements AuthService {
             user.updateLastLogin();
             userRepository.save(user);
 
-            String token = jwtProvider.generateToken(user);
+            // Generate BOTH tokens
+            String accessToken = jwtProvider.generateAccessToken(user);
+            String refreshToken = jwtProvider.generateRefreshToken(user);
 
-            UserSession session = UserSession.create(user.getId(), token);
+            // Store refresh token in UserSession
+            UserSession session = UserSession.create(user.getId(), refreshToken);
             userSessionRepository.save(session);
 
+            // Build response with both tokens
+            LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo(
+                    user.getId(),
+                    user.getEmail(),
+                    user.getDisplayName()
+            );
+            LoginResponse loginResponse = new LoginResponse(accessToken, refreshToken, userInfo);
+
             logger.info(Constant.LOG_AUTH_LOGIN_SUCCESS, user.getEmail());
-            return new BaseResponse<>(1, Constant.MSG_LOGIN_SUCCESS, token);
+            return new BaseResponse<>(1, Constant.MSG_LOGIN_SUCCESS, loginResponse);
 
         } catch (Exception e) {
             logger.error(Constant.LOG_AUTH_LOGIN_FAILED, request.getEmail(), e);
             return new BaseResponse<>(0, Constant.MSG_LOGIN_FAILED + request.getEmail(), null);
+        }
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> refreshToken(String refreshToken) {
+        try {
+            // Validate refresh token
+            if (!jwtProvider.validateToken(refreshToken)) {
+                return new BaseResponse<>(0, "Invalid or expired refresh token", null);
+            }
+
+            // Check token type
+            String tokenType = jwtProvider.getTokenType(refreshToken);
+            if (!"refresh".equals(tokenType)) {
+                return new BaseResponse<>(0, "Invalid token type", null);
+            }
+
+            // Find active session
+            Optional<UserSession> sessionOpt = userSessionRepository.findBySessionIdAndIsActiveTrue(refreshToken);
+            if (sessionOpt.isEmpty()) {
+                return new BaseResponse<>(0, "Session not found or expired", null);
+            }
+
+            UserSession session = sessionOpt.get();
+
+            // Get user
+            Optional<User> userOpt = userRepository.findById(session.getUserId());
+            if (userOpt.isEmpty()) {
+                return new BaseResponse<>(0, "User not found", null);
+            }
+
+            User user = userOpt.get();
+
+            // Generate new access token
+            String newAccessToken = jwtProvider.generateAccessToken(user);
+
+            // Update session last accessed time
+            session.refresh();
+            userSessionRepository.save(session);
+
+            logger.info("Token refreshed for user: {}", user.getEmail());
+            return new BaseResponse<>(1, "Token refreshed successfully", newAccessToken);
+
+        } catch (Exception e) {
+            logger.error("Token refresh failed", e);
+            return new BaseResponse<>(0, "Token refresh failed", null);
         }
     }
 

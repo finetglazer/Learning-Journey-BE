@@ -14,6 +14,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -44,14 +45,28 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<?> logout(@RequestHeader(Constant.HEADER_AUTHORIZATION) String authHeader) {
-        if (authHeader != null && authHeader.startsWith(Constant.PREFIX_BEARER)) {
-            String token = authHeader.substring(7);
-            BaseResponse<?> response = authService.logout(token);
-            return ResponseEntity.ok(response);
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken(@RequestBody Map<String, String> request) {
+        String refreshToken = request.get("refreshToken");
+
+        if (refreshToken == null || refreshToken.trim().isEmpty()) {
+            return ResponseEntity.ok(new BaseResponse<>(0, "Refresh token is required", null));
         }
-        return ResponseEntity.ok(new BaseResponse<>(1, Constant.MSG_LOGOUT_SUCCESS, null));
+
+        BaseResponse<?> response = authService.refreshToken(refreshToken);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestBody Map<String, String> request) {
+        String refreshToken = request.get("refreshToken");
+
+        if (refreshToken == null || refreshToken.trim().isEmpty()) {
+            return ResponseEntity.ok(new BaseResponse<>(0, "Refresh token required", null));
+        }
+
+        BaseResponse<?> response = authService.logout(refreshToken);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/change-password")

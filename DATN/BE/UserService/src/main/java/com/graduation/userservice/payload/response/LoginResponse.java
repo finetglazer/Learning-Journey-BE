@@ -5,14 +5,19 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class LoginResponse {
-    private String token;
-    private String message;
+    private String accessToken;
+    private String refreshToken;
+    private UserInfo user;
 
-    // structure with message
-    public LoginResponse(String message) {
-        this.message = message;
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UserInfo {
+        private Long id;
+        private String email;
+        private String displayName;
     }
 }
