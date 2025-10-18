@@ -28,6 +28,8 @@
     </scm>
     <properties>
         <java.version>17</java.version>
+        <!-- Define Google Cloud version as a property -->
+        <spring-cloud-gcp.version>5.2.3</spring-cloud-gcp.version>
     </properties>
     <dependencies>
         <!-- For .env -->
@@ -107,10 +109,10 @@
         </dependency>
 
         <!-- Kafka Dependencies -->
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.kafka</groupId>-->
+<!--            <artifactId>spring-kafka</artifactId>-->
+<!--        </dependency>-->
 
         <!-- Micrometer for metrics -->
         <dependency>
@@ -165,6 +167,12 @@
             <version>3.1.1</version> <!-- Or the latest version -->
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/com.google.cloud/spring-cloud-gcp-starter-sql-postgresql -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>spring-cloud-gcp-starter-sql-postgresql</artifactId>
+            <version>7.4.0</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -177,6 +185,7 @@
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
+                            <!-- Version is managed by spring-boot-starter-parent, so no need to specify it here -->
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
@@ -203,3 +212,4 @@
         </plugins>
     </build>
 </project>
+

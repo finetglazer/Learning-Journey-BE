@@ -1,6 +1,7 @@
 package com.graduation.schedulingservice.controller;
 
 import com.graduation.schedulingservice.constant.Constant;
+import com.graduation.schedulingservice.payload.request.BatchScheduleRequest;
 import com.graduation.schedulingservice.payload.request.CreateCalendarItemRequest;
 import com.graduation.schedulingservice.payload.request.UpdateCalendarItemRequest;
 import com.graduation.schedulingservice.payload.response.BaseResponse;
@@ -10,6 +11,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -122,6 +127,62 @@ public class CalendarItemController {
             log.error("Failed to delete calendar item: userId={}, itemId={}", userId, itemId, e);
             return ResponseEntity.ok(
                     new BaseResponse<>(0, "Failed to delete calendar item", null)
+            );
+        }
+    }
+
+    /**
+     * Get calendar items by date range and view type.
+     * @param userId      Extracted from X-User-Id header.
+     * @param view        View type: DAY, WEEK, MONTH, or YEAR.
+     * @param date        Reference date in YYYY-MM-DD format.
+     * @param calendarIds Comma-separated list of calendar IDs.
+     * @return Response containing the list of items.
+     */
+    @GetMapping("")
+    public ResponseEntity<BaseResponse<?>> getItemsByDateRange(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam("view") String view,
+            @RequestParam("date") String date,
+            @RequestParam("calendarIds") String calendarIds) {
+        try {
+            log.info(Constant.LOG_GET_ITEMS_BY_DATE_RANGE, userId, view, date, calendarIds);
+
+            List<Long> calendarIdList = Arrays.stream(calendarIds.split(","))
+                    .map(Long::parseLong)
+                    .collect(Collectors.toList());
+
+            BaseResponse<?> response = calendarItemService.getItemsByDateRange(userId, view, date, calendarIdList);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error(Constant.LOG_GET_ITEMS_BY_DATE_RANGE_FAILED, userId, e);
+            return ResponseEntity.ok(
+                    new BaseResponse<>(0, Constant.MSG_ITEMS_RETRIEVAL_FAILED, null)
+            );
+        }
+    }
+
+    /**
+     * Schedule multiple unscheduled items at once.
+     * @param userId  Extracted from X-User-Id header.
+     * @param request The batch schedule request.
+     * @return Response containing the result of the batch operation.
+     */
+    @PutMapping("/batch-schedule")
+    public ResponseEntity<BaseResponse<?>> batchScheduleItems(
+            @RequestHeader("X-User-Id") Long userId,
+            @Valid @RequestBody BatchScheduleRequest request) {
+        try {
+            log.info("Batch scheduling items for userId={}", userId);
+
+            BaseResponse<?> response = calendarItemService.batchScheduleItems(userId, request);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Failed to batch schedule items for userId={}", userId, e);
+            return ResponseEntity.ok(
+                    new BaseResponse<>(0, "Failed to batch schedule items", null)
             );
         }
     }

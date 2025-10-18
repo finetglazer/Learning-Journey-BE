@@ -51,4 +51,42 @@ public interface CalendarItemRepository extends JpaRepository<CalendarItem, Long
     List<CalendarItem> findOverlappingItems(@Param("userId") Long userId,
                                             @Param("startTime") LocalDateTime startTime,
                                             @Param("endTime") LocalDateTime endTime);
+
+    /**
+     * Finds all scheduled items for a user within a specific date range and across multiple calendars.
+     * The results are sorted by their start time.
+     */
+    @Query("SELECT ci FROM CalendarItem ci WHERE ci.userId = :userId " +
+            "AND ci.calendarId IN :calendarIds " +
+            "AND ci.timeSlot IS NOT NULL " +
+            "AND ci.timeSlot.startTime IS NOT NULL " +
+            "AND ci.timeSlot.endTime IS NOT NULL " +
+            "AND ci.timeSlot.startTime < :endTime " +
+            "AND ci.timeSlot.endTime > :startTime " +
+            "ORDER BY ci.timeSlot.startTime ASC")
+    List<CalendarItem> findScheduledItemsByDateRange(
+            @Param("userId") Long userId,
+            @Param("calendarIds") List<Long> calendarIds,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
+
+
+    /**
+     * Finds all unscheduled items for a user.
+     * An item is considered unscheduled if its timeSlot or startTime is null.
+     */
+    @Query("SELECT ci FROM CalendarItem ci WHERE ci.userId = :userId " +
+            "AND (ci.timeSlot IS NULL OR ci.timeSlot.startTime IS NULL)")
+    List<CalendarItem> findUnscheduledByUserId(@Param("userId") Long userId);
+
+
+    /**
+     * Finds all unscheduled items for a user, filtered by a specific week plan ID.
+     */
+    @Query("SELECT ci FROM CalendarItem ci WHERE ci.userId = :userId " +
+            "AND ci.weekPlanId = :weekPlanId " +
+            "AND (ci.timeSlot IS NULL OR ci.timeSlot.startTime IS NULL)")
+    List<CalendarItem> findUnscheduledByUserIdAndWeekPlanId(
+            @Param("userId") Long userId,
+            @Param("weekPlanId") Long weekPlanId);
 }

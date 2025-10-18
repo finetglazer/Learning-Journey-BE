@@ -1,0 +1,17 @@
+// src/main/java/com/graduation/schedulingservice/payload/response/ItemsByDateRangeResponse.java
+package com.graduation.schedulingservice.payload.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ItemsByDateRangeResponse {
+    private List<ScheduledItemDTO> items;
+    private String sortedBy;
+    private DateRangeDTO dateRange;
+}

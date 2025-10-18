@@ -1,14 +1,20 @@
 package com.graduation.schedulingservice.service.impl;
 
+import com.graduation.schedulingservice.constant.Constant;
 import com.graduation.schedulingservice.model.Calendar;
 import com.graduation.schedulingservice.model.enums.CalendarType;
 import com.graduation.schedulingservice.payload.response.BaseResponse;
+import com.graduation.schedulingservice.payload.response.CalendarListResponse;
+import com.graduation.schedulingservice.payload.response.CalendarResponse;
 import com.graduation.schedulingservice.repository.CalendarRepository;
 import com.graduation.schedulingservice.service.CalendarService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -44,6 +50,26 @@ public class CalendarServiceImpl implements CalendarService {
         } catch (Exception e) {
             log.error("Failed to create default calendar for user {}", userId, e);
             return new BaseResponse<>(0, "Failed to create default calendar", null);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BaseResponse<CalendarListResponse> getUserCalendars(Long userId) {
+        try {
+            List<Calendar> calendars = calendarRepository.findByUserId(userId);
+
+            List<CalendarResponse> calendarResponses = calendars.stream()
+                    .map(CalendarResponse::from)
+                    .collect(Collectors.toList());
+
+            CalendarListResponse data = new CalendarListResponse(calendarResponses);
+
+            return new BaseResponse<>(1, Constant.MSG_CALENDARS_RETRIEVED_SUCCESS, data);
+
+        } catch (Exception e) {
+            log.error(Constant.LOG_GET_USER_CALENDARS_FAILED, userId, e);
+            return new BaseResponse<>(0, Constant.MSG_CALENDARS_RETRIEVAL_FAILED, null);
         }
     }
 }
