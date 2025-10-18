@@ -1,11 +1,17 @@
 package com.graduation.schedulingservice.service.impl;
 
 import com.graduation.schedulingservice.model.*;
+import com.graduation.schedulingservice.model.enums.ItemStatus;
 import com.graduation.schedulingservice.model.enums.ItemType;
 import com.graduation.schedulingservice.model.enums.PlanStatus;
+import com.graduation.schedulingservice.model.enums.TaskStatus;
+import com.graduation.schedulingservice.payload.request.AddBigTaskRequest;
+import com.graduation.schedulingservice.payload.request.AddEventRequest;
 import com.graduation.schedulingservice.payload.request.CreateMonthPlanRequest;
+import com.graduation.schedulingservice.payload.request.UpdateRoutineListRequest;
 import com.graduation.schedulingservice.payload.response.*;
 import com.graduation.schedulingservice.repository.*;
+import com.graduation.schedulingservice.service.ConstraintValidationService;
 import com.graduation.schedulingservice.service.MonthPlanService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,10 +20,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -25,10 +34,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MonthPlanServiceImpl implements MonthPlanService {
 
+    private final ConstraintValidationService constraintValidationService;
     private final MonthPlanRepository monthPlanRepository;
     private final WeekPlanRepository weekPlanRepository;
     private final CalendarItemRepository calendarItemRepository;
     private final BigTaskRepository bigTaskRepository;
+    private final CalendarRepository calendarRepository;
 
     @Override
     @Transactional
@@ -186,6 +197,268 @@ public class MonthPlanServiceImpl implements MonthPlanService {
         }
     }
 
+    @Override
+    @Transactional
+    public BaseResponse<?> addBigTask(Long userId, Long monthPlanId, AddBigTaskRequest request) {
+        try {
+            log.info("Adding big task to month plan: userId={}, monthPlanId={}, taskName={}",
+                    userId, monthPlanId, request.getName());
+
+            // 1. Validate month plan exists and belongs to user
+            Optional<MonthPlan> monthPlanOpt = monthPlanRepository.findByIdAndUserId(monthPlanId, userId);
+            if (monthPlanOpt.isEmpty()) {
+                log.warn("Month plan not found or unauthorized: monthPlanId={}, userId={}", monthPlanId, userId);
+                return new BaseResponse<>(0, "Month plan not found or unauthorized", null);
+            }
+
+            MonthPlan monthPlan = monthPlanOpt.get();
+
+            // 2. Calculate month date range
+            LocalDate[] monthRange = getMonthDateRange(monthPlan.getYear(), monthPlan.getMonth());
+            LocalDate firstDayOfMonth = monthRange[0];
+            LocalDate lastDayOfMonth = monthRange[1];
+
+            // 3. Validate date range
+            if (request.getEstimatedStartDate().isAfter(request.getEstimatedEndDate())) {
+                log.warn("Invalid date range: start date is after end date");
+                return new BaseResponse<>(0, "Start date must be before or equal to end date", null);
+            }
+
+            // 4. Validate dates are within month range
+            if (request.getEstimatedStartDate().isBefore(firstDayOfMonth) ||
+                    request.getEstimatedEndDate().isAfter(lastDayOfMonth)) {
+                log.warn("Big task dates outside month range: taskDates=[{}, {}], monthRange=[{}, {}]",
+                        request.getEstimatedStartDate(), request.getEstimatedEndDate(),
+                        firstDayOfMonth, lastDayOfMonth);
+                return new BaseResponse<>(0,
+                        String.format("Big task dates must be within month range: %s to %s",
+                                firstDayOfMonth, lastDayOfMonth),
+                        null);
+            }
+
+            // 5. Create big task
+            BigTask bigTask = new BigTask();
+            bigTask.setName(request.getName());
+            bigTask.setDescription(request.getDescription());
+            bigTask.setEstimatedStartDate(request.getEstimatedStartDate());
+            bigTask.setEstimatedEndDate(request.getEstimatedEndDate());
+            bigTask.setStatus(TaskStatus.NOT_STARTED);
+            bigTask.setMonthPlan(monthPlan);
+
+            // 6. Save big task
+            BigTask savedBigTask = bigTaskRepository.save(bigTask);
+
+            // 7. Find affected week plans (any overlap with date range)
+            List<WeekPlan> affectedWeekPlans = weekPlanRepository.findByMonthPlanIdAndDateRangeOverlap(
+                    monthPlanId,
+                    request.getEstimatedStartDate(),
+                    request.getEstimatedEndDate()
+            );
+
+            List<Long> affectedWeekPlanIds = affectedWeekPlans.stream()
+                    .map(WeekPlan::getId)
+                    .collect(Collectors.toList());
+
+            // 8. Build response
+            AddBigTaskResponse response = new AddBigTaskResponse(
+                    savedBigTask.getId(),
+                    "Big task added successfully",
+                    affectedWeekPlanIds
+            );
+
+            log.info("Big task added successfully: bigTaskId={}, affectedWeeks={}",
+                    savedBigTask.getId(), affectedWeekPlanIds.size());
+
+            return new BaseResponse<>(1, "Big task added successfully", response);
+
+        } catch (Exception e) {
+            log.error("Failed to add big task: monthPlanId={}, userId={}", monthPlanId, userId, e);
+            return new BaseResponse<>(0, "Failed to add big task", null);
+        }
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> addEvent(Long userId, Long monthPlanId, AddEventRequest request) {
+        try {
+            log.info("Adding event to month plan: userId={}, monthPlanId={}, eventName={}",
+                    userId, monthPlanId, request.getName());
+
+            // 1. Validate month plan exists and belongs to user
+            Optional<MonthPlan> monthPlanOpt = monthPlanRepository.findByIdAndUserId(monthPlanId, userId);
+            if (monthPlanOpt.isEmpty()) {
+                log.warn("Month plan not found or unauthorized: monthPlanId={}, userId={}", monthPlanId, userId);
+                return new BaseResponse<>(0, "Month plan not found or unauthorized", null);
+            }
+
+            MonthPlan monthPlan = monthPlanOpt.get();
+
+            // 2. Calculate month date range
+            LocalDate[] monthRange = getMonthDateRange(monthPlan.getYear(), monthPlan.getMonth());
+            LocalDate firstDayOfMonth = monthRange[0];
+            LocalDate lastDayOfMonth = monthRange[1];
+
+            // 3. Validate time range
+            if (request.getStartTime().isAfter(request.getEndTime()) ||
+                    request.getStartTime().equals(request.getEndTime())) {
+                log.warn("Invalid time range: start time must be before end time");
+                return new BaseResponse<>(0, "Start time must be before end time", null);
+            }
+
+            // 4. Validate event date is within month range
+            if (request.getSpecificDate().isBefore(firstDayOfMonth) ||
+                    request.getSpecificDate().isAfter(lastDayOfMonth)) {
+                log.warn("Event date outside month range: eventDate={}, monthRange=[{}, {}]",
+                        request.getSpecificDate(), firstDayOfMonth, lastDayOfMonth);
+                return new BaseResponse<>(0,
+                        String.format("Event date must be within month range: %s to %s",
+                                firstDayOfMonth, lastDayOfMonth),
+                        null);
+            }
+
+            // 5. Validate calendar exists and belongs to user
+            Optional<Calendar> calendarOpt = calendarRepository.findById(request.getCalendarId());
+            if (calendarOpt.isEmpty()) {
+                log.warn("Calendar not found: calendarId={}", request.getCalendarId());
+                return new BaseResponse<>(0, "Calendar not found", null);
+            }
+
+            Calendar calendar = calendarOpt.get();
+            if (!calendar.getUserId().equals(userId)) {
+                log.warn("Calendar does not belong to user: calendarId={}, userId={}", request.getCalendarId(), userId);
+                return new BaseResponse<>(0, "Unauthorized access to calendar", null);
+            }
+
+            // 6. Check for duplicate event on the same date in this month plan
+            boolean duplicateExists = calendarItemRepository.findAllByUserId(userId).stream()
+                    .filter(item -> item instanceof Event)
+                    .filter(item -> item.getMonthPlanId() != null)
+                    .filter(item -> item.getMonthPlanId().equals(monthPlanId))
+                    .filter(item -> item.getTimeSlot() != null && item.getTimeSlot().getStartTime() != null)
+                    .anyMatch(item -> item.getTimeSlot().getStartTime().toLocalDate().equals(request.getSpecificDate()));
+
+            if (duplicateExists) {
+                log.warn("Event already exists on this date in month plan: date={}, monthPlanId={}",
+                        request.getSpecificDate(), monthPlanId);
+                return new BaseResponse<>(0,
+                        "An event already exists on " + request.getSpecificDate() + " in this month plan",
+                        null);
+            }
+
+            // 7. Find the week plan that contains this date
+            Optional<WeekPlan> weekPlanOpt = weekPlanRepository.findByMonthPlanIdAndDateWithin(
+                    monthPlanId,
+                    request.getSpecificDate()
+            );
+
+            if (weekPlanOpt.isEmpty()) {
+                log.warn("No week plan found for date: date={}, monthPlanId={}",
+                        request.getSpecificDate(), monthPlanId);
+                return new BaseResponse<>(0, "No week plan found for the specified date", null);
+            }
+
+            WeekPlan weekPlan = weekPlanOpt.get();
+
+            // 8. Create Event entity
+            Event event = new Event();
+            event.setUserId(userId);
+            event.setCalendarId(request.getCalendarId());
+            event.setMonthPlanId(monthPlanId);
+            event.setWeekPlanId(weekPlan.getId());
+            event.setName(request.getName());
+            event.setNote(request.getNote());
+            event.setStatus(ItemStatus.INCOMPLETE);
+
+            // 9. Create TimeSlot (auto-schedule)
+            LocalDateTime startDateTime = LocalDateTime.of(request.getSpecificDate(), request.getStartTime());
+            LocalDateTime endDateTime = LocalDateTime.of(request.getSpecificDate(), request.getEndTime());
+
+            // Validate constraints
+            List<String> violations = constraintValidationService.validateConstraints(
+                    userId,
+                    startDateTime,
+                    endDateTime,
+                    ItemType.EVENT
+            );
+
+            if (!violations.isEmpty()) {
+                return new BaseResponse<>(0, "Constraint violations", violations);
+            }
+
+            TimeSlot timeSlot = new TimeSlot(startDateTime, endDateTime);
+            event.setTimeSlot(timeSlot);
+
+            // 10. Save event
+            Event savedEvent = calendarItemRepository.save(event);
+
+            // 11. Build response
+            AddEventResponse response = new AddEventResponse(
+                    savedEvent.getId(),
+                    savedEvent.getId(), // calendarItemId is same as eventId
+                    "Event added and scheduled successfully",
+                    weekPlan.getId()
+            );
+
+            log.info("Event added successfully: eventId={}, weekPlanId={}", savedEvent.getId(), weekPlan.getId());
+
+            return new BaseResponse<>(1, "Event added and scheduled successfully", response);
+
+        } catch (Exception e) {
+            log.error("Failed to add event: monthPlanId={}, userId={}", monthPlanId, userId, e);
+            return new BaseResponse<>(0, "Failed to add event", null);
+        }
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> updateRoutineList(Long userId, Long monthPlanId, UpdateRoutineListRequest request) {
+        try {
+            log.info("Updating routine list for month plan: userId={}, monthPlanId={}", userId, monthPlanId);
+
+            // 1. Validate month plan exists and belongs to user
+            Optional<MonthPlan> monthPlanOpt = monthPlanRepository.findByIdAndUserId(monthPlanId, userId);
+            if (monthPlanOpt.isEmpty()) {
+                log.warn("Month plan not found or unauthorized: monthPlanId={}, userId={}", monthPlanId, userId);
+                return new BaseResponse<>(0, "Month plan not found or unauthorized", null);
+            }
+
+            MonthPlan monthPlan = monthPlanOpt.get();
+
+            // 2. Get current routine names
+            Set<String> oldRoutines = new HashSet<>(monthPlan.getApprovedRoutineNames());
+            Set<String> newRoutines = new HashSet<>(request.getApprovedRoutineNames());
+
+            // 3. Calculate differences
+            Set<String> removedRoutines = new HashSet<>(oldRoutines);
+            removedRoutines.removeAll(newRoutines);
+
+            Set<String> addedRoutines = new HashSet<>(newRoutines);
+            addedRoutines.removeAll(oldRoutines);
+
+            // 4. Update the routine list
+            monthPlan.setApprovedRoutineNames(new ArrayList<>(request.getApprovedRoutineNames()));
+
+            // 5. Save changes
+            monthPlanRepository.save(monthPlan);
+
+            // 6. Build response
+            UpdateRoutineListResponse response = new UpdateRoutineListResponse(
+                    "Routine list updated successfully",
+                    new ArrayList<>(removedRoutines),
+                    new ArrayList<>(addedRoutines)
+            );
+
+            log.info("Routine list updated: monthPlanId={}, added={}, removed={}",
+                    monthPlanId, addedRoutines.size(), removedRoutines.size());
+
+            return new BaseResponse<>(1, "Routine list updated successfully", response);
+
+        } catch (Exception e) {
+            log.error("Failed to update routine list: monthPlanId={}, userId={}", monthPlanId, userId, e);
+            return new BaseResponse<>(0, "Failed to update routine list", null);
+        }
+    }
+
     /**
      * Copy approved routine names from the previous month
      */
@@ -218,42 +491,36 @@ public class MonthPlanServiceImpl implements MonthPlanService {
         }
     }
 
-
     /**
-     * Creates full Monday-to-Sunday week plans for a given month.
-     * The first week starts on the Monday of the week containing the 1st of the month.
-     * The last week created is the last full week whose Sunday is within the month.
+     * Creates full Monday-to-Sunday week plans for a given month's planning period.
+     * The first week starts on the Monday containing the 1st of the month.
+     * The final week created is the one containing the last day of the month.
+     * This ensures all days of the month are included in a weekly plan.
      *
      * @param monthPlanId The ID of the parent month plan.
-     * @param year The target year.
-     * @param month The target month.
+     * @param year        The target year.
+     * @param month       The target month.
      * @return A list of IDs for the newly created WeekPlan entities.
      */
     private List<Long> createWeekPlans(Long monthPlanId, Integer year, Integer month) {
         List<Long> weekPlanIds = new ArrayList<>();
         int weekNumber = 1;
 
-        // 1. Define the boundaries of the month.
+        // 1. Define the calendar boundaries of the month.
         LocalDate firstDayOfMonth = LocalDate.of(year, month, 1);
         LocalDate lastDayOfMonth = firstDayOfMonth.with(TemporalAdjusters.lastDayOfMonth());
 
         // 2. Determine the start of the very first week.
         // This is the Monday of the week containing the first day of the month.
-        // It might be in the previous month, e.g., for Aug 1, 2025 (a Friday), this will be July 28.
         LocalDate currentWeekStart = firstDayOfMonth.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
-        // 3. Loop to create full weeks (Monday to Sunday).
-        while (true) {
+        // 3. Loop as long as the start of the week is not after the month's last day.
+        // This ensures we create the week that contains the last day.
+        while (!currentWeekStart.isAfter(lastDayOfMonth)) {
             // The end of the current week is always 6 days after the start (Sunday).
             LocalDate currentWeekEnd = currentWeekStart.plusDays(6);
 
-            // 4. Stop if the end of this week falls outside the target month.
-            // This fulfills your "last Sunday must be in the month range" requirement.
-            if (currentWeekEnd.isAfter(lastDayOfMonth)) {
-                break;
-            }
-
-            // 5. Create and save the WeekPlan entity.
+            // 4. Create and save the WeekPlan entity.
             WeekPlan weekPlan = new WeekPlan();
             weekPlan.setMonthPlanId(monthPlanId);
             weekPlan.setWeekNumber(weekNumber);
@@ -267,11 +534,37 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             log.info("Created week plan: weekNumber={}, startDate={}, endDate={}",
                     weekNumber, currentWeekStart, currentWeekEnd);
 
-            // 6. Move to the start of the next week and increment the counter.
+            // 5. Move to the start of the next week and increment the counter.
             currentWeekStart = currentWeekStart.plusWeeks(1);
             weekNumber++;
         }
 
         return weekPlanIds;
+    }
+
+    /**
+     * Calculates the full date range for a month's plan.
+     * The range starts on the Monday of the week containing the 1st of the month
+     * and ends on the Sunday of the week containing the last day of the month.
+     * This ensures the entire month is visible within a grid of complete weeks.
+     *
+     * @param year  The year
+     * @param month The month (1-12)
+     * @return Array containing [planningStartDate, planningEndDate]
+     */
+    private LocalDate[] getMonthDateRange(Integer year, Integer month) {
+        // 1. Get the first and last calendar days of the month.
+        LocalDate firstDayOfMonth = LocalDate.of(year, month, 1);
+        LocalDate lastDayOfMonth = firstDayOfMonth.with(TemporalAdjusters.lastDayOfMonth());
+
+        // 2. Calculate the actual start of the planning period.
+        // This is the Monday of the week containing the 1st of the month.
+        LocalDate planningStartDate = firstDayOfMonth.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+
+        // 3. Calculate the actual end of the planning period.
+        // This is the Sunday of the week containing the last day of the month.
+        LocalDate planningEndDate = lastDayOfMonth.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+
+        return new LocalDate[]{planningStartDate, planningEndDate};
     }
 }

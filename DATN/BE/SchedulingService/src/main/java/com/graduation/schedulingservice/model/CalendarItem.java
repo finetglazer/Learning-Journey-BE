@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "calendar_items")
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
-@DiscriminatorColumn(name = "item_type", discriminatorType = DiscriminatorType.STRING)
+@DiscriminatorColumn(name = "type", discriminatorType = DiscriminatorType.STRING)
 public abstract class CalendarItem {
 
     @Id
@@ -40,7 +40,7 @@ public abstract class CalendarItem {
     private TimeSlot timeSlot;
 
     @Enumerated(EnumType.STRING)
-    @Transient
+    @Column(name = "type", insertable = false, updatable = false) // <-- And change this
     private ItemType type;
 
     private String color;

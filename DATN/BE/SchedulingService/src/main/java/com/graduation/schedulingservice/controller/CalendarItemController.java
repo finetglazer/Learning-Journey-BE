@@ -164,30 +164,6 @@ public class CalendarItemController {
     }
 
     /**
-     * Get all unscheduled items (routines and tasks).
-     * @param userId     Extracted from X-User-Id header.
-     * @param weekPlanId Optional filter for a specific week plan.
-     * @return Response containing unscheduled items.
-     */
-    @GetMapping("/unscheduled")
-    public ResponseEntity<BaseResponse<?>> getUnscheduledItems(
-            @RequestHeader("X-User-Id") Long userId,
-            @RequestParam(required = false) Long weekPlanId) {
-        try {
-            log.info(Constant.LOG_GET_UNSCHEDULED_ITEMS, userId, weekPlanId);
-
-            BaseResponse<?> response = calendarItemService.getUnscheduledItems(userId, weekPlanId);
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            log.error(Constant.LOG_GET_UNSCHEDULED_ITEMS_FAILED, userId, e);
-            return ResponseEntity.ok(
-                    new BaseResponse<>(0, Constant.MSG_UNSCHEDULED_ITEMS_RETRIEVAL_FAILED, null)
-            );
-        }
-    }
-
-    /**
      * Schedule multiple unscheduled items at once.
      * @param userId  Extracted from X-User-Id header.
      * @param request The batch schedule request.

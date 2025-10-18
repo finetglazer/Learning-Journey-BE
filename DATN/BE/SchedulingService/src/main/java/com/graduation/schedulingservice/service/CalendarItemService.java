@@ -62,14 +62,6 @@ public interface CalendarItemService {
     BaseResponse<?> getItemsByDateRange(Long userId, String view, String date, List<Long> calendarIds);
 
     /**
-     * Get all unscheduled items for a user.
-     * @param userId The authenticated user ID.
-     * @param weekPlanId Optional ID to filter by a specific week plan.
-     * @return BaseResponse containing lists of unscheduled tasks and routines.
-     */
-    BaseResponse<?> getUnscheduledItems(Long userId, Long weekPlanId);
-
-    /**
      * Schedule multiple unscheduled items at once.
      * @param userId The authenticated user ID.
      * @param request The batch schedule request.

@@ -10,5 +10,7 @@ public class UnscheduledRoutineDTO {
     private Long id;
     private String name;
     private String source; // "MONTH_PLAN" or "CALENDAR"
-    private boolean canUseFormerTiming;
+    private Boolean needsScheduling;
+    private boolean canUsePreviousTiming;
+    private PreviousTimingDTO previousTiming;
 }

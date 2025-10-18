@@ -10,6 +10,8 @@ public class CreateCalendarItemRequest {
     @NotNull(message = "Calendar ID is required")
     private Long calendarId;
 
+    private Long monthPlanId; // ← NEW: OPTIONAL - null for standalone, provided when scheduling from sidebar
+
     @NotBlank(message = "Item type is required")
     private String type; // "TASK", "ROUTINE", "EVENT"
 

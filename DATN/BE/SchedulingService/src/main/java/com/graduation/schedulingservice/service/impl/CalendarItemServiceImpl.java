@@ -16,6 +16,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.graduation.schedulingservice.model.MonthPlan;
+import com.graduation.schedulingservice.model.WeekPlan;
+import com.graduation.schedulingservice.repository.MonthPlanRepository;
+import com.graduation.schedulingservice.repository.WeekPlanRepository;
+import java.time.LocalDate;
+import java.util.Optional;
 
 import java.time.*;
 import java.time.format.DateTimeParseException;
@@ -33,6 +39,9 @@ public class CalendarItemServiceImpl implements CalendarItemService {
     private final ConstraintValidationService constraintValidationService;
     private final CalendarItemRepository calendarItemRepository;
     private final CalendarRepository calendarRepository;
+    private final MonthPlanRepository monthPlanRepository;
+    private final WeekPlanRepository weekPlanRepository;
+
 
     @Override
     @Transactional
@@ -67,7 +76,137 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 return new BaseResponse<>(0, Constant.MSG_CALENDAR_NOT_FOUND, null);
             }
 
-            // 4. Validate constraints (overlapping, sleep hours, daily limits)
+            // 4. Determine mode: Standalone (monthPlanId == null) or Month Plan Mode (monthPlanId != null)
+            Long weekPlanId = null;
+
+            if (request.getMonthPlanId() != null) {
+                // ===== MONTH PLAN MODE =====
+
+                // 4.1. Validate month plan exists and belongs to user
+                Optional<MonthPlan> monthPlanOpt = monthPlanRepository.findByIdAndUserId(
+                        request.getMonthPlanId(), userId);
+
+                if (monthPlanOpt.isEmpty()) {
+                    log.warn("Month plan not found or unauthorized: monthPlanId={}, userId={}",
+                            request.getMonthPlanId(), userId);
+                    return new BaseResponse<>(0, "Month plan not found or unauthorized", null);
+                }
+
+                MonthPlan monthPlan = monthPlanOpt.get();
+
+                // 4.2. Validate timeSlot is provided (required for scheduling)
+                if (request.getTimeSlot() == null || request.getTimeSlot().getStartTime() == null) {
+                    log.warn("TimeSlot is required when scheduling from month plan");
+                    return new BaseResponse<>(0, "TimeSlot is required when scheduling from month plan", null);
+                }
+
+                // 4.3. Extract month from timeSlot
+                LocalDate timeSlotDate = request.getTimeSlot().getStartTime().toLocalDate();
+                int timeSlotYear = timeSlotDate.getYear();
+                int timeSlotMonth = timeSlotDate.getMonthValue();
+
+                // 4.4. Validate timeSlot month matches monthPlan month
+                if (timeSlotYear != monthPlan.getYear() ||
+                        timeSlotMonth != monthPlan.getMonth()) {
+
+                    String timeSlotMonthStr = String.format("%d-%02d", timeSlotYear, timeSlotMonth);
+                    String monthPlanMonthStr = String.format("%d-%02d",
+                            monthPlan.getYear(), monthPlan.getMonth());
+
+                    MonthMismatchErrorDetails errorDetails = new MonthMismatchErrorDetails(
+                            timeSlotMonthStr,
+                            monthPlanMonthStr,
+                            monthPlan.getId()
+                    );
+
+                    MonthPlanErrorResponse errorResponse = new MonthPlanErrorResponse(
+                            false,
+                            "MONTH_MISMATCH",
+                            String.format("Item's time slot (%s) does not match month plan (%s)",
+                                    timeSlotMonthStr, monthPlanMonthStr),
+                            errorDetails
+                    );
+
+                    log.warn("Month mismatch: timeSlot={}, monthPlan={}",
+                            timeSlotMonthStr, monthPlanMonthStr);
+                    return new BaseResponse<>(0, errorResponse.getMessage(), errorResponse);
+                }
+
+                // 4.5. TYPE-SPECIFIC VALIDATION
+                if (itemType == ItemType.ROUTINE) {
+                    // Validate routine name is in approved list
+                    if (!monthPlan.getApprovedRoutineNames().contains(request.getName())) {
+                        String requestedMonth = String.format("%d-%02d",
+                                monthPlan.getYear(), monthPlan.getMonth());
+
+                        RoutineErrorDetails errorDetails = new RoutineErrorDetails(
+                                request.getName(),
+                                "ROUTINE",
+                                requestedMonth,
+                                monthPlan.getId()
+                        );
+
+                        MonthPlanErrorResponse errorResponse = new MonthPlanErrorResponse(
+                                false,
+                                "INVALID_MONTH_PLAN_REFERENCE",
+                                String.format("Routine '%s' is not approved in the %s month plan",
+                                        request.getName(), requestedMonth),
+                                errorDetails
+                        );
+
+                        log.warn("Routine not approved in month plan: name={}, monthPlanId={}",
+                                request.getName(), monthPlan.getId());
+                        return new BaseResponse<>(0, errorResponse.getMessage(), errorResponse);
+                    }
+
+                } else if (itemType == ItemType.TASK && request.getTaskDetails() != null
+                        && request.getTaskDetails().getParentBigTaskId() != null) {
+
+                    // Validate parentBigTaskId exists in this month plan
+                    Long parentBigTaskId = request.getTaskDetails().getParentBigTaskId();
+                    boolean bigTaskExists = monthPlan.getBigTasks().stream()
+                            .anyMatch(bt -> bt.getId().equals(parentBigTaskId));
+
+                    if (!bigTaskExists) {
+                        String requestedMonth = String.format("%d-%02d",
+                                monthPlan.getYear(), monthPlan.getMonth());
+
+                        TaskErrorDetails errorDetails = new TaskErrorDetails(
+                                parentBigTaskId,
+                                requestedMonth,
+                                monthPlan.getId()
+                        );
+
+                        MonthPlanErrorResponse errorResponse = new MonthPlanErrorResponse(
+                                false,
+                                "INVALID_MONTH_PLAN_REFERENCE",
+                                String.format("Parent big task ID %d not found in %s month plan",
+                                        parentBigTaskId, requestedMonth),
+                                errorDetails
+                        );
+
+                        log.warn("Big task not found in month plan: bigTaskId={}, monthPlanId={}",
+                                parentBigTaskId, monthPlan.getId());
+                        return new BaseResponse<>(0, errorResponse.getMessage(), errorResponse);
+                    }
+                }
+                // EVENT: No additional validation needed
+
+                // 4.6. Determine weekPlanId from timeSlot
+                Optional<WeekPlan> weekPlanOpt = weekPlanRepository.findByMonthPlanIdAndDateWithin(
+                        monthPlan.getId(), timeSlotDate);
+
+                if (weekPlanOpt.isPresent()) {
+                    weekPlanId = weekPlanOpt.get().getId();
+                } else {
+                    log.warn("No week plan found for date: date={}, monthPlanId={}",
+                            timeSlotDate, monthPlan.getId());
+                    return new BaseResponse<>(0, "No week plan found for the specified date", null);
+                }
+            }
+            // else: Standalone Mode - monthPlanId and weekPlanId remain null
+
+            // 5. Validate constraints (overlapping, sleep hours, daily limits)
             if (request.getTimeSlot() != null) {
                 List<String> violations = constraintValidationService.validateConstraints(
                         userId,
@@ -82,7 +221,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 }
             }
 
-            // 5. Create calendar item based on type
+            // 6. Create calendar item based on type
             CalendarItem calendarItem;
             switch (itemType) {
                 case TASK:
@@ -98,17 +237,24 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                     return new BaseResponse<>(0, Constant.MSG_INVALID_ITEM_TYPE, null);
             }
 
-            // 6. Save to database
+            // 7. Set month plan and week plan IDs
+            calendarItem.setMonthPlanId(request.getMonthPlanId());
+            calendarItem.setWeekPlanId(weekPlanId);
+
+            // 8. Save to database
             CalendarItem savedItem = calendarItemRepository.save(calendarItem);
 
-            // 7. Return success response
+            // 9. Return success response
             CreateItemResponse response = new CreateItemResponse(
                     true,
                     savedItem.getId(),
                     Constant.MSG_ITEM_CREATED_SUCCESS
             );
 
-            log.info(Constant.LOG_ITEM_CREATED_SUCCESS, userId, savedItem.getId(), itemType);
+            log.info("Calendar item created successfully: userId={}, itemId={}, type={}, mode={}",
+                    userId, savedItem.getId(), itemType,
+                    request.getMonthPlanId() != null ? "MONTH_PLAN" : "STANDALONE");
+
             return new BaseResponse<>(1, Constant.MSG_ITEM_CREATED_SUCCESS, response);
 
         } catch (Exception e) {
@@ -127,6 +273,10 @@ public class CalendarItemServiceImpl implements CalendarItemService {
         if (request.getTaskDetails() != null) {
             task.setEstimatedHours(request.getTaskDetails().getEstimatedHours());
             task.setDueDate(request.getTaskDetails().getDueDate());
+
+            if (request.getTaskDetails().getParentBigTaskId() != null) {
+                task.setParentBigTaskId(request.getTaskDetails().getParentBigTaskId());
+            }
         }
 
         return task;
@@ -594,40 +744,6 @@ public class CalendarItemServiceImpl implements CalendarItemService {
         }
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public BaseResponse<?> getUnscheduledItems(Long userId, Long weekPlanId) {
-        try {
-            List<CalendarItem> items;
-            // 1. Fetch data based on whether weekPlanId is provided
-            if (weekPlanId != null) {
-                items = calendarItemRepository.findUnscheduledByUserIdAndWeekPlanId(userId, weekPlanId);
-            } else {
-                items = calendarItemRepository.findUnscheduledByUserId(userId);
-            }
-
-            // 2. Separate items into routines and tasks
-            List<UnscheduledRoutineDTO> routines = new ArrayList<>();
-            List<UnscheduledTaskDTO> tasks = new ArrayList<>();
-
-            for (CalendarItem item : items) {
-                if (item instanceof Routine) {
-                    routines.add(mapToUnscheduledRoutineDTO((Routine) item));
-                } else if (item instanceof Task) {
-                    tasks.add(mapToUnscheduledTaskDTO((Task) item));
-                }
-            }
-
-            // 3. Build and return response
-            UnscheduledItemsResponse response = new UnscheduledItemsResponse(routines, tasks);
-            return new BaseResponse<>(1, Constant.MSG_UNSCHEDULED_ITEMS_RETRIEVED_SUCCESS, response);
-
-        } catch (Exception e) {
-            log.error(Constant.LOG_GET_UNSCHEDULED_ITEMS_FAILED, userId, e);
-            return new BaseResponse<>(0, Constant.MSG_UNSCHEDULED_ITEMS_RETRIEVAL_FAILED, null);
-        }
-    }
-
     // Private helper methods for the new logic
     private DateRangeDTO calculateDateRange(String view, LocalDate date) {
         LocalDateTime start, end;
@@ -675,33 +791,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
         dto.setId(routine.getId());
         dto.setName(routine.getName());
         dto.setSource(routine.getMonthPlanId() != null ? "MONTH_PLAN" : "CALENDAR");
-        dto.setCanUseFormerTiming(true); // Placeholder logic as per spec
-        return dto;
-    }
-
-    private UnscheduledTaskDTO mapToUnscheduledTaskDTO(Task task) {
-        UnscheduledTaskDTO dto = new UnscheduledTaskDTO();
-        dto.setSource(task.getMonthPlanId() != null ? "MONTH_PLAN" : "CALENDAR");
-
-        if (task.getParentBigTaskId() == null) {
-            dto.setBigTaskId(task.getId());
-            dto.setBigTaskName(task.getName());
-        } else {
-            dto.setTaskId(task.getId());
-            dto.setName(task.getName());
-        }
-
-        if (task.getSubtasks() != null && !task.getSubtasks().isEmpty()) {
-            dto.setSubtasks(task.getSubtasks().stream()
-                    .map(subtask -> new SubtaskDTO(
-                            subtask.getId(),
-                            subtask.getName(),
-                            subtask.getDescription(),
-                            subtask.getIsComplete(),
-                            subtask.getCompletedAt()
-                    ))
-                    .collect(Collectors.toList()));
-        }
+        dto.setCanUsePreviousTiming(true); // Placeholder logic as per spec
         return dto;
     }
 
