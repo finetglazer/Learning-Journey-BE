@@ -120,11 +120,11 @@
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.google.cloud/spring-cloud-gcp-starter-sql-postgresql -->
-        <dependency>
-            <groupId>com.google.cloud</groupId>
-            <artifactId>spring-cloud-gcp-starter-sql-postgresql</artifactId>
-            <version>7.4.0</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.google.cloud</groupId>-->
+<!--            <artifactId>spring-cloud-gcp-starter-sql-postgresql</artifactId>-->
+<!--            <version>7.4.0</version>-->
+<!--        </dependency>-->
 
     </dependencies>
 
