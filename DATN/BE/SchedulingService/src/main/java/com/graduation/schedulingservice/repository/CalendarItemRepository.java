@@ -1,6 +1,7 @@
 package com.graduation.schedulingservice.repository;
 
 import com.graduation.schedulingservice.model.CalendarItem;
+import com.graduation.schedulingservice.model.Routine;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -70,6 +71,15 @@ public interface CalendarItemRepository extends JpaRepository<CalendarItem, Long
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime);
 
+    @Query("SELECT r FROM Routine r WHERE r.userId = :userId " +
+            "AND r.calendarId IN :calendarIds " +
+            "AND r.timeSlot.startTime IS NOT NULL " +       // Must be scheduled
+            "AND r.pattern.daysOfWeek IS NOT EMPTY " +     // Must be recurring
+            "AND r.timeSlot.startTime < :endTime") // Must have started before the end of our range
+    List<Routine> findAllRecurringRoutinesStartedBefore(
+            @Param("userId") Long userId,
+            @Param("calendarIds") List<Long> calendarIds,
+            @Param("endTime") LocalDateTime endTime);
 
     /**
      * Finds all unscheduled items for a user.

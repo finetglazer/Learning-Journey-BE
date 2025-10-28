@@ -119,19 +119,24 @@ public class UnscheduledItemsServiceImpl implements UnscheduledItemsService {
                 .map(CalendarItem::getName)
                 .collect(Collectors.toSet());
 
-        // Find unscheduled routines (approved but not scheduled)
-        Set<String> unscheduledNames = new HashSet<>(approvedRoutineNames);
-        unscheduledNames.removeAll(scheduledRoutineNames);
+        List<CalendarItem> unscheduledItems = allItems.stream()
+                .filter(item -> item instanceof Routine)
+                .filter(item -> item.getMonthPlanId() != null)
+                .filter(item -> item.getMonthPlanId().equals(monthPlan.getId()))
+                .filter(item -> item.getTimeSlot() == null || item.getTimeSlot().getStartTime() == null)
+                .filter(item -> !scheduledRoutineNames.contains(item.getName()))
+                .toList();
 
         // For each unscheduled routine, query previous month's timing
-        for (String routineName : unscheduledNames) {
+        for (CalendarItem unscheduledItem : unscheduledItems) {
             UnscheduledRoutineDTO dto = new UnscheduledRoutineDTO();
-            dto.setName(routineName);
+            dto.setId(unscheduledItem.getId());
+            dto.setName(unscheduledItem.getName());
             dto.setSource("MONTH_PLAN");
             dto.setNeedsScheduling(true);
 
             // Query previous month for timing
-            PreviousTimingDTO previousTiming = getPreviousRoutineTiming(userId, routineName, year, month);
+            PreviousTimingDTO previousTiming = getPreviousRoutineTiming(userId, unscheduledItem.getName(), year, month);
             dto.setPreviousTiming(previousTiming);
             dto.setCanUsePreviousTiming(previousTiming != null);
 
@@ -244,6 +249,7 @@ public class UnscheduledItemsServiceImpl implements UnscheduledItemsService {
                 List<SuggestedSubtaskDTO> suggestedSubtasks = unscheduledTasksForBigTask.stream()
                         .map(task -> {
                             SuggestedSubtaskDTO subtask = new SuggestedSubtaskDTO();
+                            subtask.setId(task.getId());
                             subtask.setName(task.getName());
                             subtask.setDescription(task.getNote());
                             subtask.setEstimated(task.getEstimatedHours() != null ?
