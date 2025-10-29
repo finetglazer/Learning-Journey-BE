@@ -1051,15 +1051,25 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 return new BaseResponse<>(0, Constant.MSG_INVALID_VIEW_TYPE, null);
             }
 
-            // 4. Map non-recurring items to DTOs
+            // 4. Initialize the final list
             List<ScheduledItemDTO> finalItemList = new ArrayList<>();
 
-            // 5. Fetch data from repository (Recurring Routines)
+            // 5. --- FIX: FETCH NON-RECURRING ITEMS (TASKS/EVENTS) ---
+            // This gets all Tasks, Events, and non-recurring Routines
+            List<CalendarItem> nonRecurringItems = calendarItemRepository.findScheduledItemsExcludingRoutinesByDateRange(
+                    userId, calendarIds, dateRange.getStart(), dateRange.getEnd());
+
+            // 6. Add Task, Event items to the list
+            nonRecurringItems.stream()
+                    .map(this::mapToScheduledItemDTO)
+                    .forEach(finalItemList::add);
+
+            // 7. Fetch data from repository (Recurring Routines)
             // This gets all potentially active recurring routines
             List<Routine> recurringRoutines = calendarItemRepository.findAllRecurringRoutinesStartedBefore(
                     userId, calendarIds, dateRange.getEnd());
 
-            // 6. Filter routines whose active month overlaps the date range
+            // 8. Filter routines whose active month overlaps the date range
             LocalDate rangeStartDate = dateRange.getStart().toLocalDate();
             LocalDate rangeEndDate = dateRange.getEnd().toLocalDate();
 
@@ -1076,15 +1086,15 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                     })
                     .collect(Collectors.toList());
 
-            // Add the *original* Routine objects (not expanded)
+            // 9. Add the *original* Routine objects (not expanded)
             activeRoutines.stream()
                     .map(this::mapToScheduledItemDTO)
                     .forEach(finalItemList::add);
 
-            // 7. Sort the final combined list
+            // 10. Sort the final combined list
             finalItemList.sort(Comparator.comparing(dto -> dto.getTimeSlot().getStartTime()));
 
-            // 8. Build and return response
+            // 11. Build and return response
             ItemsByDateRangeResponse response = new ItemsByDateRangeResponse(finalItemList, "startTime", dateRange);
             return new BaseResponse<>(1, Constant.MSG_ITEMS_RETRIEVED_SUCCESS, response);
 

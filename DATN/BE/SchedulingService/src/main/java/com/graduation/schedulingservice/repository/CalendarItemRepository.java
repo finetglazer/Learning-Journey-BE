@@ -71,6 +71,25 @@ public interface CalendarItemRepository extends JpaRepository<CalendarItem, Long
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime);
 
+    /**
+     * Finds non-recurring items (Tasks, Events) that overlap the date range.
+     * This query explicitly EXCLUDES recurring routines, which must be fetched separately.
+     */
+    @Query("SELECT ci FROM CalendarItem ci WHERE ci.userId = :userId " +
+            "AND ci.calendarId IN :calendarIds " +
+            "AND ci.timeSlot IS NOT NULL " +
+            "AND ci.timeSlot.startTime IS NOT NULL " +
+            "AND ci.timeSlot.endTime IS NOT NULL " +
+            "AND ci.timeSlot.startTime < :endTime " +
+            "AND ci.timeSlot.endTime > :startTime " +
+            "AND ci.type != 'ROUTINE' "
+    )
+    List<CalendarItem> findScheduledItemsExcludingRoutinesByDateRange(
+            @Param("userId") Long userId,
+            @Param("calendarIds") List<Long> calendarIds,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
+
     @Query("SELECT r FROM Routine r WHERE r.userId = :userId " +
             "AND r.calendarId IN :calendarIds " +
             "AND r.timeSlot.startTime IS NOT NULL " +       // Must be scheduled
