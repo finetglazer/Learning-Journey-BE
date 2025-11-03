@@ -1,6 +1,5 @@
 package com.graduation.schedulingservice.payload.request;
 
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -8,12 +7,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AddBigTaskRequest {
+public class UpdateBigTaskRequest { 
 
     @NotBlank(message = "Big task name is required")
     private String name;
@@ -25,7 +23,4 @@ public class AddBigTaskRequest {
 
     @NotNull(message = "Estimated end date is required")
     private LocalDate estimatedEndDate;
-
-    @Valid
-    private List<UnscheduledTaskDTO> unscheduledTasks;
 }

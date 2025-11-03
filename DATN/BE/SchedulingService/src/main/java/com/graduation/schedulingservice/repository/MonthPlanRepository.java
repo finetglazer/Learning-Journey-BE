@@ -14,4 +14,6 @@ public interface MonthPlanRepository extends JpaRepository<MonthPlan, Long> {
     Optional<MonthPlan> findByIdAndUserId(Long id, Long userId);
 
     boolean existsByUserIdAndYearAndMonth(Long userId, Integer year, Integer month);
+
+    boolean existsByIdAndUserId(Long id, Long userId);
 }
