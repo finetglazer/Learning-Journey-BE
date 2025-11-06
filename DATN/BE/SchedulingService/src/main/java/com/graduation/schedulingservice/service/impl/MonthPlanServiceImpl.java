@@ -764,21 +764,21 @@ public class MonthPlanServiceImpl implements MonthPlanService {
                 return new BaseResponse<>(0, "Unauthorized access to calendar", null);
             }
 
-            // 6. Check for duplicate event on the same date in this month plan
-            boolean duplicateExists = calendarItemRepository.findAllByUserId(userId).stream()
-                    .filter(item -> item instanceof Event)
-                    .filter(item -> item.getMonthPlanId() != null)
-                    .filter(item -> item.getMonthPlanId().equals(monthPlanId))
-                    .filter(item -> item.getTimeSlot() != null && item.getTimeSlot().getStartTime() != null)
-                    .anyMatch(item -> item.getTimeSlot().getStartTime().toLocalDate().equals(request.getSpecificDate()));
-
-            if (duplicateExists) {
-                log.warn("Event already exists on this date in month plan: date={}, monthPlanId={}",
-                        request.getSpecificDate(), monthPlanId);
-                return new BaseResponse<>(0,
-                        "An event already exists on " + request.getSpecificDate() + " in this month plan",
-                        null);
-            }
+//            // 6. Check for duplicate event on the same date in this month plan
+//            boolean duplicateExists = calendarItemRepository.findAllByUserId(userId).stream()
+//                    .filter(item -> item instanceof Event)
+//                    .filter(item -> item.getMonthPlanId() != null)
+//                    .filter(item -> item.getMonthPlanId().equals(monthPlanId))
+//                    .filter(item -> item.getTimeSlot() != null && item.getTimeSlot().getStartTime() != null)
+//                    .anyMatch(item -> item.getTimeSlot().getStartTime().toLocalDate().equals(request.getSpecificDate()));
+//
+//            if (duplicateExists) {
+//                log.warn("Event already exists on this date in month plan: date={}, monthPlanId={}",
+//                        request.getSpecificDate(), monthPlanId);
+//                return new BaseResponse<>(0,
+//                        "An event already exists on " + request.getSpecificDate() + " in this month plan",
+//                        null);
+//            }
 
             // 7. Find the week plan that contains this date
             Optional<WeekPlan> weekPlanOpt = weekPlanRepository.findByMonthPlanIdAndDateWithin(
@@ -891,7 +891,6 @@ public class MonthPlanServiceImpl implements MonthPlanService {
 
             // 4b. Handle added routines: Create them (with default calendar and status)
             if (!addedRoutines.isEmpty()) {
-                // --- NEW LOGIC (from addBigTask/addUnscheduledTask) ---
                 // Find a default calendar for the user
                 List<Calendar> userCalendars = calendarRepository.findByUserId(userId);
                 if (userCalendars.isEmpty()) {
