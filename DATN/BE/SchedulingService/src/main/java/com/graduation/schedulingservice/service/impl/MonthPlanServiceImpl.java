@@ -180,6 +180,7 @@ public class MonthPlanServiceImpl implements MonthPlanService {
                         if (event.getTimeSlot() != null && event.getTimeSlot().getStartTime() != null) {
                             dto.setSpecificDate(event.getTimeSlot().getStartTime().toLocalDate());
                             dto.setStartTime(event.getTimeSlot().getStartTime().toLocalTime());
+                            dto.setEndTime(event.getTimeSlot().getEndTime().toLocalTime());
                             dto.setIsScheduled(true);
                         } else {
                             dto.setIsScheduled(false);
