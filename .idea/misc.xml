@@ -6,7 +6,14 @@
       <list>
         <option value="$PROJECT_DIR$/DATN/BE/pom.xml" />
         <option value="$PROJECT_DIR$/DATN/integration-tests/pom.xml" />
+        <option value="$PROJECT_DIR$/DATN/BE/ProjectService/pom.xml" />
+        <option value="$PROJECT_DIR$/DATN/BE/RiskService/pom.xml" />
       </list>
+    </option>
+    <option name="ignoredFiles">
+      <set>
+        <option value="$PROJECT_DIR$/DATN/BE/RiskService/pom.xml" />
+      </set>
     </option>
   </component>
   <component name="ProjectRootManager" version="2" languageLevel="JDK_22" default="true" project-jdk-name="openjdk-22" project-jdk-type="JavaSDK">
