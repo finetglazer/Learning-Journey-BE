@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -59,6 +60,35 @@ public class ConstraintValidationService {
     }
 
     /**
+     * Validates *only* the user's configured constraints (Sleep Hours, Daily Limits).
+     * This method does NOT check for overlaps.
+     */
+    public List<String> validateBaseConstraints(Long userId, LocalDateTime startTime,
+                                                LocalDateTime endTime, ItemType itemType) {
+        List<String> violations = new ArrayList<>();
+
+        // 1. Fetch user constraints from the User Service
+        Optional<UserConstraintsDTO> constraintsOpt = userServiceClient.fetchUserConstraints(userId);
+
+        if (constraintsOpt.isEmpty()) {
+            log.warn("No constraints found for user {} or User Service is down. Skipping sleep/limit validation.", userId);
+            return violations; // Return empty list
+        }
+
+        UserConstraintsDTO constraints = constraintsOpt.get();
+
+        // 2. Validate sleep hours
+        validateSleepHours(constraints, startTime, endTime, violations);
+
+        // 3. Validate daily limits (if feature is enabled)
+        if (constraints.getDailyLimitFeatureEnabled() != null && constraints.getDailyLimitFeatureEnabled()) {
+            validateDailyLimit(userId, constraints, startTime, endTime, itemType, violations);
+        }
+
+        return violations;
+    }
+
+    /**
      * HARD RULE: Check if the new time slot overlaps with any existing scheduled items
      * This is ALWAYS validated regardless of user preferences
      */
@@ -73,11 +103,36 @@ public class ConstraintValidationService {
         if (!overlappingItems.isEmpty()) {
             log.warn("Found {} overlapping items for user {}", overlappingItems.size(), userId);
 
+            // Define the formatters for date and time
+            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("MMM d");
+            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a"); // e.g., 6:30 PM
+            DateTimeFormatter fullFormatter = DateTimeFormatter.ofPattern("MMM d, h:mm a");
+
             String itemNames = overlappingItems.stream()
-                    .map(item -> String.format("'%s' (%s - %s)",
-                            item.getName(),
-                            item.getTimeSlot().getStartTime(),
-                            item.getTimeSlot().getEndTime()))
+                    .map(item -> {
+                        LocalDateTime startDateTime = item.getTimeSlot().getStartTime();
+                        LocalDateTime endDateTime = item.getTimeSlot().getEndTime();
+
+                        String formattedTime;
+
+                        // Check if start and end are on the same day
+                        if (startTime.toLocalDate().isEqual(endTime.toLocalDate())) {
+                            // Same day: 'Task Name' (Nov 7, 6:30 PM - 6:45 PM)
+                            formattedTime = String.format("%s, %s - %s",
+                                    startDateTime.format(dateFormatter),  // "Nov 7"
+                                    startDateTime.format(timeFormatter), // "6:30 PM"
+                                    endDateTime.format(timeFormatter)    // "6:45 PM"
+                            );
+                        } else {
+                            // Different days: 'Task Name' (Nov 7, 11:00 PM - Nov 8, 1:00 AM)
+                            formattedTime = String.format("%s - %s",
+                                    startDateTime.format(fullFormatter), // "Nov 7, 11:00 PM"
+                                    endDateTime.format(fullFormatter)    // "Nov 8, 1:00 AM"
+                            );
+                        }
+
+                        return String.format("'%s' (%s)", item.getName(), formattedTime);
+                    })
                     .limit(3)
                     .reduce((a, b) -> a + ", " + b)
                     .orElse("existing items");
@@ -104,15 +159,25 @@ public class ConstraintValidationService {
         LocalTime startLocalTime = startTime.toLocalTime();
         LocalTime endLocalTime = endTime.toLocalTime();
 
+        // Define a formatter for friendly time (e.g., 10:00 PM)
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
+
         for (TimeRangeDTO sleepRange : sleepHours) {
-            boolean startInSleep = isTimeInRange(startLocalTime, sleepRange.getStartTime(), sleepRange.getEndTime());
-            boolean endInSleep = isTimeInRange(endLocalTime, sleepRange.getStartTime(), sleepRange.getEndTime());
+            LocalTime sleepStart = sleepRange.getStartTime();
+            LocalTime sleepEnd = sleepRange.getEndTime();
+
+            boolean startInSleep = isTimeInRange(startLocalTime, sleepStart, sleepEnd);
+            boolean endInSleep = isTimeInRange(endLocalTime, sleepStart, sleepEnd);
 
             if (startInSleep || endInSleep) {
+                // Format the LocalTime objects for a friendlier message
+                String formattedStart = sleepStart.format(timeFormatter);
+                String formattedEnd = sleepEnd.format(timeFormatter);
+
                 violations.add(String.format(
                         "Time slot conflicts with sleep hours (%s - %s).",
-                        sleepRange.getStartTime(),
-                        sleepRange.getEndTime()));
+                        formattedStart,
+                        formattedEnd));
                 return; // One violation is enough
             }
         }
