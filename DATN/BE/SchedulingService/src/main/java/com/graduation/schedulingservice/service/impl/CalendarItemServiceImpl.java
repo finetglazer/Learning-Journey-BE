@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -302,6 +303,9 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             return Optional.empty();
         }
 
+        // Formatter for user-friendly time (e.g., 6:30 PM)
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
+
         if (newItemType == ItemType.TASK || newItemType == ItemType.EVENT) {
             // --- Case 1: New item is a TASK or EVENT ---
             // Check its specific date, day, and time against all active routines.
@@ -317,7 +321,9 @@ public class CalendarItemServiceImpl implements CalendarItemService {
 
             for (Routine existingRoutine : scheduledRoutines) {
                 // 1. Get existing routine's active date range
+                // FIX: Re-introduced date check
                 LocalDate routineActiveStartDate = existingRoutine.getTimeSlot().getStartTime().toLocalDate();
+                // Assuming routine is active for the whole month it was created in
                 LocalDate routineActiveEndDate = routineActiveStartDate.with(TemporalAdjusters.lastDayOfMonth());
 
                 // 2. Check if the new item's date is within the routine's active range
@@ -327,6 +333,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 if (!dateRangeOverlaps) {
                     continue; // This routine isn't active on this day, skip
                 }
+                // --- End of FIX ---
 
                 // 3. Check if the routine runs on the same day of the week
                 List<DayOfWeek> existingDays = existingRoutine.getPattern().getDaysOfWeek();
@@ -341,20 +348,23 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 LocalTime existingEndTime = existingRoutine.getTimeSlot().getEndTime().toLocalTime();
 
                 if (timesOverlap(newItemTimeStart, newItemTimeEnd, existingStartTime, existingEndTime)) {
+                    // Capitalize day of week (e.g., "Monday")
+                    String friendlyDayOfWeek = newDayOfWeek.toString().charAt(0) + newDayOfWeek.toString().substring(1).toLowerCase();
+
                     return Optional.of(String.format(
                             "New %s overlaps with existing routine '%s' on %s (%s - %s)",
                             newItemType.name().toLowerCase(),
                             existingRoutine.getName(),
-                            newDayOfWeek,
-                            existingStartTime,
-                            existingEndTime
+                            friendlyDayOfWeek,
+                            existingStartTime.format(timeFormatter), // "6:30 PM"
+                            existingEndTime.format(timeFormatter)    // "7:30 PM"
                     ));
                 }
             }
 
         } else if (newItemType == ItemType.ROUTINE) {
             // --- Case 2: New item is a ROUTINE ---
-            // Check if its pattern, time, and active date range overlap with any other routine.
+            // Check if its pattern (days and time) overlaps with any other routine.
 
             if (request.getRoutineDetails() == null || request.getRoutineDetails().getPattern() == null ||
                     request.getRoutineDetails().getPattern().getDaysOfWeek() == null) {
@@ -362,8 +372,11 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             }
 
             // 1. Get new routine's details
+            // FIX: Re-introduced date check
             LocalDate newRoutineActiveStartDate = newItemTimeSlot.getStartTime().toLocalDate();
             LocalDate newRoutineActiveEndDate = newRoutineActiveStartDate.with(TemporalAdjusters.lastDayOfMonth());
+            // --- End of FIX ---
+
             LocalTime newRoutineTimeStart = newItemTimeSlot.getStartTime().toLocalTime();
             LocalTime newRoutineTimeEnd = newItemTimeSlot.getEndTime().toLocalTime();
             List<DayOfWeek> newDays = request.getRoutineDetails().getPattern().getDaysOfWeek().stream()
@@ -372,6 +385,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
 
             for (Routine existingRoutine : scheduledRoutines) {
                 // 1. Get existing routine's details
+                // FIX: Re-introduced date check
                 LocalDate existingActiveStartDate = existingRoutine.getTimeSlot().getStartTime().toLocalDate();
                 LocalDate existingActiveEndDate = existingActiveStartDate.with(TemporalAdjusters.lastDayOfMonth());
 
@@ -382,6 +396,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 if (!dateRangeOverlaps) {
                     continue; // Routines are active in different months, skip
                 }
+                // --- End of FIX ---
 
                 // 3. Check if they run on any of the same *days of the week*
                 List<DayOfWeek> existingDays = existingRoutine.getPattern().getDaysOfWeek();
@@ -396,11 +411,19 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 LocalTime existingEndTime = existingRoutine.getTimeSlot().getEndTime().toLocalTime();
 
                 if (timesOverlap(newRoutineTimeStart, newRoutineTimeEnd, existingStartTime, existingEndTime)) {
+                    // Find one of the overlapping days to show in the message
+                    String overlappingDay = newDays.stream()
+                            .filter(existingDays::contains)
+                            .findFirst()
+                            .map(day -> day.toString().charAt(0) + day.toString().substring(1).toLowerCase())
+                            .orElse("a recurring day"); // e.g., "Monday"
+
                     return Optional.of(String.format(
-                            "New routine pattern overlaps with existing routine '%s' (%s - %s)",
+                            "New routine pattern overlaps with existing routine '%s' on %s (%s - %s)",
                             existingRoutine.getName(),
-                            existingStartTime,
-                            existingEndTime
+                            overlappingDay,
+                            existingStartTime.format(timeFormatter),
+                            existingEndTime.format(timeFormatter)
                     ));
                 }
             }
@@ -938,22 +961,119 @@ public class CalendarItemServiceImpl implements CalendarItemService {
     }
 
     /**
-     * Validate constraints for update operation
-     * Excludes the current item from overlap checking
+     * Validate constraints for update operation.
+     * Excludes the current item from overlap checking.
+     * This method performs a custom overlap check to avoid self-collision.
+     *
+     * @param userId    The user's ID.
+     * @param itemId    The ID of the item being updated.
+     * @param startTime The new start time.
+     * @param endTime   The new end time.
+     * @param itemType  The item's type.
+     * @return A list of violation messages.
      */
     private List<String> validateConstraintsForUpdate(Long userId, Long itemId,
                                                       LocalDateTime startTime, LocalDateTime endTime,
                                                       ItemType itemType) {
-        List<String> violations = constraintValidationService.validateConstraints(
+
+        // --- FIX: ---
+        // 1. Call a method that validates *only* non-overlap constraints (like sleep, daily limits).
+        // We assume this method is named 'validateBaseConstraints'.
+        // We NO LONGER call the all-in-one 'validateConstraints' method here, as it
+        // would incorrectly find an overlap with the item itself.
+        List<String> violations = constraintValidationService.validateBaseConstraints(
                 userId, startTime, endTime, itemType);
 
-        // Filter out the current item from overlapping violations
-        List<CalendarItem> overlappingItems = calendarItemRepository
+        // Formatter for user-friendly times
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
+        DateTimeFormatter fullFormatter = DateTimeFormatter.ofPattern("MMM d, h:mm a");
+
+        // --- 2. Check for Overlaps with FIXED Items (Tasks/Events) ---
+
+        // Find all fixed items that overlap using the JPA query
+        List<CalendarItem> overlappingFixedItems = calendarItemRepository
                 .findOverlappingItems(userId, startTime, endTime);
 
-        // Remove the violation if only overlapping with itself
-        if (overlappingItems.size() == 1 && overlappingItems.get(0).getId().equals(itemId)) {
-            violations.removeIf(v -> v.contains(Constant.VALIDATION_OVERLAP_MESSAGE));
+        // Filter out the current item (self-overlap)
+        List<CalendarItem> actualFixedOverlaps = overlappingFixedItems.stream()
+                .filter(item -> !item.getId().equals(itemId)) // Exclude self
+                .collect(Collectors.toList());
+
+        if (!actualFixedOverlaps.isEmpty()) {
+            // Create a user-friendly list of overlapping items
+            String itemNames = actualFixedOverlaps.stream()
+                    .map(item -> {
+                        LocalDateTime itemStart = item.getTimeSlot().getStartTime();
+                        LocalDateTime itemEnd = item.getTimeSlot().getEndTime();
+                        String timeString;
+                        if (itemStart.toLocalDate().isEqual(itemEnd.toLocalDate())) {
+                            timeString = String.format("%s, %s - %s",
+                                    itemStart.format(DateTimeFormatter.ofPattern("MMM d")),
+                                    itemStart.format(timeFormatter),
+                                    itemEnd.format(timeFormatter)
+                            );
+                        } else {
+                            timeString = String.format("%s - %s",
+                                    itemStart.format(fullFormatter),
+                                    itemEnd.format(fullFormatter)
+                            );
+                        }
+                        return String.format("'%s' (%s)", item.getName(), timeString);
+                    })
+                    .limit(3)
+                    .reduce((a, b) -> a + ", " + b)
+                    .orElse("existing items");
+
+            violations.add(String.format(
+                    "Time slot overlaps with existing calendar items: %s", itemNames));
+        }
+
+        // --- 3. Check for Overlaps with RECURRING Items (Routines) ---
+
+        // This check is only needed if the item being updated is a TASK or EVENT.
+        // If the item being updated is a ROUTINE, its own dedicated
+        // 'updateRequestFindRoutineOverlap' method should be called instead.
+
+        if (itemType == ItemType.TASK || itemType == ItemType.EVENT) {
+
+            // Get all existing routines
+            List<Routine> scheduledRoutines = calendarItemRepository.findAllByUserId(userId).stream()
+                    .filter(item -> item instanceof Routine)
+                    .map(item -> (Routine) item)
+                    .filter(Routine::isScheduled) // Has a pattern and timeslot
+                    .collect(Collectors.toList());
+
+            // Note: No need to filter by 'itemId' here, because a TASK or EVENT
+            // can never have the same ID as a ROUTINE.
+
+            if (!scheduledRoutines.isEmpty()) {
+                DayOfWeek newDayOfWeek = startTime.toLocalDate().getDayOfWeek();
+                LocalTime newStartTime = startTime.toLocalTime();
+                LocalTime newEndTime = endTime.toLocalTime();
+
+                for (Routine existingRoutine : scheduledRoutines) {
+                    // 3a. Check if the routine runs on the same day of the week
+                    List<DayOfWeek> existingDays = existingRoutine.getPattern().getDaysOfWeek();
+                    if (existingDays.contains(newDayOfWeek)) {
+
+                        // 3b. Check if the times overlap
+                        LocalTime existingStartTime = existingRoutine.getTimeSlot().getStartTime().toLocalTime();
+                        LocalTime existingEndTime = existingRoutine.getTimeSlot().getEndTime().toLocalTime();
+
+                        // Assuming you have a 'timesOverlap' helper method
+                        if (timesOverlap(newStartTime, newEndTime, existingStartTime, existingEndTime)) {
+                            String friendlyDayOfWeek = newDayOfWeek.toString().substring(0, 1) + newDayOfWeek.toString().substring(1).toLowerCase();
+                            violations.add(String.format(
+                                    "Time slot overlaps with your recurring routine '%s' on %s (%s - %s)",
+                                    existingRoutine.getName(),
+                                    friendlyDayOfWeek,
+                                    existingStartTime.format(timeFormatter),
+                                    existingEndTime.format(timeFormatter)
+                            ));
+                        }
+                    }
+                }
+            }
         }
 
         return violations;

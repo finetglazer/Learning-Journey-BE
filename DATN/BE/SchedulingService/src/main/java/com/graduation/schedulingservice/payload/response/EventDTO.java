@@ -11,5 +11,6 @@ public class EventDTO {
     private String name;
     private LocalDate specificDate;
     private LocalTime startTime;
+    private LocalTime endTime;
     private Boolean isScheduled;
 }
