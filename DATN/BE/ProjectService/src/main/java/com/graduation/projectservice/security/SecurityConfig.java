@@ -23,6 +23,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/api/pm/projects/*/members/accept").permitAll()
+                        .requestMatchers("/api/pm/projects/*/members/decline").permitAll()
                         // ALL OTHER REQUESTS ARE ALLOWED (Gateway already validated)
                         .anyRequest().permitAll()
                 )

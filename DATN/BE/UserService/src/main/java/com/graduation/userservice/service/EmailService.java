@@ -44,4 +44,6 @@ public interface EmailService {
      * @throws Exception if email sending fails
      */
     void sendAccountLockedEmail(String email, String displayName) throws Exception;
+
+    void sendInvitationEmail(String email, String displayName, String projectName, String token) throws Exception;
 }
