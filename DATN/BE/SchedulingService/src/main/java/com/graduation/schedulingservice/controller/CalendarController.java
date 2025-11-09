@@ -7,10 +7,7 @@ import com.graduation.schedulingservice.service.CalendarService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
@@ -40,5 +37,13 @@ public class CalendarController {
                     new BaseResponse<>(0, Constant.MSG_CALENDARS_RETRIEVAL_FAILED, null)
             );
         }
+    }
+
+    @PostMapping("/{userId}/default-calendar")
+    public ResponseEntity<?> createDefaultCalendar(@PathVariable Long userId) {
+        log.info("Creating default calendar for user {}", userId);
+
+        BaseResponse<?> response = calendarService.createDefaultCalendar(userId);
+        return ResponseEntity.ok(response);
     }
 }

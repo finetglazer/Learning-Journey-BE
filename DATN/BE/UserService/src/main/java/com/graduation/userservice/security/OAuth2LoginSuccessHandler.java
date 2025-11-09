@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 @Component // <-- This tells Spring to create a bean of this class
 @RequiredArgsConstructor
@@ -48,6 +49,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         linkOAuthProvider(user, providerId, email);
 
         String token = jwtProvider.generateToken(user);
+        String refreshToken = jwtProvider.generateRefreshToken(user);
 
         UserSession session = UserSession.create(user.getId(), token);
         userSessionRepository.save(session);
@@ -55,6 +57,11 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
         String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/login-success")
                 .queryParam("token", token)
+                .queryParam("refreshToken", refreshToken)
+                .queryParam("userId", user.getId())
+                .queryParam("displayName", user.getDisplayName())
+                .queryParam("email", user.getEmail())
+                .encode(StandardCharsets.UTF_8)
                 .build().toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
