@@ -1,6 +1,8 @@
 package com.graduation.projectservice.payload.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.graduation.projectservice.model.enums.TaskPriority;
+import com.graduation.projectservice.model.enums.TaskStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -19,9 +21,9 @@ public class UpdateTaskRequest {
     @Size(max = 255, message = "Task name must not exceed 255 characters")
     private String name;
 
-    private String status;
+    private TaskStatus status;
 
-    private String priority;
+    private TaskPriority priority;
 
     @JsonProperty("start_date")
     private LocalDate startDate;
