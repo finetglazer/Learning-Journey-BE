@@ -72,4 +72,67 @@ public class Constant {
     public static final String ERROR_MILESTONE_NOT_FOUND = "Milestone not found";
     public static final String ERROR_MILESTONE_NOT_IN_PROJECT = "Milestone does not belong to this project";
 
+    // Deliverable Log Messages
+    public static final String LOG_CREATING_DELIVERABLE = "Creating deliverable for project {} by user {}";
+    public static final String LOG_DELIVERABLE_CREATED = "Deliverable {} (key: {}) created for project {}";
+    public static final String LOG_UPDATING_DELIVERABLE = "Updating deliverable {} for project {} by user {}";
+    public static final String LOG_DELIVERABLE_UPDATED = "Deliverable {} updated for project {}";
+    public static final String LOG_DELETING_DELIVERABLE = "Deleting deliverable {} for project {} by user {}";
+    public static final String LOG_DELIVERABLE_DELETED = "Deliverable {} deleted for project {}";
+    public static final String LOG_POST_DELIVERABLE_REQUEST = "POST /api/pm/projects/{}/deliverables request received from user {}";
+    public static final String LOG_PUT_DELIVERABLE_REQUEST = "PUT /api/pm/projects/{}/deliverables/{} request received from user {}";
+    public static final String LOG_DELETE_DELIVERABLE_REQUEST = "DELETE /api/pm/projects/{}/deliverables/{} request received from user {}";
+
+    // Deliverable Success Messages
+    public static final String DELIVERABLE_CREATED_SUCCESS = "Deliverable created";
+    public static final String DELIVERABLE_UPDATED_SUCCESS = "Deliverable updated";
+    public static final String DELIVERABLE_DELETED_SUCCESS = "Deliverable deleted";
+
+    // Deliverable Error Messages
+    public static final String ERROR_DELIVERABLE_NOT_FOUND = "Deliverable not found";
+    public static final String ERROR_DELIVERABLE_NOT_IN_PROJECT = "Deliverable does not belong to this project";
+
+    // Phase Log Messages
+    public static final String LOG_CREATING_PHASE = "Creating phase for deliverable {} in project {} by user {}";
+    public static final String LOG_PHASE_CREATED = "Phase {} (key: {}) created for deliverable {}";
+    public static final String LOG_UPDATING_PHASE = "Updating phase {} for project {} by user {}";
+    public static final String LOG_PHASE_UPDATED = "Phase {} updated for project {}";
+    public static final String LOG_DELETING_PHASE = "Deleting phase {} for project {} by user {}";
+    public static final String LOG_PHASE_DELETED = "Phase {} deleted for project {}";
+    public static final String LOG_POST_PHASE_REQUEST = "POST /api/pm/projects/{}/deliverables/{}/phases request received from user {}";
+    public static final String LOG_PUT_PHASE_REQUEST = "PUT /api/pm/projects/{}/phases/{} request received from user {}";
+    public static final String LOG_DELETE_PHASE_REQUEST = "DELETE /api/pm/projects/{}/phases/{} request received from user {}";
+
+    // Phase Success Messages
+    public static final String PHASE_CREATED_SUCCESS = "Phase created";
+    public static final String PHASE_UPDATED_SUCCESS = "Phase updated";
+    public static final String PHASE_DELETED_SUCCESS = "Phase deleted";
+
+    // Phase Error Messages
+    public static final String ERROR_PHASE_NOT_FOUND = "Phase not found";
+    public static final String ERROR_PHASE_NOT_IN_PROJECT = "Phase does not belong to this project";
+
+    // Task Log Messages
+    public static final String LOG_CREATING_TASK = "Creating task for phase {} in project {} by user {}";
+    public static final String LOG_TASK_CREATED = "Task {} (key: {}) created for phase {}";
+    public static final String LOG_UPDATING_TASK = "Updating task {} for project {} by user {}";
+    public static final String LOG_TASK_UPDATED = "Task {} updated for project {}";
+    public static final String LOG_DELETING_TASK = "Deleting task {} for project {} by user {}";
+    public static final String LOG_TASK_DELETED = "Task {} deleted for project {}";
+    public static final String LOG_UPDATING_TASK_STATUS = "Updating status for task {} in project {} by user {}";
+    public static final String LOG_TASK_STATUS_UPDATED = "Task {} status updated to '{}' for project {}";
+    public static final String LOG_POST_TASK_REQUEST = "POST /api/pm/projects/{}/phases/{}/tasks request received from user {}";
+    public static final String LOG_PUT_TASK_REQUEST = "PUT /api/pm/projects/{}/tasks/{} request received from user {}";
+    public static final String LOG_DELETE_TASK_REQUEST = "DELETE /api/pm/projects/{}/tasks/{} request received from user {}";
+    public static final String LOG_PUT_TASK_STATUS_REQUEST = "PUT /api/pm/projects/{}/tasks/{}/status request received from user {}";
+
+    // Task Success Messages
+    public static final String TASK_CREATED_SUCCESS = "Task created";
+    public static final String TASK_UPDATED_SUCCESS = "Task updated";
+    public static final String TASK_DELETED_SUCCESS = "Task deleted";
+    public static final String TASK_STATUS_UPDATED_SUCCESS = "Task status updated";
+
+    // Task Error Messages
+    public static final String ERROR_TASK_NOT_FOUND = "Task not found";
+    public static final String ERROR_TASK_NOT_IN_PROJECT = "Task does not belong to this project";
 }
