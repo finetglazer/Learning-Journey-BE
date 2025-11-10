@@ -2,6 +2,8 @@
 <project version="4">
   <component name="Encoding">
     <file url="file://$PROJECT_DIR$/DATN/BE/APIGatewayService/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/DATN/BE/ProjectService/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/DATN/BE/RiskService/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/DATN/BE/SagaOrchestratorService/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/DATN/BE/SchedulingService/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/DATN/BE/UserService/src/main/java" charset="UTF-8" />

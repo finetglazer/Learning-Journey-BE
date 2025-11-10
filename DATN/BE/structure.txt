@@ -1,0 +1,1001 @@
+Folder PATH listing for volume New Volume
+Volume serial number is A436-A6E9
+E:.
+¦   APIs.http
+¦   pom.xml
+¦   structure.txt
+¦   test branch
+¦   
++---APIGatewayService
+¦   ¦   .env
+¦   ¦   .gitattributes
+¦   ¦   .gitignore
+¦   ¦   Dockerfile
+¦   ¦   mvnw
+¦   ¦   mvnw.cmd
+¦   ¦   pom.xml
+¦   ¦   
+¦   +---.mvn
+¦   ¦   +---wrapper
+¦   ¦           maven-wrapper.properties
+¦   ¦           
+¦   +---src
+¦   ¦   +---main
+¦   ¦   ¦   +---java
+¦   ¦   ¦   ¦   +---com
+¦   ¦   ¦   ¦       +---graduation
+¦   ¦   ¦   ¦           +---apigatewayservice
+¦   ¦   ¦   ¦               ¦   api-tests.http
+¦   ¦   ¦   ¦               ¦   ApiGatewayServiceApplication.java
+¦   ¦   ¦   ¦               ¦   
+¦   ¦   ¦   ¦               +---config
+¦   ¦   ¦   ¦               ¦       FallbackController.java
+¦   ¦   ¦   ¦               ¦       GatewayConfig.java
+¦   ¦   ¦   ¦               ¦       GlobalErrorHandler.java
+¦   ¦   ¦   ¦               ¦       LoggingGlobalFilter.java
+¦   ¦   ¦   ¦               ¦       RateLimitGatewayFilter.java
+¦   ¦   ¦   ¦               ¦       RedisConfig.java
+¦   ¦   ¦   ¦               ¦       RouteConfig.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---constants
+¦   ¦   ¦   ¦               ¦       Constant.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---security
+¦   ¦   ¦   ¦                       JwtAuthenticationFilter.java
+¦   ¦   ¦   ¦                       JwtProvider.java
+¦   ¦   ¦   ¦                       TokenBlacklistService.java
+¦   ¦   ¦   ¦                       
+¦   ¦   ¦   +---resources
+¦   ¦   ¦           application-local.properties
+¦   ¦   ¦           application-product.properties
+¦   ¦   ¦           application.properties
+¦   ¦   ¦           
+¦   ¦   +---test
+¦   ¦       +---java
+¦   ¦           +---com
+¦   ¦               +---graduation
+¦   ¦                   +---apigatewayservice
+¦   ¦                           ApiGatewayServiceApplicationTests.java
+¦   ¦                           
+¦   +---target
+¦       +---classes
+¦       ¦   ¦   application-local.properties
+¦       ¦   ¦   application-product.properties
+¦       ¦   ¦   application.properties
+¦       ¦   ¦   
+¦       ¦   +---com
+¦       ¦       +---graduation
+¦       ¦           +---apigatewayservice
+¦       ¦               ¦   ApiGatewayServiceApplication.class
+¦       ¦               ¦   
+¦       ¦               +---config
+¦       ¦               ¦       FallbackController.class
+¦       ¦               ¦       GatewayConfig.class
+¦       ¦               ¦       GlobalErrorHandler$ErrorResponse.class
+¦       ¦               ¦       GlobalErrorHandler.class
+¦       ¦               ¦       LoggingGlobalFilter$RequestLogInfo.class
+¦       ¦               ¦       LoggingGlobalFilter$ResponseLogInfo.class
+¦       ¦               ¦       LoggingGlobalFilter.class
+¦       ¦               ¦       RateLimitGatewayFilter$ClientRateLimit.class
+¦       ¦               ¦       RateLimitGatewayFilter$Config.class
+¦       ¦               ¦       RateLimitGatewayFilter.class
+¦       ¦               ¦       RedisConfig.class
+¦       ¦               ¦       RouteConfig$CircuitBreakerConfig.class
+¦       ¦               ¦       RouteConfig$RouteRateLimitConfig.class
+¦       ¦               ¦       RouteConfig.class
+¦       ¦               ¦       
+¦       ¦               +---constants
+¦       ¦               ¦       Constant.class
+¦       ¦               ¦       
+¦       ¦               +---security
+¦       ¦                       JwtAuthenticationFilter.class
+¦       ¦                       JwtProvider.class
+¦       ¦                       TokenBlacklistService.class
+¦       ¦                       
+¦       +---generated-sources
+¦           +---annotations
++---ProjectService
+¦   ¦   .gitattributes
+¦   ¦   .gitignore
+¦   ¦   HELP.md
+¦   ¦   mvnw
+¦   ¦   mvnw.cmd
+¦   ¦   pom.xml
+¦   ¦   
+¦   +---.mvn
+¦   ¦   +---wrapper
+¦   ¦           maven-wrapper.properties
+¦   ¦           
+¦   +---src
+¦   ¦   +---main
+¦   ¦   ¦   +---java
+¦   ¦   ¦   ¦   +---com
+¦   ¦   ¦   ¦       +---graduation
+¦   ¦   ¦   ¦           +---projectservice
+¦   ¦   ¦   ¦               ¦   ProjectServiceApplication.java
+¦   ¦   ¦   ¦               ¦   
+¦   ¦   ¦   ¦               +---client
+¦   ¦   ¦   ¦               ¦       UserServiceClient.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---config
+¦   ¦   ¦   ¦               ¦       AppConfig.java
+¦   ¦   ¦   ¦               ¦       RedisConfig.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---constant
+¦   ¦   ¦   ¦               ¦       Constant.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---controller
+¦   ¦   ¦   ¦               ¦       ProjectController.java
+¦   ¦   ¦   ¦               ¦       ProjectMemberController.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---exception
+¦   ¦   ¦   ¦               ¦       ForbiddenException.java
+¦   ¦   ¦   ¦               ¦       GlobalExceptionHandler.java
+¦   ¦   ¦   ¦               ¦       NotFoundException.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---helper
+¦   ¦   ¦   ¦               ¦       ProjectAuthorizationHelper.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---model
+¦   ¦   ¦   ¦               ¦       PM_Project.java
+¦   ¦   ¦   ¦               ¦       PM_ProjectMember.java
+¦   ¦   ¦   ¦               ¦       ProjectMemberKey.java
+¦   ¦   ¦   ¦               ¦       ProjectMembershipRole.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---payload
+¦   ¦   ¦   ¦               ¦   +---request
+¦   ¦   ¦   ¦               ¦   ¦       AcceptInvitationRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       AddMemberRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       CreateProjectRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       DeclineInvitationRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       UpdateMemberRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       UpdateProjectRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       
+¦   ¦   ¦   ¦               ¦   +---response
+¦   ¦   ¦   ¦               ¦           BaseResponse.java
+¦   ¦   ¦   ¦               ¦           MemberResponse.java
+¦   ¦   ¦   ¦               ¦           ProjectDTO.java
+¦   ¦   ¦   ¦               ¦           ProjectListResponse.java
+¦   ¦   ¦   ¦               ¦           UserBatchDTO.java
+¦   ¦   ¦   ¦               ¦           
+¦   ¦   ¦   ¦               +---repository
+¦   ¦   ¦   ¦               ¦       ProjectMemberRepository.java
+¦   ¦   ¦   ¦               ¦       ProjectRepository.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---security
+¦   ¦   ¦   ¦               ¦       HeaderAuthenticationFilter.java
+¦   ¦   ¦   ¦               ¦       InternalApiKeyFilter.java
+¦   ¦   ¦   ¦               ¦       SecurityConfig.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---service
+¦   ¦   ¦   ¦                   ¦   LockMonitoringService.java
+¦   ¦   ¦   ¦                   ¦   ProjectMemberService.java
+¦   ¦   ¦   ¦                   ¦   ProjectService.java
+¦   ¦   ¦   ¦                   ¦   RedisLockService.java
+¦   ¦   ¦   ¦                   ¦   
+¦   ¦   ¦   ¦                   +---impl
+¦   ¦   ¦   ¦                           ProjectMemberServiceImpl.java
+¦   ¦   ¦   ¦                           ProjectServiceImpl.java
+¦   ¦   ¦   ¦                           
+¦   ¦   ¦   +---resources
+¦   ¦   ¦           application-local.properties
+¦   ¦   ¦           application.properties
+¦   ¦   ¦           
+¦   ¦   +---test
+¦   ¦       +---java
+¦   ¦           +---com
+¦   ¦               +---graduation
+¦   ¦                   +---projectservice
+¦   ¦                           ProjectServiceApplicationTests.java
+¦   ¦                           
+¦   +---target
+¦       ¦   ProjectService-0.0.1-SNAPSHOT.jar
+¦       ¦   ProjectService-0.0.1-SNAPSHOT.jar.original
+¦       ¦   
+¦       +---classes
+¦       ¦   ¦   application-local.properties
+¦       ¦   ¦   application.properties
+¦       ¦   ¦   
+¦       ¦   +---com
+¦       ¦       +---graduation
+¦       ¦           +---projectservice
+¦       ¦               ¦   ProjectServiceApplication.class
+¦       ¦               ¦   
+¦       ¦               +---client
+¦       ¦               ¦       UserServiceClient$1.class
+¦       ¦               ¦       UserServiceClient$2.class
+¦       ¦               ¦       UserServiceClient.class
+¦       ¦               ¦       
+¦       ¦               +---config
+¦       ¦               ¦       AppConfig.class
+¦       ¦               ¦       RedisConfig.class
+¦       ¦               ¦       
+¦       ¦               +---constant
+¦       ¦               ¦       Constant.class
+¦       ¦               ¦       
+¦       ¦               +---controller
+¦       ¦               ¦       ProjectController.class
+¦       ¦               ¦       ProjectMemberController.class
+¦       ¦               ¦       
+¦       ¦               +---exception
+¦       ¦               ¦       ForbiddenException.class
+¦       ¦               ¦       GlobalExceptionHandler.class
+¦       ¦               ¦       NotFoundException.class
+¦       ¦               ¦       
+¦       ¦               +---helper
+¦       ¦               ¦       ProjectAuthorizationHelper.class
+¦       ¦               ¦       
+¦       ¦               +---model
+¦       ¦               ¦       PM_Project.class
+¦       ¦               ¦       PM_ProjectMember.class
+¦       ¦               ¦       ProjectMemberKey.class
+¦       ¦               ¦       ProjectMembershipRole.class
+¦       ¦               ¦       
+¦       ¦               +---payload
+¦       ¦               ¦   +---request
+¦       ¦               ¦   ¦       AcceptInvitationRequest.class
+¦       ¦               ¦   ¦       AddMemberRequest.class
+¦       ¦               ¦   ¦       CreateProjectRequest.class
+¦       ¦               ¦   ¦       DeclineInvitationRequest.class
+¦       ¦               ¦   ¦       UpdateMemberRequest.class
+¦       ¦               ¦   ¦       UpdateProjectRequest.class
+¦       ¦               ¦   ¦       
+¦       ¦               ¦   +---response
+¦       ¦               ¦           BaseResponse.class
+¦       ¦               ¦           MemberResponse$MemberResponseBuilder.class
+¦       ¦               ¦           MemberResponse.class
+¦       ¦               ¦           ProjectDTO.class
+¦       ¦               ¦           ProjectListResponse.class
+¦       ¦               ¦           UserBatchDTO.class
+¦       ¦               ¦           
+¦       ¦               +---repository
+¦       ¦               ¦       ProjectMemberRepository.class
+¦       ¦               ¦       ProjectRepository.class
+¦       ¦               ¦       
+¦       ¦               +---security
+¦       ¦               ¦       HeaderAuthenticationFilter.class
+¦       ¦               ¦       InternalApiKeyFilter.class
+¦       ¦               ¦       SecurityConfig.class
+¦       ¦               ¦       
+¦       ¦               +---service
+¦       ¦                   ¦   LockMonitoringService.class
+¦       ¦                   ¦   ProjectMemberService.class
+¦       ¦                   ¦   ProjectService.class
+¦       ¦                   ¦   RedisLockService.class
+¦       ¦                   ¦   
+¦       ¦                   +---impl
+¦       ¦                           ProjectMemberServiceImpl.class
+¦       ¦                           ProjectServiceImpl.class
+¦       ¦                           
+¦       +---generated-sources
+¦       ¦   +---annotations
+¦       +---generated-test-sources
+¦       ¦   +---test-annotations
+¦       +---maven-archiver
+¦       ¦       pom.properties
+¦       ¦       
+¦       +---maven-status
+¦       ¦   +---maven-compiler-plugin
+¦       ¦       +---compile
+¦       ¦       ¦   +---default-compile
+¦       ¦       ¦           createdFiles.lst
+¦       ¦       ¦           inputFiles.lst
+¦       ¦       ¦           
+¦       ¦       +---testCompile
+¦       ¦           +---default-testCompile
+¦       ¦                   createdFiles.lst
+¦       ¦                   inputFiles.lst
+¦       ¦                   
+¦       +---surefire-reports
+¦       ¦       2025-11-07T11-13-00_474.dumpstream
+¦       ¦       com.graduation.projectservice.ProjectServiceApplicationTests.txt
+¦       ¦       TEST-com.graduation.projectservice.ProjectServiceApplicationTests.xml
+¦       ¦       
+¦       +---test-classes
+¦           +---com
+¦               +---graduation
+¦                   +---projectservice
+¦                           ProjectServiceApplicationTests.class
+¦                           
++---SagaOrchestratorService
+¦   ¦   .gitattributes
+¦   ¦   .gitignore
+¦   ¦   Dockerfile
+¦   ¦   mvnw
+¦   ¦   mvnw.cmd
+¦   ¦   pom.xml
+¦   ¦   
+¦   +---.mvn
+¦   ¦   +---wrapper
+¦   ¦           maven-wrapper.properties
+¦   ¦           
+¦   +---src
+¦       +---main
+¦       ¦   +---java
+¦       ¦   ¦   +---com
+¦       ¦   ¦       +---graduation
+¦       ¦   ¦           +---sagaorchestratorservice
+¦       ¦   ¦               ¦   SagaOrchestratorServiceApplication.java
+¦       ¦   ¦               ¦   
+¦       ¦   ¦               +---config
+¦       ¦   ¦               ¦       KafkaConfig.java
+¦       ¦   ¦               ¦       RedisConfig.java
+¦       ¦   ¦               ¦       
+¦       ¦   ¦               +---constants
+¦       ¦   ¦               ¦       Constant.java
+¦       ¦   ¦               ¦       
+¦       ¦   ¦               +---controller
+¦       ¦   ¦               ¦       SagaController.java
+¦       ¦   ¦               ¦       
+¦       ¦   ¦               +---exception
+¦       ¦   ¦               ¦       SagaExecutionException.java
+¦       ¦   ¦               ¦       SagaNotFoundException.java
+¦       ¦   ¦               ¦       
+¦       ¦   ¦               +---handler
+¦       ¦   ¦               ¦       OrderEventHandler.java
+¦       ¦   ¦               ¦       PaymentEventHandler.java
+¦       ¦   ¦               ¦       SagaEventHandler.java
+¦       ¦   ¦               ¦       
+¦       ¦   ¦               +---listener
+¦       ¦   ¦               ¦       SagaOrchestratorKafkaListener.java
+¦       ¦   ¦               ¦       
+¦       ¦   ¦               +---model
+¦       ¦   ¦               ¦   ¦   OrderPurchaseSagaState.java
+¦       ¦   ¦               ¦   ¦   ProcessedMessage.java
+¦       ¦   ¦               ¦   ¦   SagaEvent.java
+¦       ¦   ¦               ¦   ¦   
+¦       ¦   ¦               ¦   +---enums
+¦       ¦   ¦               ¦           ActionType.java
+¦       ¦   ¦               ¦           CommandType.java
+¦       ¦   ¦               ¦           EventType.java
+¦       ¦   ¦               ¦           OrderPurchaseSagaStep.java
+¦       ¦   ¦               ¦           SagaStatus.java
+¦       ¦   ¦               ¦           
+¦       ¦   ¦               +---payload
+¦       ¦   ¦               ¦       request.java
+¦       ¦   ¦               ¦       response.java
+¦       ¦   ¦               ¦       
+¦       ¦   ¦               +---repository
+¦       ¦   ¦               ¦       OrderPurchaseSagaStateRepository.java
+¦       ¦   ¦               ¦       ProcessedMessageRepository.java
+¦       ¦   ¦               ¦       
+¦       ¦   ¦               +---scheduler
+¦       ¦   ¦               ¦       SagaTimeoutScheduler.java
+¦       ¦   ¦               ¦       
+¦       ¦   ¦               +---service
+¦       ¦   ¦               ¦       IdempotencyService.java
+¦       ¦   ¦               ¦       KafkaMessagePublisher.java
+¦       ¦   ¦               ¦       LockMonitoringService.java
+¦       ¦   ¦               ¦       OrderPurchaseSagaService.java
+¦       ¦   ¦               ¦       RedisLockService.java
+¦       ¦   ¦               ¦       SagaMonitoringService.java
+¦       ¦   ¦               ¦       
+¦       ¦   ¦               +---utils
+¦       ¦   ¦                       MessageIdGenerator.java
+¦       ¦   ¦                       SagaIdGenerator.java
+¦       ¦   ¦                       
+¦       ¦   +---resources
+¦       ¦           application-local.properties
+¦       ¦           application-product.properties
+¦       ¦           application.properties
+¦       ¦           banner.txt
+¦       ¦           
+¦       +---test
+¦           +---java
+¦               +---com
+¦                   +---graduation
+¦                       +---sagaorchestratorservice
+¦                               SagaOrchestratorServiceApplicationTests.java
+¦                               
++---SchedulingService
+¦   ¦   .env
+¦   ¦   .gitattributes
+¦   ¦   .gitignore
+¦   ¦   Dockerfile
+¦   ¦   mvnw
+¦   ¦   mvnw.cmd
+¦   ¦   pom.xml
+¦   ¦   
+¦   +---.mvn
+¦   ¦   +---wrapper
+¦   ¦           maven-wrapper.properties
+¦   ¦           
+¦   +---src
+¦   ¦   +---main
+¦   ¦   ¦   +---java
+¦   ¦   ¦   ¦   +---com
+¦   ¦   ¦   ¦       +---graduation
+¦   ¦   ¦   ¦           +---schedulingservice
+¦   ¦   ¦   ¦               ¦   SchedulingServiceApplication.java
+¦   ¦   ¦   ¦               ¦   
+¦   ¦   ¦   ¦               +---client
+¦   ¦   ¦   ¦               ¦       UserServiceClient.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---config
+¦   ¦   ¦   ¦               ¦       AppConfig.java
+¦   ¦   ¦   ¦               ¦       PaymentServiceKafkaConfig.java
+¦   ¦   ¦   ¦               ¦       RedisConfig.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---constant
+¦   ¦   ¦   ¦               ¦       Constant.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---controller
+¦   ¦   ¦   ¦               ¦       CalendarController.java
+¦   ¦   ¦   ¦               ¦       CalendarItemController.java
+¦   ¦   ¦   ¦               ¦       InternalUserController.java
+¦   ¦   ¦   ¦               ¦       MonthPlanController.java
+¦   ¦   ¦   ¦               ¦       UnscheduledItemsController.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---exception
+¦   ¦   ¦   ¦               ¦       GlobalExceptionHandler.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---listener
+¦   ¦   ¦   ¦               ¦       PaymentServiceKafkaListener.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---model
+¦   ¦   ¦   ¦               ¦   ¦   BigTask.java
+¦   ¦   ¦   ¦               ¦   ¦   Calendar.java
+¦   ¦   ¦   ¦               ¦   ¦   CalendarItem.java
+¦   ¦   ¦   ¦               ¦   ¦   Event.java
+¦   ¦   ¦   ¦               ¦   ¦   MonthPlan.java
+¦   ¦   ¦   ¦               ¦   ¦   ProcessedMessage.java
+¦   ¦   ¦   ¦               ¦   ¦   RecurringPattern.java
+¦   ¦   ¦   ¦               ¦   ¦   Routine.java
+¦   ¦   ¦   ¦               ¦   ¦   Subtask.java
+¦   ¦   ¦   ¦               ¦   ¦   Task.java
+¦   ¦   ¦   ¦               ¦   ¦   TimeRange.java
+¦   ¦   ¦   ¦               ¦   ¦   TimeSlot.java
+¦   ¦   ¦   ¦               ¦   ¦   WeekPlan.java
+¦   ¦   ¦   ¦               ¦   ¦   
+¦   ¦   ¦   ¦               ¦   +---enums
+¦   ¦   ¦   ¦               ¦           CalendarType.java
+¦   ¦   ¦   ¦               ¦           EventType.java
+¦   ¦   ¦   ¦               ¦           ItemStatus.java
+¦   ¦   ¦   ¦               ¦           ItemType.java
+¦   ¦   ¦   ¦               ¦           PlanStatus.java
+¦   ¦   ¦   ¦               ¦           TaskPriority.java
+¦   ¦   ¦   ¦               ¦           TaskStatus.java
+¦   ¦   ¦   ¦               ¦           
+¦   ¦   ¦   ¦               +---payload
+¦   ¦   ¦   ¦               ¦   +---request
+¦   ¦   ¦   ¦               ¦   ¦       AddBigTaskRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       AddEventRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       AddUnscheduledTaskRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       BatchScheduleRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       CreateCalendarItemRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       CreateMonthPlanRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       EventDetailsDTO.java
+¦   ¦   ¦   ¦               ¦   ¦       RecurringPatternDTO.java
+¦   ¦   ¦   ¦               ¦   ¦       RoutineDetailsDTO.java
+¦   ¦   ¦   ¦               ¦   ¦       TaskDetailsDTO.java
+¦   ¦   ¦   ¦               ¦   ¦       TimeSlotDTO.java
+¦   ¦   ¦   ¦               ¦   ¦       TimezoneConversionRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       UnscheduledTaskDTO.java
+¦   ¦   ¦   ¦               ¦   ¦       UpdateBigTaskRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       UpdateCalendarItemRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       UpdateRoutineListRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       UpdateUnscheduledTaskRequest.java
+¦   ¦   ¦   ¦               ¦   ¦       
+¦   ¦   ¦   ¦               ¦   +---response
+¦   ¦   ¦   ¦               ¦           AddBigTaskResponse.java
+¦   ¦   ¦   ¦               ¦           AddEventResponse.java
+¦   ¦   ¦   ¦               ¦           BaseResponse.java
+¦   ¦   ¦   ¦               ¦           BatchScheduleResponse.java
+¦   ¦   ¦   ¦               ¦           BigTaskDTO.java
+¦   ¦   ¦   ¦               ¦           CalendarItemResponseDTO.java
+¦   ¦   ¦   ¦               ¦           CalendarListResponse.java
+¦   ¦   ¦   ¦               ¦           CalendarResponse.java
+¦   ¦   ¦   ¦               ¦           CreateItemResponse.java
+¦   ¦   ¦   ¦               ¦           CreateMonthPlanResponse.java
+¦   ¦   ¦   ¦               ¦           DateRangeDTO.java
+¦   ¦   ¦   ¦               ¦           EventDTO.java
+¦   ¦   ¦   ¦               ¦           GetBigTaskResponseDTO.java
+¦   ¦   ¦   ¦               ¦           GoogleCloudSDKInstaller.exe
+¦   ¦   ¦   ¦               ¦           ItemsByDateRangeResponse.java
+¦   ¦   ¦   ¦               ¦           MonthGroupDTO.java
+¦   ¦   ¦   ¦               ¦           MonthMismatchErrorDetails.java
+¦   ¦   ¦   ¦               ¦           MonthPlanErrorResponse.java
+¦   ¦   ¦   ¦               ¦           MonthPlanResponse.java
+¦   ¦   ¦   ¦               ¦           PreviousTimingDTO.java
+¦   ¦   ¦   ¦               ¦           RecurringPatternResponseDTO.java
+¦   ¦   ¦   ¦               ¦           RoutineErrorDetails.java
+¦   ¦   ¦   ¦               ¦           ScheduledItemDTO.java
+¦   ¦   ¦   ¦               ¦           SubtaskDTO.java
+¦   ¦   ¦   ¦               ¦           SuggestedSubtaskDTO.java
+¦   ¦   ¦   ¦               ¦           TaskErrorDetails.java
+¦   ¦   ¦   ¦               ¦           TimeRangeDTO.java
+¦   ¦   ¦   ¦               ¦           TimeSlotResponseDTO.java
+¦   ¦   ¦   ¦               ¦           UnscheduledItemsGroupedResponse.java
+¦   ¦   ¦   ¦               ¦           UnscheduledItemsResponse.java
+¦   ¦   ¦   ¦               ¦           UnscheduledRoutineDTO.java
+¦   ¦   ¦   ¦               ¦           UnscheduledTaskDTO.java
+¦   ¦   ¦   ¦               ¦           UnscheduledTaskResponseDTO.java
+¦   ¦   ¦   ¦               ¦           UpdateRoutineListResponse.java
+¦   ¦   ¦   ¦               ¦           UserConstraintsDTO.java
+¦   ¦   ¦   ¦               ¦           WeekPlanDTO.java
+¦   ¦   ¦   ¦               ¦           
+¦   ¦   ¦   ¦               +---repository
+¦   ¦   ¦   ¦               ¦       BigTaskRepository.java
+¦   ¦   ¦   ¦               ¦       CalendarItemRepository.java
+¦   ¦   ¦   ¦               ¦       CalendarRepository.java
+¦   ¦   ¦   ¦               ¦       MonthPlanRepository.java
+¦   ¦   ¦   ¦               ¦       ProcessedMessageRepository.java
+¦   ¦   ¦   ¦               ¦       WeekPlanRepository.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---security
+¦   ¦   ¦   ¦               ¦       InternalApiKeyFilter.java
+¦   ¦   ¦   ¦               ¦       SecurityConfig.java
+¦   ¦   ¦   ¦               ¦       
+¦   ¦   ¦   ¦               +---service
+¦   ¦   ¦   ¦                   ¦   CalendarItemService.java
+¦   ¦   ¦   ¦                   ¦   CalendarService.java
+¦   ¦   ¦   ¦                   ¦   ConstraintValidationService.java
+¦   ¦   ¦   ¦                   ¦   IdempotencyService.java
+¦   ¦   ¦   ¦                   ¦   LockMonitoringService.java
+¦   ¦   ¦   ¦                   ¦   MonthPlanService.java
+¦   ¦   ¦   ¦                   ¦   PaymentCommandHandlerService.java
+¦   ¦   ¦   ¦                   ¦   RedisLockService.java
+¦   ¦   ¦   ¦                   ¦   UnscheduledItemsService.java
+¦   ¦   ¦   ¦                   ¦   
+¦   ¦   ¦   ¦                   +---impl
+¦   ¦   ¦   ¦                           CalendarItemServiceImpl.java
+¦   ¦   ¦   ¦                           CalendarServiceImpl.java
+¦   ¦   ¦   ¦                           MonthPlanServiceImpl.java
+¦   ¦   ¦   ¦                           UnscheduledItemsServiceImpl.java
+¦   ¦   ¦   ¦                           
+¦   ¦   ¦   +---resources
+¦   ¦   ¦           application-local.properties
+¦   ¦   ¦           application-product.properties
+¦   ¦   ¦           application.properties
+¦   ¦   ¦           banner.txt
+¦   ¦   ¦           
+¦   ¦   +---test
+¦   ¦       +---java
+¦   ¦           +---com
+¦   ¦               +---graduation
+¦   ¦                   +---schedulingservice
+¦   ¦                       ¦   SchedulingServiceApplicationTests.java
+¦   ¦                       ¦   
+¦   ¦                       +---service
+¦   ¦                               PaymentProcessHandlerTest.java
+¦   ¦                               PaymentReverseHandlerTest.java
+¦   ¦                               
+¦   +---target
+¦       +---classes
+¦       ¦   ¦   application-local.properties
+¦       ¦   ¦   application-product.properties
+¦       ¦   ¦   application.properties
+¦       ¦   ¦   banner.txt
+¦       ¦   ¦   
+¦       ¦   +---com
+¦       ¦       +---graduation
+¦       ¦           +---schedulingservice
+¦       ¦               ¦   SchedulingServiceApplication.class
+¦       ¦               ¦   
+¦       ¦               +---client
+¦       ¦               ¦       UserServiceClient.class
+¦       ¦               ¦       
+¦       ¦               +---config
+¦       ¦               ¦       AppConfig.class
+¦       ¦               ¦       RedisConfig.class
+¦       ¦               ¦       
+¦       ¦               +---constant
+¦       ¦               ¦       Constant.class
+¦       ¦               ¦       
+¦       ¦               +---controller
+¦       ¦               ¦       CalendarController.class
+¦       ¦               ¦       CalendarItemController.class
+¦       ¦               ¦       InternalUserController.class
+¦       ¦               ¦       MonthPlanController.class
+¦       ¦               ¦       UnscheduledItemsController.class
+¦       ¦               ¦       
+¦       ¦               +---exception
+¦       ¦               ¦       GlobalExceptionHandler.class
+¦       ¦               ¦       
+¦       ¦               +---model
+¦       ¦               ¦   ¦   BigTask.class
+¦       ¦               ¦   ¦   Calendar.class
+¦       ¦               ¦   ¦   CalendarItem.class
+¦       ¦               ¦   ¦   Event.class
+¦       ¦               ¦   ¦   MonthPlan.class
+¦       ¦               ¦   ¦   ProcessedMessage$ProcessStatus.class
+¦       ¦               ¦   ¦   ProcessedMessage.class
+¦       ¦               ¦   ¦   RecurringPattern.class
+¦       ¦               ¦   ¦   Routine.class
+¦       ¦               ¦   ¦   Subtask.class
+¦       ¦               ¦   ¦   Task.class
+¦       ¦               ¦   ¦   TimeRange.class
+¦       ¦               ¦   ¦   TimeSlot.class
+¦       ¦               ¦   ¦   WeekPlan.class
+¦       ¦               ¦   ¦   
+¦       ¦               ¦   +---enums
+¦       ¦               ¦           CalendarType.class
+¦       ¦               ¦           ItemStatus.class
+¦       ¦               ¦           ItemType.class
+¦       ¦               ¦           PlanStatus.class
+¦       ¦               ¦           TaskStatus.class
+¦       ¦               ¦           
+¦       ¦               +---payload
+¦       ¦               ¦   +---request
+¦       ¦               ¦   ¦       AddBigTaskRequest.class
+¦       ¦               ¦   ¦       AddEventRequest.class
+¦       ¦               ¦   ¦       AddUnscheduledTaskRequest.class
+¦       ¦               ¦   ¦       BatchScheduleRequest$ItemToSchedule.class
+¦       ¦               ¦   ¦       BatchScheduleRequest.class
+¦       ¦               ¦   ¦       CreateCalendarItemRequest.class
+¦       ¦               ¦   ¦       CreateMonthPlanRequest.class
+¦       ¦               ¦   ¦       EventDetailsDTO.class
+¦       ¦               ¦   ¦       RecurringPatternDTO.class
+¦       ¦               ¦   ¦       RoutineDetailsDTO.class
+¦       ¦               ¦   ¦       TaskDetailsDTO.class
+¦       ¦               ¦   ¦       TimeSlotDTO.class
+¦       ¦               ¦   ¦       TimezoneConversionRequest.class
+¦       ¦               ¦   ¦       UnscheduledTaskDTO.class
+¦       ¦               ¦   ¦       UpdateBigTaskRequest.class
+¦       ¦               ¦   ¦       UpdateCalendarItemRequest.class
+¦       ¦               ¦   ¦       UpdateRoutineListRequest.class
+¦       ¦               ¦   ¦       UpdateUnscheduledTaskRequest.class
+¦       ¦               ¦   ¦       
+¦       ¦               ¦   +---response
+¦       ¦               ¦           AddBigTaskResponse.class
+¦       ¦               ¦           AddEventResponse.class
+¦       ¦               ¦           BaseResponse.class
+¦       ¦               ¦           BatchScheduleResponse.class
+¦       ¦               ¦           BigTaskDTO.class
+¦       ¦               ¦           CalendarItemResponseDTO.class
+¦       ¦               ¦           CalendarListResponse.class
+¦       ¦               ¦           CalendarResponse.class
+¦       ¦               ¦           CreateItemResponse.class
+¦       ¦               ¦           CreateMonthPlanResponse.class
+¦       ¦               ¦           DateRangeDTO.class
+¦       ¦               ¦           EventDTO.class
+¦       ¦               ¦           GetBigTaskResponseDTO.class
+¦       ¦               ¦           ItemsByDateRangeResponse.class
+¦       ¦               ¦           MonthGroupDTO.class
+¦       ¦               ¦           MonthMismatchErrorDetails.class
+¦       ¦               ¦           MonthPlanErrorResponse.class
+¦       ¦               ¦           MonthPlanResponse.class
+¦       ¦               ¦           PreviousTimingDTO.class
+¦       ¦               ¦           RecurringPatternResponseDTO.class
+¦       ¦               ¦           RoutineErrorDetails.class
+¦       ¦               ¦           ScheduledItemDTO.class
+¦       ¦               ¦           SubtaskDTO.class
+¦       ¦               ¦           SuggestedSubtaskDTO.class
+¦       ¦               ¦           TaskErrorDetails.class
+¦       ¦               ¦           TimeRangeDTO.class
+¦       ¦               ¦           TimeSlotResponseDTO.class
+¦       ¦               ¦           UnscheduledItemsGroupedResponse.class
+¦       ¦               ¦           UnscheduledItemsResponse.class
+¦       ¦               ¦           UnscheduledRoutineDTO.class
+¦       ¦               ¦           UnscheduledTaskDTO.class
+¦       ¦               ¦           UnscheduledTaskResponseDTO.class
+¦       ¦               ¦           UpdateRoutineListResponse.class
+¦       ¦               ¦           UserConstraintsDTO.class
+¦       ¦               ¦           WeekPlanDTO.class
+¦       ¦               ¦           
+¦       ¦               +---repository
+¦       ¦               ¦       BigTaskRepository.class
+¦       ¦               ¦       CalendarItemRepository.class
+¦       ¦               ¦       CalendarRepository.class
+¦       ¦               ¦       MonthPlanRepository.class
+¦       ¦               ¦       ProcessedMessageRepository.class
+¦       ¦               ¦       WeekPlanRepository.class
+¦       ¦               ¦       
+¦       ¦               +---security
+¦       ¦               ¦       InternalApiKeyFilter.class
+¦       ¦               ¦       SecurityConfig.class
+¦       ¦               ¦       
+¦       ¦               +---service
+¦       ¦                   ¦   CalendarItemService.class
+¦       ¦                   ¦   CalendarService.class
+¦       ¦                   ¦   ConstraintValidationService.class
+¦       ¦                   ¦   IdempotencyService.class
+¦       ¦                   ¦   LockMonitoringService.class
+¦       ¦                   ¦   MonthPlanService.class
+¦       ¦                   ¦   RedisLockService.class
+¦       ¦                   ¦   UnscheduledItemsService.class
+¦       ¦                   ¦   
+¦       ¦                   +---impl
+¦       ¦                           CalendarItemServiceImpl$1.class
+¦       ¦                           CalendarItemServiceImpl.class
+¦       ¦                           CalendarServiceImpl.class
+¦       ¦                           MonthPlanServiceImpl.class
+¦       ¦                           UnscheduledItemsServiceImpl.class
+¦       ¦                           
+¦       +---generated-sources
+¦           +---annotations
++---UserService
+    ¦   .env
+    ¦   .gitattributes
+    ¦   .gitignore
+    ¦   Dockerfile
+    ¦   Dockerfile.base
+    ¦   mvnw
+    ¦   mvnw.cmd
+    ¦   pom.xml
+    ¦   
+    +---.mvn
+    ¦   +---wrapper
+    ¦           maven-wrapper.properties
+    ¦           
+    +---src
+    ¦   +---main
+    ¦   ¦   +---java
+    ¦   ¦   ¦   +---com
+    ¦   ¦   ¦       +---graduation
+    ¦   ¦   ¦           +---userservice
+    ¦   ¦   ¦               ¦   UserServiceApplication.java
+    ¦   ¦   ¦               ¦   
+    ¦   ¦   ¦               +---client
+    ¦   ¦   ¦               ¦       SchedulingServiceClient.java
+    ¦   ¦   ¦               ¦       
+    ¦   ¦   ¦               +---config
+    ¦   ¦   ¦               ¦       OrderServiceKafkaConfig.java
+    ¦   ¦   ¦               ¦       RedisConfig.java
+    ¦   ¦   ¦               ¦       RedisConnectionTest.java
+    ¦   ¦   ¦               ¦       RestClientConfig.java
+    ¦   ¦   ¦               ¦       
+    ¦   ¦   ¦               +---constant
+    ¦   ¦   ¦               ¦       Constant.java
+    ¦   ¦   ¦               ¦       
+    ¦   ¦   ¦               +---controller
+    ¦   ¦   ¦               ¦       AuthController.java
+    ¦   ¦   ¦               ¦       InternalUserController.java
+    ¦   ¦   ¦               ¦       UserConstraintsInternalController.java
+    ¦   ¦   ¦               ¦       UserSettingsController.java
+    ¦   ¦   ¦               ¦       
+    ¦   ¦   ¦               +---event
+    ¦   ¦   ¦               ¦   ¦   InvitationSentEvent.java
+    ¦   ¦   ¦               ¦   ¦   PasswordResetRequestedEvent.java
+    ¦   ¦   ¦               ¦   ¦   RegistrationCompleteEvent.java
+    ¦   ¦   ¦               ¦   ¦   
+    ¦   ¦   ¦               ¦   +---listener
+    ¦   ¦   ¦               ¦           InvitationSentListener.java
+    ¦   ¦   ¦               ¦           PasswordResetListener.java
+    ¦   ¦   ¦               ¦           UserRegistrationListener.java
+    ¦   ¦   ¦               ¦           
+    ¦   ¦   ¦               +---listener
+    ¦   ¦   ¦               ¦       OrderServiceKafkaListener.java
+    ¦   ¦   ¦               ¦       
+    ¦   ¦   ¦               +---model
+    ¦   ¦   ¦               ¦       EmailVerification.java
+    ¦   ¦   ¦               ¦       InvitationToken.java
+    ¦   ¦   ¦               ¦       OAuthProvider.java
+    ¦   ¦   ¦               ¦       PasswordResetToken.java
+    ¦   ¦   ¦               ¦       ProcessedMessage.java
+    ¦   ¦   ¦               ¦       TimeRange.java
+    ¦   ¦   ¦               ¦       User.java
+    ¦   ¦   ¦               ¦       UserConstraints.java
+    ¦   ¦   ¦               ¦       UserSession.java
+    ¦   ¦   ¦               ¦       
+    ¦   ¦   ¦               +---payload
+    ¦   ¦   ¦               ¦   +---request
+    ¦   ¦   ¦               ¦   ¦       ChangePasswordRequest.java
+    ¦   ¦   ¦               ¦   ¦       ForgotPasswordRequest.java
+    ¦   ¦   ¦               ¦   ¦       LoginRequest.java
+    ¦   ¦   ¦               ¦   ¦       RecoveryKeyVerifyRequest.java
+    ¦   ¦   ¦               ¦   ¦       RegisterRequest.java
+    ¦   ¦   ¦               ¦   ¦       ResetPasswordRequest.java
+    ¦   ¦   ¦               ¦   ¦       TimezoneConversionRequest.java
+    ¦   ¦   ¦               ¦   ¦       UpdateDailyLimitsRequest.java
+    ¦   ¦   ¦               ¦   ¦       UpdateSleepHoursRequest.java
+    ¦   ¦   ¦               ¦   ¦       UpdateTimezoneRequest.java
+    ¦   ¦   ¦               ¦   ¦       
+    ¦   ¦   ¦               ¦   +---response
+    ¦   ¦   ¦               ¦           BaseResponse.java
+    ¦   ¦   ¦               ¦           DailyLimitDto.java
+    ¦   ¦   ¦               ¦           DailyLimitsResponse.java
+    ¦   ¦   ¦               ¦           GetVerificationStatusResponse.java
+    ¦   ¦   ¦               ¦           LoginResponse.java
+    ¦   ¦   ¦               ¦           RegisterResponse.java
+    ¦   ¦   ¦               ¦           SleepHoursResponse.java
+    ¦   ¦   ¦               ¦           TimeRangeDto.java
+    ¦   ¦   ¦               ¦           UserBatchDTO.java
+    ¦   ¦   ¦               ¦           UserConstraintsDTO.java
+    ¦   ¦   ¦               ¦           ValidationErrorResponse.java
+    ¦   ¦   ¦               ¦           
+    ¦   ¦   ¦               +---repository
+    ¦   ¦   ¦               ¦       EmailVerificationRepository.java
+    ¦   ¦   ¦               ¦       InvitationTokenRepository.java
+    ¦   ¦   ¦               ¦       OAuthProviderRepository.java
+    ¦   ¦   ¦               ¦       PasswordResetTokenRepository.java
+    ¦   ¦   ¦               ¦       ProcessedMessageRepository.java
+    ¦   ¦   ¦               ¦       UserConstraintsRepository.java
+    ¦   ¦   ¦               ¦       UserRepository.java
+    ¦   ¦   ¦               ¦       UserSessionRepository.java
+    ¦   ¦   ¦               ¦       
+    ¦   ¦   ¦               +---security
+    ¦   ¦   ¦               ¦       ForgotPasswordRateLimiterService.java
+    ¦   ¦   ¦               ¦       HeaderAuthenticationFilter.java
+    ¦   ¦   ¦               ¦       InternalApiKeyFilter.java
+    ¦   ¦   ¦               ¦       JwtProvider.java
+    ¦   ¦   ¦               ¦       OAuth2LoginSuccessHandler.java
+    ¦   ¦   ¦               ¦       OAuth2LoginSuccessHandlerTest.java
+    ¦   ¦   ¦               ¦       SecurityConfig.java
+    ¦   ¦   ¦               ¦       TokenBlacklistService.java
+    ¦   ¦   ¦               ¦       
+    ¦   ¦   ¦               +---service
+    ¦   ¦   ¦               ¦   ¦   AuthService.java
+    ¦   ¦   ¦               ¦   ¦   ConstraintValidationService.java
+    ¦   ¦   ¦               ¦   ¦   EmailService.java
+    ¦   ¦   ¦               ¦   ¦   IdempotencyService.java
+    ¦   ¦   ¦               ¦   ¦   InternalUserService.java
+    ¦   ¦   ¦               ¦   ¦   LockMonitoringService.java
+    ¦   ¦   ¦               ¦   ¦   OrderCommandHandlerService.java
+    ¦   ¦   ¦               ¦   ¦   RedisLockService.java
+    ¦   ¦   ¦               ¦   ¦   UserSettingsService.java
+    ¦   ¦   ¦               ¦   ¦   
+    ¦   ¦   ¦               ¦   +---impl
+    ¦   ¦   ¦               ¦           AuthServiceImpl.java
+    ¦   ¦   ¦               ¦           EmailServiceImpl.java
+    ¦   ¦   ¦               ¦           InternalUserServiceImpl.java
+    ¦   ¦   ¦               ¦           UserSettingsServiceImpl.java
+    ¦   ¦   ¦               ¦           
+    ¦   ¦   ¦               +---utils
+    ¦   ¦   ¦               ¦       GlobalExceptionHandler.java
+    ¦   ¦   ¦               ¦       SagaIdGenerator.java
+    ¦   ¦   ¦               ¦       TimezoneMapper.java
+    ¦   ¦   ¦               ¦       
+    ¦   ¦   ¦               +---validator
+    ¦   ¦   ¦                       FieldsValueMatch.java
+    ¦   ¦   ¦                       FieldsValueMatchValidator.java
+    ¦   ¦   ¦                       
+    ¦   ¦   +---resources
+    ¦   ¦       ¦   application-local.properties
+    ¦   ¦       ¦   application-product.properties
+    ¦   ¦       ¦   application.properties
+    ¦   ¦       ¦   banner.txt
+    ¦   ¦       ¦   Oauth2
+    ¦   ¦       ¦   
+    ¦   ¦       +---templates
+    ¦   ¦           +---email
+    ¦   ¦                   password-reset.html
+    ¦   ¦                   project-invitation.html
+    ¦   ¦                   verification.html
+    ¦   ¦                   
+    ¦   +---test
+    ¦       +---java
+    ¦           +---com
+    ¦               +---graduation
+    ¦                   +---userservice
+    ¦                           OrderCancellationControllerTest.java
+    ¦                           OrderCommandHandlerServiceApplicationTests.java
+    ¦                           
+    +---target
+        +---classes
+        ¦   ¦   application-local.properties
+        ¦   ¦   application-product.properties
+        ¦   ¦   application.properties
+        ¦   ¦   banner.txt
+        ¦   ¦   Oauth2
+        ¦   ¦   
+        ¦   +---com
+        ¦   ¦   +---graduation
+        ¦   ¦   ¦   +---userservice
+        ¦   ¦   ¦       ¦   UserServiceApplication.class
+        ¦   ¦   ¦       ¦   
+        ¦   ¦   ¦       +---client
+        ¦   ¦   ¦       ¦       SchedulingServiceClient.class
+        ¦   ¦   ¦       ¦       
+        ¦   ¦   ¦       +---config
+        ¦   ¦   ¦       ¦       RedisConfig.class
+        ¦   ¦   ¦       ¦       RedisConnectionTest.class
+        ¦   ¦   ¦       ¦       RestClientConfig.class
+        ¦   ¦   ¦       ¦       
+        ¦   ¦   ¦       +---constant
+        ¦   ¦   ¦       ¦       Constant.class
+        ¦   ¦   ¦       ¦       
+        ¦   ¦   ¦       +---controller
+        ¦   ¦   ¦       ¦       AuthController.class
+        ¦   ¦   ¦       ¦       InternalUserController.class
+        ¦   ¦   ¦       ¦       UserConstraintsInternalController.class
+        ¦   ¦   ¦       ¦       UserSettingsController.class
+        ¦   ¦   ¦       ¦       
+        ¦   ¦   ¦       +---event
+        ¦   ¦   ¦       ¦   ¦   InvitationSentEvent.class
+        ¦   ¦   ¦       ¦   ¦   PasswordResetRequestedEvent.class
+        ¦   ¦   ¦       ¦   ¦   RegistrationCompleteEvent.class
+        ¦   ¦   ¦       ¦   ¦   
+        ¦   ¦   ¦       ¦   +---listener
+        ¦   ¦   ¦       ¦           InvitationSentListener.class
+        ¦   ¦   ¦       ¦           PasswordResetListener.class
+        ¦   ¦   ¦       ¦           UserRegistrationListener.class
+        ¦   ¦   ¦       ¦           
+        ¦   ¦   ¦       +---model
+        ¦   ¦   ¦       ¦       EmailVerification.class
+        ¦   ¦   ¦       ¦       InvitationToken.class
+        ¦   ¦   ¦       ¦       OAuthProvider$ProviderType.class
+        ¦   ¦   ¦       ¦       OAuthProvider.class
+        ¦   ¦   ¦       ¦       PasswordResetToken.class
+        ¦   ¦   ¦       ¦       ProcessedMessage$ProcessStatus.class
+        ¦   ¦   ¦       ¦       ProcessedMessage.class
+        ¦   ¦   ¦       ¦       TimeRange.class
+        ¦   ¦   ¦       ¦       User.class
+        ¦   ¦   ¦       ¦       UserConstraints.class
+        ¦   ¦   ¦       ¦       UserSession.class
+        ¦   ¦   ¦       ¦       
+        ¦   ¦   ¦       +---payload
+        ¦   ¦   ¦       ¦   +---request
+        ¦   ¦   ¦       ¦   ¦       ChangePasswordRequest.class
+        ¦   ¦   ¦       ¦   ¦       ForgotPasswordRequest.class
+        ¦   ¦   ¦       ¦   ¦       LoginRequest.class
+        ¦   ¦   ¦       ¦   ¦       RecoveryKeyVerifyRequest.class
+        ¦   ¦   ¦       ¦   ¦       RegisterRequest.class
+        ¦   ¦   ¦       ¦   ¦       ResetPasswordRequest.class
+        ¦   ¦   ¦       ¦   ¦       TimezoneConversionRequest.class
+        ¦   ¦   ¦       ¦   ¦       UpdateDailyLimitsRequest.class
+        ¦   ¦   ¦       ¦   ¦       UpdateSleepHoursRequest.class
+        ¦   ¦   ¦       ¦   ¦       UpdateTimezoneRequest.class
+        ¦   ¦   ¦       ¦   ¦       
+        ¦   ¦   ¦       ¦   +---response
+        ¦   ¦   ¦       ¦           BaseResponse.class
+        ¦   ¦   ¦       ¦           DailyLimitDto.class
+        ¦   ¦   ¦       ¦           DailyLimitsResponse$TimeRangeDTO.class
+        ¦   ¦   ¦       ¦           DailyLimitsResponse.class
+        ¦   ¦   ¦       ¦           GetVerificationStatusResponse.class
+        ¦   ¦   ¦       ¦           LoginResponse$UserInfo.class
+        ¦   ¦   ¦       ¦           LoginResponse.class
+        ¦   ¦   ¦       ¦           RegisterResponse.class
+        ¦   ¦   ¦       ¦           SleepHoursResponse.class
+        ¦   ¦   ¦       ¦           TimeRangeDto.class
+        ¦   ¦   ¦       ¦           UserBatchDTO.class
+        ¦   ¦   ¦       ¦           UserConstraintsDTO.class
+        ¦   ¦   ¦       ¦           ValidationErrorResponse.class
+        ¦   ¦   ¦       ¦           
+        ¦   ¦   ¦       +---repository
+        ¦   ¦   ¦       ¦       EmailVerificationRepository.class
+        ¦   ¦   ¦       ¦       InvitationTokenRepository.class
+        ¦   ¦   ¦       ¦       OAuthProviderRepository.class
+        ¦   ¦   ¦       ¦       PasswordResetTokenRepository.class
+        ¦   ¦   ¦       ¦       ProcessedMessageRepository.class
+        ¦   ¦   ¦       ¦       UserConstraintsRepository.class
+        ¦   ¦   ¦       ¦       UserRepository.class
+        ¦   ¦   ¦       ¦       UserSessionRepository.class
+        ¦   ¦   ¦       ¦       
+        ¦   ¦   ¦       +---security
+        ¦   ¦   ¦       ¦       HeaderAuthenticationFilter.class
+        ¦   ¦   ¦       ¦       InternalApiKeyFilter.class
+        ¦   ¦   ¦       ¦       JwtProvider.class
+        ¦   ¦   ¦       ¦       OAuth2LoginSuccessHandler.class
+        ¦   ¦   ¦       ¦       SecurityConfig.class
+        ¦   ¦   ¦       ¦       TokenBlacklistService.class
+        ¦   ¦   ¦       ¦       
+        ¦   ¦   ¦       +---service
+        ¦   ¦   ¦       ¦   ¦   AuthService.class
+        ¦   ¦   ¦       ¦   ¦   ConstraintValidationService.class
+        ¦   ¦   ¦       ¦   ¦   EmailService.class
+        ¦   ¦   ¦       ¦   ¦   IdempotencyService.class
+        ¦   ¦   ¦       ¦   ¦   InternalUserService.class
+        ¦   ¦   ¦       ¦   ¦   LockMonitoringService.class
+        ¦   ¦   ¦       ¦   ¦   RedisLockService.class
+        ¦   ¦   ¦       ¦   ¦   UserSettingsService.class
+        ¦   ¦   ¦       ¦   ¦   
+        ¦   ¦   ¦       ¦   +---impl
+        ¦   ¦   ¦       ¦           AuthServiceImpl.class
+        ¦   ¦   ¦       ¦           EmailServiceImpl.class
+        ¦   ¦   ¦       ¦           InternalUserServiceImpl.class
+        ¦   ¦   ¦       ¦           UserSettingsServiceImpl.class
+        ¦   ¦   ¦       ¦           
+        ¦   ¦   ¦       +---utils
+        ¦   ¦   ¦       ¦       GlobalExceptionHandler.class
+        ¦   ¦   ¦       ¦       SagaIdGenerator.class
+        ¦   ¦   ¦       ¦       TimezoneMapper.class
+        ¦   ¦   ¦       ¦       
+        ¦   ¦   ¦       +---validator
+        ¦   ¦   ¦               FieldsValueMatch$List.class
+        ¦   ¦   ¦               FieldsValueMatch.class
+        ¦   ¦   ¦               FieldsValueMatchValidator.class
+        ¦   ¦   ¦               
+        ¦   ¦   +---project
+        ¦   ¦       +---userservice
+        ¦   ¦           +---security
+        ¦   ¦                   ForgotPasswordRateLimiterService.class
+        ¦   ¦                   
+        ¦   +---templates
+        ¦       +---email
+        ¦               password-reset.html
+        ¦               project-invitation.html
+        ¦               verification.html
+        ¦               
+        +---generated-sources
+            +---annotations

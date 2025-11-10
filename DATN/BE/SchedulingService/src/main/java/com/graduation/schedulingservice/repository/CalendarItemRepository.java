@@ -118,4 +118,6 @@ public interface CalendarItemRepository extends JpaRepository<CalendarItem, Long
     List<CalendarItem> findUnscheduledByUserIdAndWeekPlanId(
             @Param("userId") Long userId,
             @Param("weekPlanId") Long weekPlanId);
+
+    void deleteByMemorableEventIdIn(List<Long> memorableEventIds);
 }

@@ -105,7 +105,19 @@ public class Constant {
     public static final String MSG_INVALID_ITEM_TYPE = "Invalid item type: ";
     public static final String MSG_INVALID_HOURS_RANGE = "Hours must be between 0 and 24";
 
-
+    // ===================== User Profile Messages =====================
+    public static final String MSG_GET_PROFILE_SUCCESS = "Profile retrieved successfully";
+    public static final String MSG_GET_PROFILE_FAILED = "Failed to retrieve profile";
+    public static final String MSG_UPDATE_PROFILE_SUCCESS = "Profile updated successfully";
+    public static final String MSG_UPDATE_PROFILE_FAILED = "Failed to update profile";
+    public static final String MSG_NAME_REQUIRED = "Name is required";
+    public static final String MSG_NAME_TOO_LONG = "Name must not exceed 100 characters";
+    public static final String MSG_INVALID_DATE_FORMAT = "Invalid date format. Use dd/MM/yyyy format (e.g., 15/08/1998)";
+    public static final String MSG_FILE_REQUIRED = "Avatar file is required";
+    public static final String MSG_FILE_TOO_LARGE = "Avatar file size must not exceed 5MB";
+    public static final String MSG_INVALID_FILE_TYPE = "Avatar must be jpg, jpeg, or png format";
+    public static final String MSG_INVALID_IMAGE_DATA = "Invalid image data";
+    public static final String MSG_AVATAR_UPLOAD_FAILED = "Failed to upload avatar image";
 
     // ===================== User Settings Log Messages =====================
     public static final String LOG_USER_NOT_FOUND = "User not found: {}";
@@ -120,4 +132,22 @@ public class Constant {
     public static final String LOG_UPDATE_DAILY_LIMITS_FAILED = "Failed to update daily limits for user: {}";
     public static final String LOG_INVALID_ITEM_TYPE = "Invalid item type: {}";
     public static final String LOG_INVALID_HOURS_VALUE = "Invalid hours value for {}: {}";
+
+    // ===================== User Profile Log Messages =====================
+    public static final String LOG_GET_PROFILE_SUCCESS = "Profile retrieved for user: {}";
+    public static final String LOG_GET_PROFILE_FAILED = "Failed to get profile for user: {}";
+    public static final String LOG_UPDATE_PROFILE_SUCCESS = "Profile updated for user: {}";
+    public static final String LOG_UPDATE_PROFILE_FAILED = "Failed to update profile for user: {}";
+    public static final String LOG_INVALID_NAME = "Invalid name provided for user: {}";
+    public static final String LOG_NAME_TOO_LONG = "Name too long for user: {}";
+    public static final String LOG_INVALID_DATE_FORMAT = "Invalid date format: {}";
+    public static final String LOG_AVATAR_VALIDATION_FAILED = "Avatar validation failed for user {}: {}";
+    public static final String LOG_AVATAR_UPLOAD_FAILED = "Avatar upload failed for user: {}";
+    public static final String LOG_AVATAR_UPLOADED_SUCCESS = "Avatar uploaded successfully for user {}: {}";
+    public static final String LOG_AVATAR_DELETED_SUCCESS = "Avatar deleted successfully for user {}: {}";
+    public static final String LOG_AVATAR_DELETE_FAILED = "Failed to delete avatar for user: {}";
+    public static final String LOG_AVATAR_NOT_FOUND = "Avatar not found for user: {}";
+    public static final String MSG_INVALID_DOB_FORMAT = "Invalid date of birth format. Please use YYYY-MM-DD.";
+    public static final String LOG_INVALID_DOB_FORMAT = "Invalid DOB format for user {}: {}";
+    public static final String LOG_AVATAR_FILE_TOO_LARGE = "Avatar file too large for user {}: {} bytes";
 }

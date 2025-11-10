@@ -222,6 +222,48 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    public void sendInvitationEmail(String email, String displayName, String projectName, String token) throws Exception {
+        log.info("Sending project invitation email to: {}", email);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(email);
+            helper.setSubject("You've been invited to join " + projectName);
+
+            // Create Thymeleaf context
+            Context context = new Context(Locale.getDefault());
+            context.setVariable("displayName", displayName);
+            context.setVariable("projectName", projectName);
+            context.setVariable("acceptUrl", baseUrl + "/projects/accept-invitation?token=" + token);
+            context.setVariable("declineUrl", baseUrl + "/projects/decline-invitation?token=" + token);
+            context.setVariable("appName", appName);
+            context.setVariable("baseUrl", baseUrl);
+
+            // Generate HTML content from template (fallback to simple HTML if template not found)
+            String htmlContent;
+            try {
+                htmlContent = templateEngine.process("email/project-invitation", context);
+            } catch (Exception e) {
+                log.warn("Template not found, using fallback HTML for invitation email");
+                htmlContent = createInvitationEmailFallback(displayName, projectName, token);
+            }
+
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Invitation email sent successfully to: {}", email);
+
+        } catch (Exception e) {
+            log.error("Failed to send invitation email to: {}", email, e);
+            throw new Exception("Failed to send invitation email: " + e.getMessage(), e);
+        }
+    }
+
+
     // Fallback HTML templates when Thymeleaf templates are not available
 
     private String createVerificationEmailFallback(String verificationCode) {
@@ -342,5 +384,33 @@ public class EmailServiceImpl implements EmailService {
             </body>
             </html>
             """, displayName, appName, appName);
+    }
+
+    private String createInvitationEmailFallback(String displayName, String projectName, String token) {
+        return String.format("""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Project Invitation</title>
+            </head>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2c3e50;">You've been invited!</h2>
+                    <p>Hi %s,</p>
+                    <p>You've been invited to join the project <strong>%s</strong> on %s.</p>
+                    <p>Click the button below to accept the invitation and start collaborating:</p>
+                    <a href="%s/projects/accept-invitation?token=%s" style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0;">Accept Invitation</a>
+                    <p style="margin-top: 20px; font-size: 12px; color: #7f8c8d;">
+                        This invitation link will expire in 7 days. If you didn't expect this invitation, you can safely ignore this email.
+                    </p>
+                    <p>
+                        Best regards,<br>
+                        The %s Team
+                    </p>
+                </div>
+            </body>
+            </html>
+            """, displayName, projectName, appName, baseUrl, token, appName);
     }
 }

@@ -30,6 +30,8 @@ public abstract class CalendarItem {
 
     private Long weekPlanId;
 
+    private Long memorableEventId; // <-- ADD THIS LINE
+
     @Column(nullable = false)
     private String name;
 
