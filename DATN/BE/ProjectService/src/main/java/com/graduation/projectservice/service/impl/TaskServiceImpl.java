@@ -1,13 +1,16 @@
 package com.graduation.projectservice.service.impl;
 
+import com.graduation.projectservice.client.UserServiceClient;
 import com.graduation.projectservice.constant.Constant;
+import com.graduation.projectservice.exception.NotFoundException;
 import com.graduation.projectservice.helper.ProjectAuthorizationHelper;
 import com.graduation.projectservice.model.*;
+import com.graduation.projectservice.model.enums.TaskPriority;
+import com.graduation.projectservice.model.enums.TaskStatus;
 import com.graduation.projectservice.payload.request.CreateTaskRequest;
 import com.graduation.projectservice.payload.request.UpdateTaskRequest;
 import com.graduation.projectservice.payload.request.UpdateTaskStatusRequest;
-import com.graduation.projectservice.payload.response.AssigneeDTO;
-import com.graduation.projectservice.payload.response.BaseResponse;
+import com.graduation.projectservice.payload.response.*;
 import com.graduation.projectservice.repository.*;
 import com.graduation.projectservice.service.TaskService;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,7 @@ public class TaskServiceImpl implements TaskService {
     private final ProjectRepository projectRepository;
     private final TaskAssigneeRepository taskAssigneeRepository;
     private final ProjectAuthorizationHelper authHelper;
+    private final UserServiceClient userServiceClient;
 
     @Override
     @Transactional
@@ -254,5 +258,95 @@ public class TaskServiceImpl implements TaskService {
         if (!deliverable.getProjectId().equals(projectId)) {
             throw new RuntimeException(Constant.ERROR_TASK_NOT_IN_PROJECT);
         }
+    }
+
+    @Override
+    public BaseResponse<?> getTasksByPhase(Long projectId, Long phaseId, Long userId) {
+        log.info(Constant.LOG_RETRIEVING_PHASE_TASKS, phaseId, projectId, userId);
+
+        // Check authorization - both owner and member can view
+        authHelper.requireActiveMember(projectId, userId);
+
+        // Verify phase belongs to project
+        Long deliverableId = phaseRepository.findDeliverableIdByPhaseId(phaseId);
+        if (deliverableId == null) {
+            throw new NotFoundException(Constant.ERROR_PHASE_NOT_FOUND);
+        }
+
+        PM_Deliverable deliverable = deliverableRepository.findById(deliverableId)
+                .orElseThrow(() -> new NotFoundException(Constant.ERROR_DELIVERABLE_NOT_FOUND));
+
+        if (!deliverable.getProjectId().equals(projectId)) {
+            throw new NotFoundException(Constant.ERROR_PHASE_NOT_IN_PROJECT);
+        }
+
+        // Get all tasks for the phase
+        List<PM_Task> tasks = taskRepository.findByPhaseIdOrderByOrderAsc(phaseId);
+
+        // Convert to DTOs with assignees
+        List<TaskDTO> taskDTOs = tasks.stream()
+                .map(this::convertToTaskDTO)
+                .toList();
+
+        log.info(Constant.LOG_PHASE_TASKS_RETRIEVED, phaseId, taskDTOs.size());
+
+        return new BaseResponse<>(1,
+                String.format(Constant.PHASE_TASKS_RETRIEVED_SUCCESS, phaseId),
+                taskDTOs
+        );
+    }
+
+    private TaskDTO convertToTaskDTO(PM_Task task) {
+        // Get assignees with avatar URLs
+        List<AssigneeDTO> assigneeDTOs = getAssigneeDTOs(task.getAssignees());
+
+        return new TaskDTO(
+                task.getTaskId(),
+                task.getName(),
+                task.getKey(),
+                formatStatus(task.getStatus()),
+                formatPriority(task.getPriority()),
+                task.getOrder(),
+                assigneeDTOs
+        );
+    }
+
+    private List<AssigneeDTO> getAssigneeDTOs(Set<PM_TaskAssignee> assignees) {
+        if (assignees == null || assignees.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> userIds = assignees.stream()
+                .map(PM_TaskAssignee::getUserId)
+                .toList();
+
+        // Fetch user data from UserService
+        List<UserBatchDTO> userBatch = userServiceClient.findUsersByIds(userIds);
+
+        if (userBatch == null || userBatch.size() == 0) {
+            return List.of();
+        }
+
+        return userBatch.stream()
+                .map(user -> new AssigneeDTO(user.getUserId(), user.getAvatarUrl()))
+                .toList();
+    }
+
+    private String formatStatus(TaskStatus status) {
+        return switch (status) {
+            case TO_DO -> "To do";
+            case IN_PROGRESS -> "In progress";
+            case IN_REVIEW -> "In review";
+            case DONE -> "Done";
+        };
+    }
+
+    private String formatPriority(TaskPriority priority) {
+        return switch (priority) {
+            case MINOR -> "Minor";
+            case MEDIUM -> "Medium";
+            case MAJOR -> "Major";
+            case CRITICAL -> "Critical";
+        };
     }
 }

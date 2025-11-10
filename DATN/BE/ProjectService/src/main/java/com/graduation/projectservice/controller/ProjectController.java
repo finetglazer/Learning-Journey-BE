@@ -2,6 +2,7 @@ package com.graduation.projectservice.controller;
 
 import com.graduation.projectservice.constant.Constant;
 import com.graduation.projectservice.payload.request.CreateProjectRequest;
+import com.graduation.projectservice.payload.request.ReorderRequest;
 import com.graduation.projectservice.payload.request.UpdateProjectRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
 import com.graduation.projectservice.service.ProjectService;
@@ -64,6 +65,19 @@ public class ProjectController {
         log.info(Constant.LOG_DELETE_PROJECT_REQUEST, projectId, userId);
 
         BaseResponse<?> response = projectService.deleteProject(userId, projectId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{projectId}/list/reorder")
+    public ResponseEntity<BaseResponse<?>> reorderList(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long projectId,
+            @Valid @RequestBody ReorderRequest request) {
+
+        log.info(Constant.LOG_PUT_PROJECT_REQUEST, projectId, userId); // You can create a new Constant
+
+        BaseResponse<?> response = projectService.reorderList(userId, projectId, request);
 
         return ResponseEntity.ok(response);
     }

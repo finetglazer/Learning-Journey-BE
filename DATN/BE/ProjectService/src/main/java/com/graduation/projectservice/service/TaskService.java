@@ -14,4 +14,9 @@ public interface TaskService {
     BaseResponse<?> deleteTask(Long userId, Long projectId, Long taskId);
 
     BaseResponse<?> updateTaskStatus(Long userId, Long projectId, Long taskId, UpdateTaskStatusRequest request);
+
+    /**
+     * Get all tasks for a specific phase
+     */
+    BaseResponse<?> getTasksByPhase(Long projectId, Long phaseId, Long userId);
 }

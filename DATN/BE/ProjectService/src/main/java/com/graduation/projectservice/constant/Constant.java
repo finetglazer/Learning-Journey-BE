@@ -135,4 +135,20 @@ public class Constant {
     // Task Error Messages
     public static final String ERROR_TASK_NOT_FOUND = "Task not found";
     public static final String ERROR_TASK_NOT_IN_PROJECT = "Task does not belong to this project";
+
+    // Project Structure Log Messages
+    public static final String LOG_GET_PROJECT_STRUCTURE_REQUEST = "GET /api/pm/projects/{}/structure request received from user {}";
+    public static final String LOG_RETRIEVING_PROJECT_STRUCTURE = "Retrieving project structure for project {} by user {}";
+    public static final String LOG_PROJECT_STRUCTURE_RETRIEVED = "Project structure retrieved for project {}. Found {} deliverables";
+
+    // Project Structure Success Messages
+    public static final String PROJECT_STRUCTURE_RETRIEVED_SUCCESS = "Project structure retrieved";
+
+    // Phase Tasks Log Messages
+    public static final String LOG_GET_PHASE_TASKS_REQUEST = "GET /api/pm/projects/{}/phases/{}/tasks request received from user {}";
+    public static final String LOG_RETRIEVING_PHASE_TASKS = "Retrieving tasks for phase {} in project {} by user {}";
+    public static final String LOG_PHASE_TASKS_RETRIEVED = "Tasks retrieved for phase {}. Found {} tasks";
+
+    // Phase Tasks Success Messages
+    public static final String PHASE_TASKS_RETRIEVED_SUCCESS = "Tasks for phase {} retrieved";
 }

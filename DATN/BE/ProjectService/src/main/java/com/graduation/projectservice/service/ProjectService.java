@@ -1,6 +1,7 @@
 package com.graduation.projectservice.service;
 
 import com.graduation.projectservice.payload.request.CreateProjectRequest;
+import com.graduation.projectservice.payload.request.ReorderRequest; // <-- ADD THIS IMPORT
 import com.graduation.projectservice.payload.request.UpdateProjectRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
 
@@ -19,4 +20,9 @@ public interface ProjectService {
     BaseResponse<?> updateProject(Long userId, Long projectId, UpdateProjectRequest request);
 
     BaseResponse<?> deleteProject(Long userId, Long projectId);
+
+    /**
+     * Batch update the order of items (Tasks or Phases)
+     */
+    BaseResponse<?> reorderList(Long userId, Long projectId, ReorderRequest request); // <-- ADD THIS METHOD
 }

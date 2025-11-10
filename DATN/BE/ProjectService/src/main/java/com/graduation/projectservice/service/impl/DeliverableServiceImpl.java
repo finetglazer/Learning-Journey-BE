@@ -7,6 +7,8 @@ import com.graduation.projectservice.model.PM_Project;
 import com.graduation.projectservice.payload.request.CreateDeliverableRequest;
 import com.graduation.projectservice.payload.request.UpdateDeliverableRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
+import com.graduation.projectservice.payload.response.DeliverableStructureDTO;
+import com.graduation.projectservice.payload.response.PhaseDTO;
 import com.graduation.projectservice.repository.DeliverableRepository;
 import com.graduation.projectservice.repository.ProjectRepository;
 import com.graduation.projectservice.service.DeliverableService;
@@ -17,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -154,5 +157,44 @@ public class DeliverableServiceImpl implements DeliverableService {
                     null
             );
         }
+    }
+
+    @Override
+    public BaseResponse<?> getProjectStructure(Long projectId, Long userId) {
+        log.info(Constant.LOG_RETRIEVING_PROJECT_STRUCTURE, projectId, userId);
+
+        // Check authorization - both owner and member can view
+        authHelper.requireActiveMember(projectId, userId);
+
+        // Get all deliverables for the project
+        List<PM_Deliverable> deliverables = deliverableRepository.findByProjectIdOrderByOrderAsc(projectId);
+
+        // Convert to DTOs
+        List<DeliverableStructureDTO> deliverableDTOs = deliverables.stream()
+                .map(this::convertToStructureDTO)
+                .toList();
+
+        log.info(Constant.LOG_PROJECT_STRUCTURE_RETRIEVED, projectId, deliverableDTOs.size());
+
+        return new BaseResponse<>(1, Constant.PROJECT_STRUCTURE_RETRIEVED_SUCCESS, deliverableDTOs);
+    }
+
+    private DeliverableStructureDTO convertToStructureDTO(PM_Deliverable deliverable) {
+        List<PhaseDTO> phaseDTOs = deliverable.getPhases().stream()
+                .map(phase -> new PhaseDTO(
+                        phase.getPhaseId(),
+                        phase.getName(),
+                        phase.getKey(),
+                        phase.getOrder()
+                ))
+                .toList();
+
+        return new DeliverableStructureDTO(
+                deliverable.getDeliverableId(),
+                deliverable.getName(),
+                deliverable.getKey(),
+                deliverable.getOrder(),
+                phaseDTOs
+        );
     }
 }

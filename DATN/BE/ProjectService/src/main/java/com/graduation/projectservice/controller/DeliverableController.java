@@ -59,4 +59,19 @@ public class DeliverableController {
 
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/structure")
+    public ResponseEntity<BaseResponse<?>> getProjectStructure(
+            @PathVariable Long projectId,
+            @RequestHeader("X-User-Id") Long userId) {
+
+        log.info(Constant.LOG_GET_PROJECT_STRUCTURE_REQUEST, projectId, userId);
+
+
+        return ResponseEntity.ok(new BaseResponse<>(
+                Constant.SUCCESS_STATUS,
+                Constant.PROJECT_STRUCTURE_RETRIEVED_SUCCESS,
+                deliverableService.getProjectStructure(projectId, userId)
+        ));
+    }
 }

@@ -11,4 +11,9 @@ public interface DeliverableService {
     BaseResponse<?> updateDeliverable(Long userId, Long projectId, Long deliverableId, UpdateDeliverableRequest request);
 
     BaseResponse<?> deleteDeliverable(Long userId, Long projectId, Long deliverableId);
+
+    /**
+     * Get project structure with all deliverables and their phases (no tasks)
+     */
+    BaseResponse<?> getProjectStructure(Long projectId, Long userId);
 }
