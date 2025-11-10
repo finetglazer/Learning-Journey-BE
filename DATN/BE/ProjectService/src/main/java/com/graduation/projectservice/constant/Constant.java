@@ -51,4 +51,25 @@ public class Constant {
     public static final String ROLE_OWNER = "OWNER";
     public static final String ROLE_MEMBER = "MEMBER";
     public static final String ROLE_INVITED = "INVITED";
+
+    // Milestone Log Messages
+    public static final String LOG_CREATING_MILESTONE = "Creating milestone for project {} by user {}";
+    public static final String LOG_MILESTONE_CREATED = "Milestone {} created for project {}";
+    public static final String LOG_UPDATING_MILESTONE = "Updating milestone {} for project {} by user {}";
+    public static final String LOG_MILESTONE_UPDATED = "Milestone {} updated for project {}";
+    public static final String LOG_DELETING_MILESTONE = "Deleting milestone {} for project {} by user {}";
+    public static final String LOG_MILESTONE_DELETED = "Milestone {} deleted for project {}";
+    public static final String LOG_POST_MILESTONE_REQUEST = "POST /api/pm/projects/{}/milestones request received from user {}";
+    public static final String LOG_PUT_MILESTONE_REQUEST = "PUT /api/pm/projects/{}/milestones/{} request received from user {}";
+    public static final String LOG_DELETE_MILESTONE_REQUEST = "DELETE /api/pm/projects/{}/milestones/{} request received from user {}";
+
+    // Milestone Success Messages
+    public static final String MILESTONE_CREATED_SUCCESS = "Milestone created";
+    public static final String MILESTONE_UPDATED_SUCCESS = "Milestone updated";
+    public static final String MILESTONE_DELETED_SUCCESS = "Milestone deleted";
+
+    // Milestone Error Messages
+    public static final String ERROR_MILESTONE_NOT_FOUND = "Milestone not found";
+    public static final String ERROR_MILESTONE_NOT_IN_PROJECT = "Milestone does not belong to this project";
+
 }
