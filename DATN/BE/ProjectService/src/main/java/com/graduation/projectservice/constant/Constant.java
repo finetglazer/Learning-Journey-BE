@@ -9,6 +9,7 @@ public class Constant {
     public static final String PROJECT_CREATED_SUCCESS = "Project created successfully";
     public static final String PROJECT_UPDATED_SUCCESS = "Project updated";
     public static final String PROJECT_DELETED_SUCCESS = "Project deleted";
+    public static final String FINDING_USERS_SUCCESS = "Users retrieved successfully";
 
     // ============================================
     // Response Status Codes
@@ -22,6 +23,8 @@ public class Constant {
     public static final String LOG_RETRIEVING_PROJECTS = "Retrieving projects for user: {}";
     public static final String LOG_PROJECTS_FOUND = "Found {} projects for user {}";
     public static final String LOG_GET_PROJECTS_REQUEST = "GET /api/pm/projects - User: {}";
+    public static final String LOG_FIND_USERS_REQUEST = "GET /api/pm/projects/find-users - User: {}";
+    public static final String LOG_FINDING_USERS_REQUEST = "Finding users - User: {}";
     public static final String LOG_CREATING_PROJECT = "Creating new project for user: {}";
     public static final String LOG_PROJECT_CREATED = "Project created with ID: {} for user: {}";
     public static final String LOG_UPDATING_PROJECT = "Updating project {} by user: {}";

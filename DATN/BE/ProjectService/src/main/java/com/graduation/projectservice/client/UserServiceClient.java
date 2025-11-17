@@ -57,6 +57,41 @@ public class UserServiceClient {
     }
 
     /**
+     * Find users by email
+     */
+    public List<UserBatchDTO> findUsersByEmail(String email) {
+        String url = userServiceUrl + "/api/internal/users/find-users-by-email/" + email;
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Internal-API-Key", internalApiKey);
+
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+
+            ParameterizedTypeReference<List<UserBatchDTO>> responseType =
+                    new ParameterizedTypeReference<>() {};
+
+            ResponseEntity<List<UserBatchDTO>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    responseType,
+                    email
+            );
+
+            List<UserBatchDTO> users = response.getBody();
+            return users != null ? users : Collections.emptyList();
+
+        } catch (HttpClientErrorException.NotFound e) {
+            log.warn("User not found with email: {}", email);
+            return Collections.emptyList();
+        } catch (Exception e) {
+            log.error("Failed to fetch user by email {}: {}", email, e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /**
      * Batch fetch users by IDs
      */
     public List<UserBatchDTO> findUsersByIds(List<Long> userIds) {
@@ -77,7 +112,8 @@ public class UserServiceClient {
                     url,
                     HttpMethod.POST,
                     entity,
-                    new ParameterizedTypeReference<List<UserBatchDTO>>() {}
+                    new ParameterizedTypeReference<List<UserBatchDTO>>() {
+                    }
             );
 
             return response.getBody() != null ? response.getBody() : Collections.emptyList();
@@ -110,7 +146,8 @@ public class UserServiceClient {
                     url,
                     HttpMethod.POST,
                     entity,
-                    new ParameterizedTypeReference<Map<String, String>>() {}
+                    new ParameterizedTypeReference<Map<String, String>>() {
+                    }
             );
 
             if (response.getBody() != null && response.getBody().containsKey("token")) {

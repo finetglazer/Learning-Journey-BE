@@ -10,6 +10,8 @@ public interface InternalUserService {
 
     Optional<UserBatchDTO> findUserByEmail(String email);
 
+    List<UserBatchDTO> findUsersByEmail(String email);
+
     List<UserBatchDTO> findUsersByIds(List<Long> userIds);
 
     String createInvitationToken(Long userId, Long projectId, String projectName);

@@ -29,6 +29,13 @@ public class InternalUserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/find-users-by-email/{email}")
+    public ResponseEntity<?> getUsersByEmail(@PathVariable String email) {
+        log.info("Internal API: Finding users by email: {}", email);
+
+        return ResponseEntity.ok(internalUserService.findUsersByEmail(email));
+    }
+
     @PostMapping("/batch-by-ids")
     public ResponseEntity<List<UserBatchDTO>> getUsersByIds(@RequestBody List<Long> userIds) {
         log.info("Internal API: Fetching {} users by IDs", userIds.size());

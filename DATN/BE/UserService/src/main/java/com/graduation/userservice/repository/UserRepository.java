@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -25,4 +26,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Modifying
     @Query("UPDATE User u SET u.isActive = true WHERE u.id = :userId")
     void activateUser(@Param("userId") Long userId);
+
+    /**
+     * Finds all users whose email address contains the given keyword.
+     * This translates to a SQL LIKE '%emailKeyword%' query.
+     *
+     * @param emailKeyword The string to search for within user emails.
+     * @return A list of matching users.
+     */
+    List<User> findByEmailContaining(String emailKeyword);
 }

@@ -1,6 +1,7 @@
 package com.graduation.projectservice.service.impl;
 
 import com.graduation.projectservice.client.UserServiceClient;
+import com.graduation.projectservice.constant.Constant;
 import com.graduation.projectservice.helper.ProjectAuthorizationHelper;
 import com.graduation.projectservice.model.PM_Project;
 import com.graduation.projectservice.model.PM_ProjectMember;
@@ -141,6 +142,26 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
             log.error("Failed to get members for project {}: {}", projectId, e.getMessage(), e);
             return new BaseResponse<>(0, "Failed to retrieve members: " + e.getMessage(), null);
         }
+    }
+
+    @Override
+    public BaseResponse<?> findUsersByEmail(Long projectId, Long userId, String email) {
+        log.info(Constant.LOG_FINDING_USERS_REQUEST, userId);
+
+        // 1. Get list of ALL users that match the email from the User Service
+        List<UserBatchDTO> allFoundUsers = userServiceClient.findUsersByEmail(email);
+
+        // 2. Remove users who are currently members of THIS project
+        List<UserBatchDTO> nonMembers = allFoundUsers.stream()
+                .filter(user -> !projectMemberRepository.existsByProjectIdAndUserId(projectId, user.getUserId()))
+                .toList();
+
+        // 3. Return the filtered list
+        return new BaseResponse<>(
+                Constant.SUCCESS_STATUS,
+                Constant.FINDING_USERS_SUCCESS,
+                nonMembers
+        );
     }
 
     @Override

@@ -18,6 +18,8 @@ public interface ProjectMemberService {
      */
     BaseResponse<?> getMembers(Long userId, Long projectId);
 
+    BaseResponse<?> findUsersByEmail(Long projectId, Long userId, String email);
+
     /**
      * Update member's custom role name
      */

@@ -1,5 +1,6 @@
 package com.graduation.projectservice.controller;
 
+import com.graduation.projectservice.constant.Constant;
 import com.graduation.projectservice.payload.request.AcceptInvitationRequest;
 import com.graduation.projectservice.payload.request.AddMemberRequest;
 import com.graduation.projectservice.payload.request.DeclineInvitationRequest;
@@ -42,6 +43,19 @@ public class ProjectMemberController {
         log.info("GET /members - User {} retrieving members of project {}", userId, projectId);
 
         BaseResponse<?> response = projectMemberService.getMembers(userId, projectId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/find-users-by-email/{email}")
+    public ResponseEntity<BaseResponse<?>> findUsersByEmail(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long projectId,
+            @PathVariable String email
+    ) {
+        log.info(Constant.LOG_FIND_USERS_REQUEST, userId);
+
+        BaseResponse<?> response = projectMemberService.findUsersByEmail(projectId, userId, email);
 
         return ResponseEntity.ok(response);
     }

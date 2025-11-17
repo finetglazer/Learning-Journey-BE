@@ -41,6 +41,17 @@ public class InternalUserServiceImpl implements InternalUserService {
     }
 
     @Override
+    public List<UserBatchDTO> findUsersByEmail(String email) {
+        List<User> usersList = userRepository.findByEmailContaining(email);
+        return usersList.stream().map(user -> new UserBatchDTO(
+                user.getId(),
+                user.getDisplayName(),
+                user.getEmail(),
+                user.getAvatarUrl()
+        )).toList();
+    }
+
+    @Override
     public List<UserBatchDTO> findUsersByIds(List<Long> userIds) {
         List<User> users = userRepository.findAllById(userIds);
         return users.stream()

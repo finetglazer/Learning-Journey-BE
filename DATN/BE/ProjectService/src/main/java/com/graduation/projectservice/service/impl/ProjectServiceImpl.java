@@ -1,14 +1,16 @@
 package com.graduation.projectservice.service.impl;
 
+import com.graduation.projectservice.client.UserServiceClient;
 import com.graduation.projectservice.constant.Constant;
 import com.graduation.projectservice.exception.ForbiddenException;
-import com.graduation.projectservice.exception.NotFoundException;
 import com.graduation.projectservice.helper.ProjectAuthorizationHelper;
 import com.graduation.projectservice.model.*;
 import com.graduation.projectservice.payload.request.CreateProjectRequest;
 import com.graduation.projectservice.payload.request.ReorderRequest;
 import com.graduation.projectservice.payload.request.UpdateProjectRequest;
-import com.graduation.projectservice.payload.response.*;
+import com.graduation.projectservice.payload.response.BaseResponse;
+import com.graduation.projectservice.payload.response.ProjectDTO;
+import com.graduation.projectservice.payload.response.ProjectListResponse;
 import com.graduation.projectservice.repository.*;
 import com.graduation.projectservice.service.ProjectMemberService;
 import com.graduation.projectservice.service.ProjectService;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -34,6 +37,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final PhaseRepository phaseRepository;
     private final ProjectAuthorizationHelper projectAuthorizationHelper;
     private final DeliverableRepository deliverableRepository;
+    private final Random RAND = new Random();
 
     @Override
     @Transactional(readOnly = true)
@@ -45,7 +49,7 @@ public class ProjectServiceImpl implements ProjectService {
         log.info(Constant.LOG_PROJECTS_FOUND, projects.size(), userId);
 
         List<ProjectDTO> projectDTOs = projects.stream()
-                .map(project -> new ProjectDTO(project.getProjectId(), project.getName()))
+                .map(project -> new ProjectDTO(project.getProjectId(), project.getName(), getRandomHexColor()))
                 .collect(Collectors.toList());
 
         ProjectListResponse data = new ProjectListResponse(projectDTOs);
@@ -341,5 +345,23 @@ public class ProjectServiceImpl implements ProjectService {
 
         deliverableRepository.saveAll(deliverables);
         log.info("Successfully reordered {} deliverables for project {}", deliverables.size(), projectId);
+    }
+
+    /**
+     * Generates a random hex color code.
+     * This string can be used directly in a CSS 'backgroundColor' property.
+     *
+     * @return A 7-character hex color string (e.g., "#FF5733").
+     */
+    private String getRandomHexColor() {
+        // Generate three random values for Red, Green, and Blue
+        // Each value is between 0 (inclusive) and 255 (inclusive)
+        int r = RAND.nextInt(256);
+        int g = RAND.nextInt(256);
+        int b = RAND.nextInt(256);
+
+        // Format the integers as a 6-digit hex string, padded with zeros
+        // and prefixed with a '#'
+        return String.format("#%02X%02X%02X", r, g, b);
     }
 }
