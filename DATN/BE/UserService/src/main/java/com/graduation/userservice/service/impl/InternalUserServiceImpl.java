@@ -93,7 +93,8 @@ public class InternalUserServiceImpl implements InternalUserService {
                 user.getEmail(),
                 user.getDisplayName(),
                 projectName,
-                token.getToken()
+                token.getToken(),
+                projectId
         ));
 
         log.info("Invitation event published for user {} to project {}", userId, projectId);

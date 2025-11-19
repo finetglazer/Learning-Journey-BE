@@ -223,7 +223,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    public void sendInvitationEmail(String email, String displayName, String projectName, String token) throws Exception {
+    public void sendInvitationEmail(String email, String displayName, String projectName, String token, Long projectId) throws Exception {
         log.info("Sending project invitation email to: {}", email);
 
         try {
@@ -238,8 +238,8 @@ public class EmailServiceImpl implements EmailService {
             Context context = new Context(Locale.getDefault());
             context.setVariable("displayName", displayName);
             context.setVariable("projectName", projectName);
-            context.setVariable("acceptUrl", baseUrl + "/projects/accept-invitation?token=" + token);
-            context.setVariable("declineUrl", baseUrl + "/projects/decline-invitation?token=" + token);
+            context.setVariable("acceptUrl", baseUrl + "/projects/accept-invitation?token=" + token + "&projectId=" + projectId);
+            context.setVariable("declineUrl", baseUrl + "/projects/decline-invitation?token=" + token + "&projectId=" + projectId);
             context.setVariable("appName", appName);
             context.setVariable("baseUrl", baseUrl);
 

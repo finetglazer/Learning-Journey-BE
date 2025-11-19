@@ -1,14 +1,17 @@
 package com.graduation.projectservice.service.impl;
 
+import com.graduation.projectservice.client.UserServiceClient;
 import com.graduation.projectservice.constant.Constant;
 import com.graduation.projectservice.helper.ProjectAuthorizationHelper;
 import com.graduation.projectservice.model.PM_Deliverable;
 import com.graduation.projectservice.model.PM_Project;
+import com.graduation.projectservice.model.PM_Task;
+import com.graduation.projectservice.model.PM_TaskAssignee;
+import com.graduation.projectservice.model.enums.TaskPriority;
+import com.graduation.projectservice.model.enums.TaskStatus;
 import com.graduation.projectservice.payload.request.CreateDeliverableRequest;
 import com.graduation.projectservice.payload.request.UpdateDeliverableRequest;
-import com.graduation.projectservice.payload.response.BaseResponse;
-import com.graduation.projectservice.payload.response.DeliverableStructureDTO;
-import com.graduation.projectservice.payload.response.PhaseDTO;
+import com.graduation.projectservice.payload.response.*;
 import com.graduation.projectservice.repository.DeliverableRepository;
 import com.graduation.projectservice.repository.ProjectRepository;
 import com.graduation.projectservice.service.DeliverableService;
@@ -20,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -29,6 +33,7 @@ public class DeliverableServiceImpl implements DeliverableService {
     private final DeliverableRepository deliverableRepository;
     private final ProjectRepository projectRepository;
     private final ProjectAuthorizationHelper authHelper;
+    private final UserServiceClient userServiceClient;
 
     @Override
     @Transactional
@@ -185,7 +190,9 @@ public class DeliverableServiceImpl implements DeliverableService {
                         phase.getPhaseId(),
                         phase.getName(),
                         phase.getKey(),
-                        phase.getOrder()
+                        phase.getOrder(),
+                        phase.getTasks().stream()
+                                .map(this::convertToTaskDTO).toList()
                 ))
                 .toList();
 
@@ -196,5 +203,59 @@ public class DeliverableServiceImpl implements DeliverableService {
                 deliverable.getOrder(),
                 phaseDTOs
         );
+    }
+
+    private TaskDTO convertToTaskDTO(PM_Task task) {
+        // Get assignees with avatar URLs
+        List<AssigneeDTO> assigneeDTOs = getAssigneeDTOs(task.getAssignees());
+
+        return new TaskDTO(
+                task.getTaskId(),
+                task.getName(),
+                task.getKey(),
+                formatStatus(task.getStatus()),
+                formatPriority(task.getPriority()),
+                task.getOrder(),
+                assigneeDTOs
+        );
+    }
+
+    private List<AssigneeDTO> getAssigneeDTOs(Set<PM_TaskAssignee> assignees) {
+        if (assignees == null || assignees.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> userIds = assignees.stream()
+                .map(PM_TaskAssignee::getUserId)
+                .toList();
+
+        // Fetch user data from UserService
+        List<UserBatchDTO> userBatch = userServiceClient.findUsersByIds(userIds);
+
+        if (userBatch == null || userBatch.isEmpty()) {
+            return List.of();
+        }
+
+        return userBatch.stream()
+                .map(user -> new AssigneeDTO(user.getUserId(), user.getAvatarUrl()))
+                .toList();
+    }
+
+    private String formatStatus(TaskStatus status) {
+        return switch (status) {
+            case TO_DO -> "To do";
+            case IN_PROGRESS -> "In progress";
+            case IN_REVIEW -> "In review";
+            case DONE -> "Done";
+        };
+    }
+
+    private String formatPriority(TaskPriority priority) {
+        return switch (priority) {
+            case MINOR -> "Minor";
+            case MEDIUM -> "Medium";
+            case MAJOR -> "Major";
+            case CRITICAL -> "Critical";
+        };
     }
 }

@@ -23,7 +23,8 @@ public class InvitationSentListener {
                     event.getEmail(),
                     event.getDisplayName(),
                     event.getProjectName(),
-                    event.getToken()
+                    event.getToken(),
+                    event.getProjectId()
             );
             log.info("Invitation email sent successfully to: {}", event.getEmail());
         } catch (Exception e) {
