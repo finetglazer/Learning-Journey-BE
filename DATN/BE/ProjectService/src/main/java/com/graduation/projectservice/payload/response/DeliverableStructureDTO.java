@@ -24,6 +24,10 @@ public class DeliverableStructureDTO {
     @JsonProperty("order")
     private Integer order;
 
+    // Thêm trường này để FE mặc định expand cho deliverable item
+    @JsonProperty("hasChildContainKeyword")
+    private boolean hasChildContainKeyword = false;
+
     @JsonProperty("phases")
     private List<PhaseDTO> phases;
 }

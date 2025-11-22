@@ -63,15 +63,15 @@ public class DeliverableController {
     @GetMapping("/structure")
     public ResponseEntity<BaseResponse<?>> getProjectStructure(
             @PathVariable Long projectId,
+            @RequestParam(name = "search", required = false) String search,
             @RequestHeader("X-User-Id") Long userId) {
 
-        log.info(Constant.LOG_GET_PROJECT_STRUCTURE_REQUEST, projectId, userId);
-
+        log.info(Constant.LOG_GET_PROJECT_STRUCTURE_REQUEST, projectId, userId, search);
 
         return ResponseEntity.ok(new BaseResponse<>(
                 Constant.SUCCESS_STATUS,
                 Constant.PROJECT_STRUCTURE_RETRIEVED_SUCCESS,
-                deliverableService.getProjectStructure(projectId, userId)
+                deliverableService.getProjectStructure(projectId, userId, search)
         ));
     }
 }

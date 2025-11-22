@@ -24,6 +24,10 @@ public class PhaseDTO {
     @JsonProperty("order")
     private Integer order;
 
+    // Thêm trường này để FE mặc định expand cho phase item
+    @JsonProperty("hasChildContainKeyword")
+    private boolean hasChildContainKeyword = false;
+
     @JsonProperty("tasks")
     private List<TaskDTO> tasks;
 }

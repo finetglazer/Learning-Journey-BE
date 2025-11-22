@@ -15,5 +15,5 @@ public interface DeliverableService {
     /**
      * Get project structure with all deliverables and their phases (no tasks)
      */
-    BaseResponse<?> getProjectStructure(Long projectId, Long userId);
+    BaseResponse<?> getProjectStructure(Long projectId, Long userId, String search);
 }

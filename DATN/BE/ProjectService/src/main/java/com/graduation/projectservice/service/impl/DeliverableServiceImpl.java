@@ -3,10 +3,7 @@ package com.graduation.projectservice.service.impl;
 import com.graduation.projectservice.client.UserServiceClient;
 import com.graduation.projectservice.constant.Constant;
 import com.graduation.projectservice.helper.ProjectAuthorizationHelper;
-import com.graduation.projectservice.model.PM_Deliverable;
-import com.graduation.projectservice.model.PM_Project;
-import com.graduation.projectservice.model.PM_Task;
-import com.graduation.projectservice.model.PM_TaskAssignee;
+import com.graduation.projectservice.model.*;
 import com.graduation.projectservice.model.enums.TaskPriority;
 import com.graduation.projectservice.model.enums.TaskStatus;
 import com.graduation.projectservice.payload.request.CreateDeliverableRequest;
@@ -20,10 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -165,44 +159,110 @@ public class DeliverableServiceImpl implements DeliverableService {
     }
 
     @Override
-    public BaseResponse<?> getProjectStructure(Long projectId, Long userId) {
+    public BaseResponse<?> getProjectStructure(Long projectId, Long userId, String search) {
         log.info(Constant.LOG_RETRIEVING_PROJECT_STRUCTURE, projectId, userId);
 
-        // Check authorization - both owner and member can view
+        // 1. Authorization check
         authHelper.requireActiveMember(projectId, userId);
 
-        // Get all deliverables for the project
-        List<PM_Deliverable> deliverables = deliverableRepository.findByProjectIdOrderByOrderAsc(projectId);
+        // 2. Determine if a search is active and standardize the keyword
+        final String searchKeyword = (search != null && !search.trim().isEmpty()) ? search.trim() : null;
+        final boolean isSearching = searchKeyword != null;
 
-        // Convert to DTOs
-        List<DeliverableStructureDTO> deliverableDTOs = deliverables.stream()
-                .map(this::convertToStructureDTO)
-                .toList();
+        // 3. Fetch all deliverables for the project (We fetch everything to search nested items)
+        // NOTE: If performance is an issue with very large projects, the repository query should be expanded to join and filter nested items in SQL/JPQL.
+        List<PM_Deliverable> allDeliverables = deliverableRepository.findByProjectIdOrderByOrderAsc(projectId);
 
-        log.info(Constant.LOG_PROJECT_STRUCTURE_RETRIEVED, projectId, deliverableDTOs.size());
+        List<DeliverableStructureDTO> resultDeliverableDTOs = new ArrayList<>();
 
-        return new BaseResponse<>(1, Constant.PROJECT_STRUCTURE_RETRIEVED_SUCCESS, deliverableDTOs);
+        // 4. Process and filter the deliverables
+        for (PM_Deliverable deliverable : allDeliverables) {
+            // Convert the entire structure and perform the deep search
+            DeliverableStructureDTO dto = convertToStructureDTO(deliverable, isSearching, searchKeyword);
+
+            // 5. Apply the final filtering criteria:
+            //    a) Deliverable name contains keyword (handled by helper methods: `isNameMatch`)
+            //    b) Or any nested phase/task contained the keyword (handled by the flag: `hasChildContainKeyword`)
+            if (!isSearching || dto.isHasChildContainKeyword() || isNameMatch(deliverable.getName(), searchKeyword)) {
+                resultDeliverableDTOs.add(dto);
+            }
+        }
+
+        log.info(Constant.LOG_PROJECT_STRUCTURE_RETRIEVED, projectId, resultDeliverableDTOs.size());
+
+        return new BaseResponse<>(1, Constant.PROJECT_STRUCTURE_RETRIEVED_SUCCESS, resultDeliverableDTOs);
     }
 
-    private DeliverableStructureDTO convertToStructureDTO(PM_Deliverable deliverable) {
+    // Helper method for case-insensitive and accent-insensitive matching (using a simple lowercase check here)
+    // For true accent/case insensitivity matching the database function, you'd need a more advanced utility.
+    private boolean isNameMatch(String name, String searchKeyword) {
+        if (searchKeyword == null || name == null) {
+            return false;
+        }
+        // Simple case-insensitive match for the service layer logic
+        return name.toLowerCase().contains(searchKeyword.toLowerCase());
+    }
+
+    private DeliverableStructureDTO convertToStructureDTO(PM_Deliverable deliverable, boolean isSearching, String searchKeyword) {
         List<PhaseDTO> phaseDTOs = deliverable.getPhases().stream()
-                .map(phase -> new PhaseDTO(
-                        phase.getPhaseId(),
-                        phase.getName(),
-                        phase.getKey(),
-                        phase.getOrder(),
-                        phase.getTasks().stream()
-                                .map(this::convertToTaskDTO).toList()
-                ))
+                .map(phase -> convertToPhaseDTO(phase, isSearching, searchKeyword))
                 .toList();
 
-        return new DeliverableStructureDTO(
+        DeliverableStructureDTO dto = new DeliverableStructureDTO(
                 deliverable.getDeliverableId(),
                 deliverable.getName(),
                 deliverable.getKey(),
                 deliverable.getOrder(),
+                false,
                 phaseDTOs
         );
+
+        if (isSearching) {
+            // Check 1: Does the deliverable name itself match? (This is also checked in the main service method)
+            boolean selfMatch = isNameMatch(deliverable.getName(), searchKeyword);
+
+            // Check 2: Did any child phase match? (This handles both phase-level and task-level matches due to propagation)
+            boolean childMatch = phaseDTOs.stream()
+                    .anyMatch(PhaseDTO::isHasChildContainKeyword);
+
+            // Propagate the flag: true if the deliverable matches OR if any child matches
+            dto.setHasChildContainKeyword(selfMatch || childMatch);
+        }
+
+        return dto;
+    }
+
+    private PhaseDTO convertToPhaseDTO(PM_Phase phase, boolean isSearching, String searchKeyword) {
+        // Map tasks to DTOs first
+        List<TaskDTO> taskDTOs = phase.getTasks().stream()
+                // We use the simplified conversion without the search keyword
+                .map(this::convertToTaskDTO)
+                .toList();
+
+        PhaseDTO dto = new PhaseDTO(
+                phase.getPhaseId(),
+                phase.getName(),
+                phase.getKey(),
+                phase.getOrder(),
+                false, // Initial value
+                taskDTOs
+        );
+
+        if (isSearching) {
+            // Check 1: Does the phase name itself match?
+            boolean selfMatch = isNameMatch(phase.getName(), searchKeyword);
+
+            // Check 2: Did any child task match?
+            // We go back to the original PM_Phase model to check the task name,
+            // as the TaskDTO doesn't have the flag.
+            boolean childMatch = phase.getTasks().stream()
+                    .anyMatch(task -> isNameMatch(task.getName(), searchKeyword));
+
+            // Propagate the flag: true if the phase matches OR if any child matches
+            dto.setHasChildContainKeyword(selfMatch || childMatch);
+        }
+
+        return dto;
     }
 
     private TaskDTO convertToTaskDTO(PM_Task task) {

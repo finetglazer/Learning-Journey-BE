@@ -141,7 +141,7 @@ public class Constant {
 
     // Project Structure Log Messages
     public static final String LOG_GET_PROJECT_STRUCTURE_REQUEST = "GET /api/pm/projects/{}/structure request received from user {}";
-    public static final String LOG_RETRIEVING_PROJECT_STRUCTURE = "Retrieving project structure for project {} by user {}";
+    public static final String LOG_RETRIEVING_PROJECT_STRUCTURE = "Retrieving project structure for project {} by user {} with keyword '{}'";
     public static final String LOG_PROJECT_STRUCTURE_RETRIEVED = "Project structure retrieved for project {}. Found {} deliverables";
 
     // Project Structure Success Messages
