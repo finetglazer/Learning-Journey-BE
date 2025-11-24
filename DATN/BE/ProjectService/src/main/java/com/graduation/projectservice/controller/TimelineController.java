@@ -1,6 +1,7 @@
 package com.graduation.projectservice.controller;
 
 import com.graduation.projectservice.payload.request.UpdateTimelineDatesRequest;
+import com.graduation.projectservice.payload.request.UpdateTimelineOffsetRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
 import com.graduation.projectservice.service.TimelineService;
 import jakarta.validation.Valid;
@@ -37,6 +38,20 @@ public class TimelineController {
                 projectId, userId, request.getType());
 
         BaseResponse<?> response = timelineService.updateTimelineDates(userId, projectId, request);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/offset")
+    public ResponseEntity<BaseResponse<?>> offsetTimelineItem(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long projectId,
+            @Valid @RequestBody UpdateTimelineOffsetRequest request) {
+
+        log.info("Timeline offset requested. Project: {}, User: {}, Type: {}, Days: {}",
+                projectId, userId, request.getType(), request.getOffsetDays());
+
+        BaseResponse<?> response = timelineService.offsetTimelineItem(userId, projectId, request);
 
         return ResponseEntity.ok(response);
     }
