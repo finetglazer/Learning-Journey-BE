@@ -206,6 +206,7 @@ public class DeliverableServiceImpl implements DeliverableService {
     private DeliverableStructureDTO convertToStructureDTO(PM_Deliverable deliverable, boolean isSearching, String searchKeyword) {
         List<PhaseDTO> phaseDTOs = deliverable.getPhases().stream()
                 .map(phase -> convertToPhaseDTO(phase, isSearching, searchKeyword))
+                .filter(Objects::nonNull)
                 .toList();
 
         DeliverableStructureDTO dto = new DeliverableStructureDTO(
@@ -236,7 +237,8 @@ public class DeliverableServiceImpl implements DeliverableService {
         // Map tasks to DTOs first
         List<TaskDTO> taskDTOs = phase.getTasks().stream()
                 // We use the simplified conversion without the search keyword
-                .map(this::convertToTaskDTO)
+                .map(task -> convertToTaskDTO(task, isSearching, searchKeyword))
+                .filter(Objects::nonNull)
                 .toList();
 
         PhaseDTO dto = new PhaseDTO(
@@ -260,17 +262,25 @@ public class DeliverableServiceImpl implements DeliverableService {
 
             // Propagate the flag: true if the phase matches OR if any child matches
             dto.setHasChildContainKeyword(selfMatch || childMatch);
+
+            if (selfMatch || childMatch) {
+                return dto;
+            }
+            else {
+                return null;
+            }
         }
 
         return dto;
     }
 
-    private TaskDTO convertToTaskDTO(PM_Task task) {
+    private TaskDTO convertToTaskDTO(PM_Task task, boolean isSearching, String searchKeyword) {
         // Get assignees with avatar URLs
         List<AssigneeDTO> assigneeDTOs = getAssigneeDTOs(task.getAssignees());
 
-        return new TaskDTO(
+        TaskDTO dto = new TaskDTO(
                 task.getTaskId(),
+                task.getPhaseId(),
                 task.getName(),
                 task.getKey(),
                 formatStatus(task.getStatus()),
@@ -278,6 +288,16 @@ public class DeliverableServiceImpl implements DeliverableService {
                 task.getOrder(),
                 assigneeDTOs
         );
+
+        if (isSearching) {
+            if (isNameMatch(task.getName(), searchKeyword)) {
+                return dto;
+            }
+            else {
+                return null;
+            }
+        }
+        return dto;
     }
 
     private List<AssigneeDTO> getAssigneeDTOs(Set<PM_TaskAssignee> assignees) {

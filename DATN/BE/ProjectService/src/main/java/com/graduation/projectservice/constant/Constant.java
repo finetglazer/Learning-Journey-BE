@@ -116,6 +116,9 @@ public class Constant {
     public static final String ERROR_PHASE_NOT_IN_PROJECT = "Phase does not belong to this project";
 
     // Task Log Messages
+    public static final String LOG_GET_TASK_REQUEST = "POST /api/pm/projects/{}/phases/tasks request received from user {}";
+    public static final String LOG_GETTING_TASK = "Getting tasks in project {} by user {}";
+    public static final String LOG_TASK_RETRIEVED_SUCCESS = "Tasks retrieved successfully";
     public static final String LOG_CREATING_TASK = "Creating task for phase {} in project {} by user {}";
     public static final String LOG_TASK_CREATED = "Task {} (key: {}) created for phase {}";
     public static final String LOG_UPDATING_TASK = "Updating task {} for project {} by user {}";

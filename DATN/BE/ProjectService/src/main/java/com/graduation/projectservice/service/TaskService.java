@@ -1,11 +1,13 @@
 package com.graduation.projectservice.service;
 
 import com.graduation.projectservice.payload.request.CreateTaskRequest;
+import com.graduation.projectservice.payload.request.GetTaskRequest;
 import com.graduation.projectservice.payload.request.UpdateTaskRequest;
 import com.graduation.projectservice.payload.request.UpdateTaskStatusRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
 
 public interface TaskService {
+    BaseResponse<?> getTasks(Long userId, Long projectId, GetTaskRequest request);
 
     BaseResponse<?> createTask(Long userId, Long projectId, Long phaseId, CreateTaskRequest request);
 

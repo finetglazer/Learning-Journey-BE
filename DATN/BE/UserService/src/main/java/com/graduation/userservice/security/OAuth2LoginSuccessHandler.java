@@ -51,7 +51,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         String token = jwtProvider.generateToken(user);
         String refreshToken = jwtProvider.generateRefreshToken(user);
 
-        UserSession session = UserSession.create(user.getId(), token);
+        UserSession session = UserSession.create(user.getId(), refreshToken);
         userSessionRepository.save(session);
         log.info("Created new session for user {} via OAuth2", user.getId());
 
