@@ -15,4 +15,6 @@ public interface DeliverableRepository extends JpaRepository<PM_Deliverable, Lon
 
     @Query("SELECT COALESCE(MAX(d.order), -1) FROM PM_Deliverable d WHERE d.projectId = :projectId")
     Integer findMaxOrderByProjectId(@Param("projectId") Long projectId);
+
+    List<PM_Deliverable> findAllByProjectIdOrderByOrderAsc(Long phaseId);
 }
