@@ -18,4 +18,13 @@ public interface TaskAssigneeRepository extends JpaRepository<PM_TaskAssignee, P
     @Modifying
     @Query("DELETE FROM PM_TaskAssignee ta WHERE ta.taskId = :taskId")
     void deleteByTaskId(@Param("taskId") Long taskId);
+
+    @Query("SELECT ta.userId, COUNT(ta.taskId) " +
+            "FROM PM_TaskAssignee ta " +
+            "JOIN PM_Task t ON ta.taskId = t.taskId " +
+            "JOIN PM_Phase p ON t.phaseId = p.phaseId " +
+            "JOIN PM_Deliverable d ON p.deliverableId = d.deliverableId " +
+            "WHERE d.projectId = :projectId " +
+            "GROUP BY ta.userId")
+    List<Object[]> countTasksByUserInProject(@Param("projectId") Long projectId);
 }
