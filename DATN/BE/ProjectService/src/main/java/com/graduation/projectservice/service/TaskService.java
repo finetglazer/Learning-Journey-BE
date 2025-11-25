@@ -21,4 +21,6 @@ public interface TaskService {
      * Get all tasks for a specific phase
      */
     BaseResponse<?> getTasksByPhase(Long projectId, Long phaseId, Long userId);
+
+    BaseResponse<?> getUserProjectTasks(Long userId);
 }

@@ -195,6 +195,12 @@ public class TaskServiceImpl implements TaskService {
 
                 // Add new assignees
                 for (Long assigneeUserId : request.getAssigneeIds()) {
+                    //check if active member
+                    try {
+                        authHelper.requireActiveMember(projectId, assigneeUserId);
+                    } catch (Exception e) {
+                        return new BaseResponse<>(0, "Not an active member: " + assigneeUserId, null);
+                    }
                     PM_TaskAssignee assignee = new PM_TaskAssignee(taskId, assigneeUserId);
                     taskAssigneeRepository.save(assignee);
 
@@ -402,4 +408,70 @@ public class TaskServiceImpl implements TaskService {
             case CRITICAL -> "Critical";
         };
     }
+
+    @Override
+    public BaseResponse<?> getUserProjectTasks(Long userId) {
+        try {
+
+            // 1. Query the database using the projection
+            List<TaskProjectProjection> rawTasks = taskRepository.findActiveTasksForUser(userId);
+
+            // 2. Group by Project ID
+            Map<Long, List<TaskProjectProjection>> tasksByProject = rawTasks.stream()
+                    .collect(Collectors.groupingBy(TaskProjectProjection::getProjectId));
+
+            // 3. Map to DTOs
+            List<UserProjectTasksResponse.ProjectGroupDTO> projectGroups = new ArrayList<>();
+
+            for (Map.Entry<Long, List<TaskProjectProjection>> entry : tasksByProject.entrySet()) {
+                Long projectId = entry.getKey();
+                List<TaskProjectProjection> projectTasks = entry.getValue();
+
+                // Get project name from the first task in the list (all have same project name)
+                String projectName = projectTasks.get(0).getProjectName();
+
+                // Map tasks to Inner DTO
+                List<UserProjectTasksResponse.UserTaskItemDTO> taskItems = projectTasks.stream()
+                        .map(proj -> {
+                            boolean isOverdue = proj.getEndDate() != null
+                                    && proj.getEndDate().isBefore(LocalDate.now());
+
+                            return new UserProjectTasksResponse.UserTaskItemDTO(
+                                    proj.getTaskId(),
+                                    proj.getTaskName(),
+                                    proj.getEndDate(),
+                                    isOverdue
+                            );
+                        })
+                        .toList();
+
+                projectGroups.add(new UserProjectTasksResponse.ProjectGroupDTO(
+                        projectId,
+                        projectName,
+                        taskItems
+                ));
+            }
+
+            // 4. Construct Final Data
+            UserProjectTasksResponse responseData = new UserProjectTasksResponse(projectGroups);
+
+            log.info("Retrieved {} active projects for user {}", projectGroups.size(), userId);
+
+            return new BaseResponse<>(
+                    Constant.SUCCESS_STATUS,
+                    "User project tasks retrieved successfully",
+                    responseData
+            );
+
+        } catch (Exception e) {
+            log.error("Error retrieving user project tasks", e);
+            // Return 200 OK with error status as requested
+            return new BaseResponse<>(
+                    Constant.ERROR_STATUS,
+                    "Failed to retrieve tasks: " + e.getMessage(),
+                    null
+            );
+        }
+    }
+
 }
