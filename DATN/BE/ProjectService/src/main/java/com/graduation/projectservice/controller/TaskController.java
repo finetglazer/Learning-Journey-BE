@@ -2,6 +2,7 @@ package com.graduation.projectservice.controller;
 
 import com.graduation.projectservice.constant.Constant;
 import com.graduation.projectservice.payload.request.CreateTaskRequest;
+import com.graduation.projectservice.payload.request.GetTaskRequest;
 import com.graduation.projectservice.payload.request.UpdateTaskRequest;
 import com.graduation.projectservice.payload.request.UpdateTaskStatusRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
@@ -19,6 +20,19 @@ import org.springframework.web.bind.annotation.*;
 public class TaskController {
 
     private final TaskService taskService;
+
+    @PostMapping("/api/pm/projects/{projectId}/tasks")
+    public ResponseEntity<BaseResponse<?>> getTask(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long projectId,
+            @Valid @RequestBody GetTaskRequest request) {
+
+        log.info(Constant.LOG_GET_TASK_REQUEST, projectId, userId);
+
+        BaseResponse<?> response = taskService.getTasks(userId, projectId, request);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
 
     @PostMapping("/api/pm/projects/{projectId}/phases/{phaseId}/tasks")
     public ResponseEntity<BaseResponse<?>> createTask(

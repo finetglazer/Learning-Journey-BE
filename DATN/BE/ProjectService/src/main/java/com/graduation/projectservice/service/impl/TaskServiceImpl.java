@@ -8,6 +8,7 @@ import com.graduation.projectservice.model.*;
 import com.graduation.projectservice.model.enums.TaskPriority;
 import com.graduation.projectservice.model.enums.TaskStatus;
 import com.graduation.projectservice.payload.request.CreateTaskRequest;
+import com.graduation.projectservice.payload.request.GetTaskRequest;
 import com.graduation.projectservice.payload.request.UpdateTaskRequest;
 import com.graduation.projectservice.payload.request.UpdateTaskStatusRequest;
 import com.graduation.projectservice.payload.response.*;
@@ -34,6 +35,57 @@ public class TaskServiceImpl implements TaskService {
     private final TaskAssigneeRepository taskAssigneeRepository;
     private final ProjectAuthorizationHelper authHelper;
     private final UserServiceClient userServiceClient;
+
+    @Override
+    public BaseResponse<?> getTasks(Long userId, Long projectId, GetTaskRequest request) {
+        log.info(Constant.LOG_GETTING_TASK, projectId, userId);
+
+        // 1. Authorization: Only active members can view tasks
+        authHelper.requireActiveMember(projectId, userId);
+
+        // 2. Fetch all tasks relevant to the project (must be joined via Phase/Deliverable)
+        // NOTE: This assumes your TaskRepository has a custom query to get tasks by project ID.
+        List<PM_Task> allProjectTasks = taskRepository.findAllTasksByProjectId(projectId);
+
+        // 3. Apply Filtering
+        List<PM_Task> filteredTasks = allProjectTasks.stream()
+                .filter(task -> applyTaskFilters(task, userId, request))
+                .toList();
+
+        // 4. Convert to DTOs
+        List<TaskDTO> filteredTaskDTOs = filteredTasks.stream()
+                .map(this::convertToTaskDTO)
+                .toList();
+
+        log.info(Constant.LOG_TASK_RETRIEVED_SUCCESS, projectId, filteredTaskDTOs.size());
+
+        return new BaseResponse<>(
+                Constant.SUCCESS_STATUS,
+                Constant.LOG_TASK_RETRIEVED_SUCCESS,
+                filteredTaskDTOs
+        );
+    }
+
+    // 5. Modified Helper Method for Filtering Tasks
+    private boolean applyTaskFilters(PM_Task task, Long currentUserId, GetTaskRequest request) {
+        boolean matchesSearch = true;
+        boolean matchesIsMyTask = true;
+
+        // Apply Search Filter (Case-insensitive name matching)
+        if (request.getSearch() != null && !request.getSearch().trim().isEmpty()) {
+            String searchLower = request.getSearch().trim().toLowerCase();
+            matchesSearch = task.getName().toLowerCase().contains(searchLower);
+        }
+
+        // Apply isMyTask Filter
+        if (request.isMyTask()) {
+            // Check if the task's assignee set contains the current user's ID
+            matchesIsMyTask = task.getAssignees().stream()
+                    .anyMatch(assignee -> assignee.getUserId().equals(currentUserId));
+        }
+
+        return matchesSearch && matchesIsMyTask;
+    }
 
     @Override
     @Transactional
@@ -302,6 +354,7 @@ public class TaskServiceImpl implements TaskService {
 
         return new TaskDTO(
                 task.getTaskId(),
+                task.getPhaseId(),
                 task.getName(),
                 task.getKey(),
                 formatStatus(task.getStatus()),

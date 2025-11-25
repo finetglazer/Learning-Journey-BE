@@ -15,6 +15,9 @@ public class TaskDTO {
     @JsonProperty("id")
     private Long id;
 
+    @JsonProperty("phaseId")
+    private Long phaseId;
+
     @JsonProperty("name")
     private String name;
 
