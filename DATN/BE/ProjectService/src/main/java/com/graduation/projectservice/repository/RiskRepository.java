@@ -1,12 +1,15 @@
 package com.graduation.projectservice.repository;
 
 import com.graduation.projectservice.model.PM_Risk;
+import com.graduation.projectservice.model.enums.RiskStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
 
 @Repository
 public interface RiskRepository extends JpaRepository<PM_Risk, Long> {
@@ -19,4 +22,5 @@ public interface RiskRepository extends JpaRepository<PM_Risk, Long> {
                               @Param("keyword") String keyword,
                               @Param("assigneeId") Long assigneeId,
                               Pageable pageable);
+    List<PM_Risk> findByProjectIdAndStatus(Long projectId, RiskStatus status);
 }
