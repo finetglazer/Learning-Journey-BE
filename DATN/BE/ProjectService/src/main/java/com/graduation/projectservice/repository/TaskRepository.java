@@ -27,4 +27,20 @@ public interface TaskRepository extends JpaRepository<PM_Task, Long> {
             "JOIN PM_Deliverable d ON p.deliverableId = d.deliverableId " +
             "WHERE d.projectId = :projectId")
     List<PM_Task> findAllByProjectId(@Param("projectId") Long projectId);
+
+    @Query("SELECT " +
+            "t.taskId as taskId, " +
+            "t.name as taskName, " +
+            "t.endDate as endDate, " +
+            "p.projectId as projectId, " +
+            "p.name as projectName " +
+            "FROM PM_Task t " +
+            "JOIN t.assignees a " +
+            "JOIN PM_Phase ph ON t.phaseId = ph.phaseId " +
+            "JOIN PM_Deliverable d ON ph.deliverableId = d.deliverableId " +
+            "JOIN PM_Project p ON d.projectId = p.projectId " +
+            "WHERE a.userId = :userId " +
+            "AND t.status != 'DONE' " +
+            "ORDER BY p.projectId ASC, t.endDate ASC")
+    List<TaskProjectProjection> findActiveTasksForUser(@Param("userId") Long userId);
 }

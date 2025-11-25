@@ -88,4 +88,15 @@ public class TaskController {
 
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/api/pm/user/tasks")
+    public ResponseEntity<BaseResponse<?>> getUserProjectTasks(
+            @RequestHeader("X-User-Id") Long userId) {
+
+        log.info("Request received: Get active tasks for user {}", userId);
+
+        BaseResponse<?> response = taskService.getUserProjectTasks(userId);
+
+        return ResponseEntity.ok(response);
+    }
 }
