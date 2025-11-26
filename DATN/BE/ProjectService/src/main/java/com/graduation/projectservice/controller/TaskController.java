@@ -31,7 +31,7 @@ public class TaskController {
 
         BaseResponse<?> response = taskService.getTasks(userId, projectId, request);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
     @PostMapping("/api/pm/projects/{projectId}/phases/{phaseId}/tasks")

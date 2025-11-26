@@ -20,13 +20,9 @@ public class TaskStatsDTO {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class StatsByStatus {
-        @JsonProperty("to_do")
         private long toDo;
-        @JsonProperty("in_progress")
         private long inProgress;
-        @JsonProperty("in_review")
         private long inReview;
-        @JsonProperty("done")
         private long done;
     }
 
@@ -35,7 +31,6 @@ public class TaskStatsDTO {
     @NoArgsConstructor
     public static class StatsByDeadline {
         private long completed;
-        @JsonProperty("due_soon")
         private long dueSoon;
         private long overdue;
         private long unassigned;

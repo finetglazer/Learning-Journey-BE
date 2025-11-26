@@ -9,5 +9,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class GetTaskRequest {
     private String search;
-    private boolean isMyTask;
+    private boolean showMyTask;
 }

@@ -77,8 +77,8 @@ public class TaskServiceImpl implements TaskService {
             matchesSearch = task.getName().toLowerCase().contains(searchLower);
         }
 
-        // Apply isMyTask Filter
-        if (request.isMyTask()) {
+        // Apply showMyTask Filter
+        if (request.isShowMyTask()) {
             // Check if the task's assignee set contains the current user's ID
             matchesIsMyTask = task.getAssignees().stream()
                     .anyMatch(assignee -> assignee.getUserId().equals(currentUserId));
