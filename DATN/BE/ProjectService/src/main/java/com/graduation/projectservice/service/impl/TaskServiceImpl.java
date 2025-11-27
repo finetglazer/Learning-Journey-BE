@@ -66,6 +66,36 @@ public class TaskServiceImpl implements TaskService {
         );
     }
 
+    @Override
+    public BaseResponse<?> getTaskById(Long taskId) {
+        log.info(Constant.LOG_GETTING_TASK_BY_ID);
+
+        Optional<PM_Task> optionalTask = taskRepository.findPM_TaskByTaskId(taskId);
+        if (optionalTask.isEmpty()) {
+            return new BaseResponse<>(
+                Constant.ERROR_STATUS,
+                Constant.ERROR_TASK_NOT_FOUND,
+                null
+            );
+        }
+
+        PM_Task task = optionalTask.get();
+        TaskDTO dto = new TaskDTO(
+            task.getTaskId(),
+                task.getPhaseId(),
+                task.getName(),
+                task.getKey(),
+                task.getStatus().name(),
+                task.getPriority().name(),
+                task.getOrder()
+        );
+        return new BaseResponse<>(
+            Constant.SUCCESS_STATUS,
+            Constant.LOG_GET_TASK_SUCCESS,
+            dto
+        );
+    }
+
     // 5. Modified Helper Method for Filtering Tasks
     private boolean applyTaskFilters(PM_Task task, Long currentUserId, GetTaskRequest request) {
         boolean matchesSearch = true;

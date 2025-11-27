@@ -89,7 +89,7 @@ public class TaskController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/api/pm/user/tasks")
+    @GetMapping("/api/pm/projects/user/tasks")
     public ResponseEntity<BaseResponse<?>> getUserProjectTasks(
             @RequestHeader("X-User-Id") Long userId) {
 

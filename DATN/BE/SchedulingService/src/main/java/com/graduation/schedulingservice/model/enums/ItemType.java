@@ -4,5 +4,6 @@ public enum ItemType {
     ROUTINE,
     TASK,
     EVENT,
-    MEMORABLE_EVENT  // <-- ADD THIS
+    MEMORABLE_EVENT,
+    PROJECT_WORK
 }

@@ -118,6 +118,7 @@ public class Constant {
     // Task Log Messages
     public static final String LOG_GET_TASK_REQUEST = "POST /api/pm/projects/{}/phases/tasks request received from user {}";
     public static final String LOG_GETTING_TASK = "Getting tasks in project {} by user {}";
+    public static final String LOG_GETTING_TASK_BY_ID = "Getting task by id";
     public static final String LOG_TASK_RETRIEVED_SUCCESS = "Tasks retrieved successfully";
     public static final String LOG_CREATING_TASK = "Creating task for phase {} in project {} by user {}";
     public static final String LOG_TASK_CREATED = "Task {} (key: {}) created for phase {}";
@@ -137,7 +138,7 @@ public class Constant {
     public static final String TASK_UPDATED_SUCCESS = "Task updated";
     public static final String TASK_DELETED_SUCCESS = "Task deleted";
     public static final String TASK_STATUS_UPDATED_SUCCESS = "Task status updated";
-
+    public static final String LOG_GET_TASK_SUCCESS = "Task retrieved successfully";
     // Task Error Messages
     public static final String ERROR_TASK_NOT_FOUND = "Task not found";
     public static final String ERROR_TASK_NOT_IN_PROJECT = "Task does not belong to this project";

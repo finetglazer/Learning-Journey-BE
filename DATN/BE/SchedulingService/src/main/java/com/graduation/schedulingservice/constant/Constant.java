@@ -31,7 +31,7 @@ public class Constant {
     public static final String MSG_ITEM_CREATED_SUCCESS = "Calendar item created successfully";
     public static final String MSG_ITEM_NOT_FOUND = "Calendar item not found";
     public static final String MSG_UNAUTHORIZED_ACCESS = "Unauthorized access";
-    public static final String MSG_INVALID_ITEM_TYPE = "Invalid item type. Must be TASK, ROUTINE, or EVENT";
+    public static final String MSG_INVALID_ITEM_TYPE = "Invalid item type. Must be TASK, ROUTINE, EVENT, or PROJECT_WORK";
     public static final String MSG_INVALID_TIME_SLOT = "Invalid time slot: end time must be after start time";
     public static final String MSG_CALENDAR_NOT_FOUND = "Calendar not found";
     public static final String MSG_CONSTRAINT_VIOLATIONS = "Constraint violations detected";

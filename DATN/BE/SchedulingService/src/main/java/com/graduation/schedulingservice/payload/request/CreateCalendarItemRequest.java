@@ -12,8 +12,10 @@ public class CreateCalendarItemRequest {
 
     private Long monthPlanId; // ← NEW: OPTIONAL - null for standalone, provided when scheduling from sidebar
 
+    private Long pmTaskId; // ← NEW: OPTIONAL
+
     @NotBlank(message = "Item type is required")
-    private String type; // "TASK", "ROUTINE", "EVENT"
+    private String type; // "TASK", "ROUTINE", "EVENT", "PROJECT_WORK"
 
     @NotBlank(message = "Name is required")
     private String name;

@@ -35,4 +35,14 @@ public class TaskDTO {
 
     @JsonProperty("assignees")
     private List<AssigneeDTO> assignees;
+
+    public TaskDTO(Long id, Long phaseId, String name, String key, String status, String priority, Integer order) {
+        this.id = id;
+        this.phaseId = phaseId;
+        this.name = name;
+        this.key = key;
+        this.status = status;
+        this.priority = priority;
+        this.order = order;
+    }
 }

@@ -1,5 +1,6 @@
 package com.graduation.schedulingservice.service.impl;
 
+import com.graduation.schedulingservice.client.ProjectServiceClient;
 import com.graduation.schedulingservice.constant.Constant;
 import com.graduation.schedulingservice.model.*;
 import com.graduation.schedulingservice.model.enums.ItemStatus;
@@ -40,7 +41,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
     private final CalendarRepository calendarRepository;
     private final MonthPlanRepository monthPlanRepository;
     private final WeekPlanRepository weekPlanRepository;
-
+    private final ProjectServiceClient projectServiceClient;
 
     @Override
     @Transactional
@@ -49,7 +50,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             // 1. Validate item type
             ItemType itemType;
             try {
-                itemType = ItemType.valueOf(request.getType().toUpperCase());
+                itemType = ItemType.valueOf(request.getType().trim().toUpperCase());
             } catch (IllegalArgumentException e) {
                 log.warn(Constant.LOG_INVALID_ITEM_TYPE, request.getType());
                 return new BaseResponse<>(0, Constant.MSG_INVALID_ITEM_TYPE, null);
@@ -230,6 +231,15 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             }
             // else: Standalone Mode - monthPlanId and weekPlanId remain null
 
+            if (request.getPmTaskId() != null) {
+                Optional<PM_TasKDTO> res = projectServiceClient.getProjectTaskById(request.getPmTaskId());
+                if (res.isEmpty()) {
+                    log.warn("No project task found for pmTaskId: {}",
+                            request.getPmTaskId());
+                    return new BaseResponse<>(0, "No project task found", null);
+                }
+            }
+
             // 5. Validate constraints (overlapping, sleep hours, daily limits)
             if (request.getTimeSlot() != null) {
                 List<String> violations = constraintValidationService.validateConstraints(
@@ -256,6 +266,9 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                     break;
                 case EVENT:
                     calendarItem = createEvent(userId, request);
+                    break;
+                case PROJECT_WORK:
+                    calendarItem = createProjectTask(userId, request);
                     break;
                 default:
                     return new BaseResponse<>(0, Constant.MSG_INVALID_ITEM_TYPE, null);
@@ -604,6 +617,16 @@ public class CalendarItemServiceImpl implements CalendarItemService {
         }
 
         return task;
+    }
+
+    /**
+     * Create a Project task item
+     */
+    private ProjectTask createProjectTask(Long userId, CreateCalendarItemRequest request) {
+        ProjectTask projectTask = new ProjectTask();
+        setCommonFields(projectTask, userId, request);
+        projectTask.setPmTaskId(request.getPmTaskId());
+        return projectTask;
     }
 
     /**

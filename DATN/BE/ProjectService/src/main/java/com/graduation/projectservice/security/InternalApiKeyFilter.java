@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -17,6 +20,9 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
 
     @Value("${app.security.trusted-services.user-service}")
     private String userServiceApiKey;
+
+    @Value("${app.security.trusted-services.scheduling-service}")
+    private String schedulingServiceApiKey;
 
     private static final String API_KEY_HEADER = "X-Internal-API-Key";
 
@@ -40,7 +46,7 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
                 return;
             }
 
-            if (!apiKey.equals(userServiceApiKey)) {
+            if (!List.of(schedulingServiceApiKey, userServiceApiKey).contains(apiKey)) {
                 log.warn("Invalid API key for internal endpoint: {}", requestPath);
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 response.setContentType("application/json");
