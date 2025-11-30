@@ -2,21 +2,14 @@ package com.graduation.projectservice.service.impl;
 
 import com.graduation.projectservice.constant.Constant;
 import com.graduation.projectservice.helper.ProjectAuthorizationHelper;
-import com.graduation.projectservice.model.PM_Deliverable;
-import com.graduation.projectservice.model.PM_Milestone;
-import com.graduation.projectservice.model.PM_Phase;
-import com.graduation.projectservice.model.PM_Task;
+import com.graduation.projectservice.model.*;
 import com.graduation.projectservice.payload.request.UpdateTimelineDatesRequest;
 import com.graduation.projectservice.payload.request.UpdateTimelineOffsetRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
 import com.graduation.projectservice.payload.response.TimelineItemDTO;
 import com.graduation.projectservice.payload.response.TimelineMilestoneDTO;
 import com.graduation.projectservice.payload.response.TimelineStructureResponse;
-import com.graduation.projectservice.repository.DeliverableRepository;
-import com.graduation.projectservice.repository.MilestoneRepository;
-import com.graduation.projectservice.repository.PhaseRepository;
-import com.graduation.projectservice.repository.TaskRepository;
-import com.graduation.projectservice.service.DeliverableService;
+import com.graduation.projectservice.repository.*;
 import com.graduation.projectservice.service.TimelineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,10 +17,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.Collections; // Import this
+import java.util.Collections;
 import java.util.Comparator;
-import java.util.stream.Collectors;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -36,6 +29,7 @@ public class TimelineServiceImpl implements TimelineService {
 
     private final TaskRepository taskRepository;
     private final PhaseRepository phaseRepository;
+    private final ProjectRepository projectRepository;
     private final DeliverableRepository deliverableRepository;
     private final ProjectAuthorizationHelper projectAuthorizationHelper;
     private final MilestoneRepository milestoneRepository;
@@ -153,8 +147,12 @@ public class TimelineServiceImpl implements TimelineService {
                 .map(m -> new TimelineMilestoneDTO(m.getMilestoneId(), m.getName(), m.getDate()))
                 .collect(Collectors.toList());
 
+        PM_Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+
         // 5. Build Response Data
         TimelineStructureResponse data = TimelineStructureResponse.builder()
+                .projectStartDate(project.getStartDate())
                 .items(items)
                 .milestones(milestones)
                 .build();

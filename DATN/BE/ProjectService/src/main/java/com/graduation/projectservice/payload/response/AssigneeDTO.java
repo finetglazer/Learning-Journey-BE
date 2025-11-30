@@ -13,6 +13,6 @@ public class AssigneeDTO {
     @JsonProperty("userId")
     private Long userId;
 
-    @JsonProperty("avatar_url")
+    @JsonProperty("avatarUrl")
     private String avatarUrl;
 }
