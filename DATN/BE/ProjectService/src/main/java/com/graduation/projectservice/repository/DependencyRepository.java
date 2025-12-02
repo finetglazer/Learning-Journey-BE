@@ -28,4 +28,6 @@ public interface DependencyRepository extends JpaRepository<PM_Dependency, Long>
             @Param("type") String type,
             @Param("itemId") Long itemId
     );
+
+    List<PM_Dependency> findAllByProjectIdAndType(Long projectId, String type);
 }

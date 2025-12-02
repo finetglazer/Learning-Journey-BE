@@ -15,9 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -38,17 +36,21 @@ public class DependencyServiceImpl implements DependencyService {
         // 1. Auth Check
         authHelper.requireActiveMember(projectId, userId);
 
-        // 2. Fetch Dependencies
-        List<PM_Dependency> dependencies = dependencyRepository.findAllRelatedDependencies(projectId, itemType, itemId);
-
-        // 3. Validation: Check if Items Exist (Returns 0 and null data if not found)
+        // 2. Validation: Check if Items Exist
         if (!isItemExist(itemId, itemType)) {
             return new BaseResponse<>(0, itemType + " not found with id: " + itemId, null);
         }
 
+        // 3. Fetch ALL dependencies for this project/type to build the graph
+        // (It is much faster to fetch 500 rows once than to run 500 individual queries)
+        List<PM_Dependency> allProjectDependencies = dependencyRepository
+                .findAllByProjectIdAndType(projectId, itemType);
 
-        // 4. Map to DTO
-        List<DependencyDTO> dtos = dependencies.stream()
+        // 4. BFS Algorithm to find connected components
+        Set<PM_Dependency> relatedDependencies = performBFS(allProjectDependencies, itemId);
+
+        // 5. Map to DTO
+        List<DependencyDTO> dtos = relatedDependencies.stream()
                 .map(d -> DependencyDTO.builder()
                         .type(d.getType())
                         .fromId(d.getSourceId())
@@ -56,8 +58,60 @@ public class DependencyServiceImpl implements DependencyService {
                         .build())
                 .collect(Collectors.toList());
 
-        return new BaseResponse<>(1, "Dependencies for " + itemType + "-" + itemId + " retrieved",
+        return new BaseResponse<>(1,
+                "All recursive dependencies for " + itemType + "-" + itemId + " retrieved",
                 Map.of("dependencies", dtos));
+    }
+
+    /**
+     * Performs Breadth-First Search to find all dependencies connected to the startNode.
+     * It traverses both Upstream (Predecessors) and Downstream (Successors).
+     */
+    private Set<PM_Dependency> performBFS(List<PM_Dependency> allDependencies, Long startNodeId) {
+        Set<PM_Dependency> result = new HashSet<>();
+        Set<Long> visitedNodes = new HashSet<>();
+        Queue<Long> queue = new LinkedList<>();
+
+        // Initialize
+        queue.add(startNodeId);
+        visitedNodes.add(startNodeId);
+
+        while (!queue.isEmpty()) {
+            Long currentNode = queue.poll();
+
+            // Find all connections involving the current node
+            for (PM_Dependency dep : allDependencies) {
+
+                // Check if we have already added this specific dependency link to results
+                if (result.contains(dep)) continue;
+
+                boolean isRelated = false;
+                Long nextNode = null;
+
+                // Case A: Downstream (Current -> Target)
+                if (dep.getSourceId().equals(currentNode)) {
+                    nextNode = dep.getTargetId();
+                    isRelated = true;
+                }
+                // Case B: Upstream (Source -> Current)
+                else if (dep.getTargetId().equals(currentNode)) {
+                    nextNode = dep.getSourceId();
+                    isRelated = true;
+                }
+
+                if (isRelated) {
+                    result.add(dep); // Add the link to our result set
+
+                    // If we haven't visited the connected node, add it to queue
+                    if (!visitedNodes.contains(nextNode)) {
+                        visitedNodes.add(nextNode);
+                        queue.add(nextNode);
+                    }
+                }
+            }
+        }
+
+        return result;
     }
 
     @Override
