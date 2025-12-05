@@ -1,5 +1,6 @@
 package com.graduation.projectservice.controller;
 
+import com.graduation.projectservice.payload.request.GetTimelineStructureRequest;
 import com.graduation.projectservice.payload.request.UpdateTimelineDatesRequest;
 import com.graduation.projectservice.payload.request.UpdateTimelineOffsetRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
@@ -19,12 +20,13 @@ public class TimelineController {
     private final TimelineService timelineService;
 
     // --- New Endpoint ---
-    @GetMapping("/structure")
+    @PostMapping("/structure")
     public ResponseEntity<BaseResponse<?>> getTimelineStructure(
             @RequestHeader("X-User-Id") Long userId,
-            @PathVariable Long projectId) {
+            @PathVariable Long projectId,
+            @RequestBody GetTimelineStructureRequest request) {
 
-        BaseResponse<?> response = timelineService.getTimelineStructure(userId, projectId);
+        BaseResponse<?> response = timelineService.getTimelineStructure(userId, projectId, request);
         return ResponseEntity.ok(response);
     }
 

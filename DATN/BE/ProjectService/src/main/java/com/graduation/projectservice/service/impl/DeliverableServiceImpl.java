@@ -207,6 +207,7 @@ public class DeliverableServiceImpl implements DeliverableService {
         List<PhaseDTO> phaseDTOs = deliverable.getPhases().stream()
                 .map(phase -> convertToPhaseDTO(phase, isSearching, searchKeyword))
                 .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(PhaseDTO::getOrder))
                 .toList();
 
         DeliverableStructureDTO dto = new DeliverableStructureDTO(
@@ -239,6 +240,7 @@ public class DeliverableServiceImpl implements DeliverableService {
                 // We use the simplified conversion without the search keyword
                 .map(task -> convertToTaskDTO(task, isSearching, searchKeyword))
                 .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(TaskDTO::getOrder))
                 .toList();
 
         PhaseDTO dto = new PhaseDTO(

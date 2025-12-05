@@ -34,4 +34,7 @@ public class TimelineItemDTO {
 
     @JsonProperty("children")
     private List<TimelineItemDTO> children;
+
+    @JsonProperty("childrenContainSearchKeyword")
+    private boolean childrenContainSearchKeyword;
 }
