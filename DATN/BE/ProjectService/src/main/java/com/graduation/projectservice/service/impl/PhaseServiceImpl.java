@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -62,12 +63,17 @@ public class PhaseServiceImpl implements PhaseService {
             Integer maxOrder = phaseRepository.findMaxOrderByDeliverableId(deliverableId);
             Integer nextOrder = maxOrder + 1;
 
+            LocalDate startDate = deliverable.getStartDate();
+            LocalDate endDate = deliverable.getEndDate().isBefore(startDate.plusWeeks(2)) ? deliverable.getEndDate() : startDate.plusWeeks(2);
+
             // Create phase
             PM_Phase phase = new PM_Phase();
             phase.setDeliverableId(deliverableId);
             phase.setName(request.getName());
             phase.setKey(key);
             phase.setOrder(nextOrder);
+            phase.setStartDate(startDate);
+            phase.setEndDate(endDate);
 
             PM_Phase savedPhase = phaseRepository.save(phase);
 

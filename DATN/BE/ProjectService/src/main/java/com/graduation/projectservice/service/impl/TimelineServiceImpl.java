@@ -73,6 +73,8 @@ public class TimelineServiceImpl implements TimelineService {
                     task.setStartDate(reqStartDate);
                     task.setEndDate(reqEndDate);
                     taskRepository.save(task);
+
+                    recalculatePhaseBounds(task.getPhaseId());
                     break;
 
                 case PHASE:
@@ -99,6 +101,8 @@ public class TimelineServiceImpl implements TimelineService {
                     phase.setStartDate(reqStartDate);
                     phase.setEndDate(reqEndDate);
                     phaseRepository.save(phase);
+
+                    recalculateDeliverableBounds(phase.getDeliverableId());
                     break;
 
                 case DELIVERABLE:
@@ -179,30 +183,18 @@ public class TimelineServiceImpl implements TimelineService {
     }
 
     private TimelineItemDTO mapToTimelineItem(PM_Deliverable deliverable, String search, boolean hasSearch) {
-        // 1. Filter and Map Phases (Children)
-        List<TimelineItemDTO> children = deliverable.getPhases().stream()
-                // If searching, filter out phases that don't match. If not searching, keep all.
-                .filter(phase -> !hasSearch || phase.getName().toLowerCase().contains(search))
-                .sorted(Comparator.comparing(phase -> phase.getOrder() != null ? phase.getOrder() : 0))
-                .map(phase -> TimelineItemDTO.builder()
-                        .id("phase-" + phase.getPhaseId())
-                        .type("PHASE")
-                        .name(phase.getName())
-                        .startDate(phase.getStartDate())
-                        .endDate(phase.getEndDate())
-                        .childrenContainSearchKeyword(false)
-                        .build())
+        // 1. Filter and Map Phases (and their Tasks)
+        List<TimelineItemDTO> childrenPhases = deliverable.getPhases().stream()
+                .map(phase -> mapPhaseToDTO(phase, search, hasSearch)) // Call helper for Phase/Task logic
+                .filter(Objects::nonNull) // Remove phases that don't match or have no matching tasks
+                .sorted(Comparator.comparing(TimelineItemDTO::getName)) // or sort by Order if available
                 .collect(Collectors.toList());
 
         // 2. Check if Parent (Deliverable) matches
         boolean parentMatches = !hasSearch || deliverable.getName().toLowerCase().contains(search);
-        boolean hasMatchingChildren = !children.isEmpty();
+        boolean hasMatchingChildren = !childrenPhases.isEmpty();
 
-        // 3. Decision: Should we return this Deliverable?
-        // Return if:
-        // a. No search is active (return everything)
-        // b. The Deliverable name matches the search
-        // c. The Deliverable name doesn't match, BUT it contains children that do
+        // 3. Return Deliverable if it matches OR has matching phases/tasks inside it
         if (parentMatches || hasMatchingChildren) {
             return TimelineItemDTO.builder()
                     .id("del-" + deliverable.getDeliverableId())
@@ -210,11 +202,46 @@ public class TimelineServiceImpl implements TimelineService {
                     .name(deliverable.getName())
                     .startDate(deliverable.getStartDate())
                     .endDate(deliverable.getEndDate())
-                    .children(children)
+                    .children(childrenPhases)
                     .childrenContainSearchKeyword(hasMatchingChildren)
                     .build();
         }
+        return null;
+    }
 
+    private TimelineItemDTO mapPhaseToDTO(PM_Phase phase, String search, boolean hasSearch) {
+        // A. Filter and Map Tasks (Children of Phase)
+        // Assuming PM_Phase has a getTasks() method
+        List<TimelineItemDTO> childrenTasks = phase.getTasks().stream()
+                .filter(task -> !hasSearch || task.getName().toLowerCase().contains(search))
+                .sorted(Comparator.comparing(task -> task.getOrder() != null ? task.getOrder() : 0))
+                .map(task -> TimelineItemDTO.builder()
+                        .id("task-" + task.getTaskId())
+                        .type("TASK")
+                        .name(task.getName())
+                        .startDate(task.getStartDate())
+                        .endDate(task.getEndDate())
+                        .children(Collections.emptyList())
+                        .childrenContainSearchKeyword(false)
+                        .build())
+                .collect(Collectors.toList());
+
+        // B. Check if Phase itself matches
+        boolean phaseMatches = !hasSearch || phase.getName().toLowerCase().contains(search);
+        boolean hasMatchingTasks = !childrenTasks.isEmpty();
+
+        // C. Return Phase if it matches OR has matching tasks
+        if (phaseMatches || hasMatchingTasks) {
+            return TimelineItemDTO.builder()
+                    .id("phase-" + phase.getPhaseId())
+                    .type("PHASE")
+                    .name(phase.getName())
+                    .startDate(phase.getStartDate())
+                    .endDate(phase.getEndDate())
+                    .children(childrenTasks) // Attach the tasks here
+                    .childrenContainSearchKeyword(hasMatchingTasks)
+                    .build();
+        }
         return null;
     }
 
@@ -238,6 +265,38 @@ public class TimelineServiceImpl implements TimelineService {
 
             // 3. Logic based on Type
             switch (type) {
+                case "TASK":
+                    PM_Task task = taskRepository.findById(request.getId())
+                            .orElseThrow(() -> new RuntimeException("Task not found"));
+
+                    PM_Phase parentPhase = phaseRepository.findById(task.getPhaseId())
+                            .orElseThrow(() -> new RuntimeException("Parent phase not found"));
+
+                    // Calculate Proposed Dates
+                    LocalDate newTaskStart = task.getStartDate() != null ? task.getStartDate().plusDays(days) : null;
+                    LocalDate newTaskEnd = task.getEndDate() != null ? task.getEndDate().plusDays(days) : null;
+
+                    // Validation: Proposed Phase dates must be inside Deliverable
+                    // Note: If phase dates are null, we skip validation (or block, depending on logic. Here assuming strict check if they become non-null)
+                    if (newTaskStart != null && newTaskEnd != null) {
+                        String offsetWarning = validateParentChildConstraint(
+                                parentPhase.getStartDate(), parentPhase.getEndDate(),
+                                newTaskStart, newTaskEnd,
+                                "Phase", "Task");
+                        if (offsetWarning != null) return new BaseResponse<>(0, offsetWarning, null);
+                    } else {
+                        if (parentPhase.getStartDate() == null || parentPhase.getEndDate() == null) {
+                            return new BaseResponse<>(0, "Parent Phase dates are not set, cannot offset Phase.", null);
+                        }
+                    }
+
+                    // Apply Shift
+                    shiftTask(task, days);
+                    taskRepository.save(task);
+
+                    recalculatePhaseBounds(task.getPhaseId());
+                    break;
+
                 case "PHASE":
                     PM_Phase phase = phaseRepository.findById(request.getId())
                             .orElseThrow(() -> new RuntimeException("Phase not found"));
@@ -269,6 +328,8 @@ public class TimelineServiceImpl implements TimelineService {
                     // Apply Shift
                     shiftPhase(phase, days);
                     phaseRepository.save(phase);
+
+                    recalculateDeliverableBounds(phase.getDeliverableId());
                     break;
 
                 case "DELIVERABLE":
@@ -306,6 +367,11 @@ public class TimelineServiceImpl implements TimelineService {
     // HELPERS
     // -------------------------------------------------------------------------
 
+    private void shiftTask(PM_Task task, int days) {
+        if (task.getStartDate() != null) task.setStartDate(task.getStartDate().plusDays(days));
+        if (task.getEndDate() != null) task.setEndDate(task.getEndDate().plusDays(days));
+    }
+
     private void shiftPhase(PM_Phase phase, int days) {
         if (phase.getStartDate() != null) phase.setStartDate(phase.getStartDate().plusDays(days));
         if (phase.getEndDate() != null) phase.setEndDate(phase.getEndDate().plusDays(days));
@@ -337,15 +403,15 @@ public class TimelineServiceImpl implements TimelineService {
             return String.format("%s start/end dates are not set. Cannot set %s dates.", pName, cName);
         }
 
-        // Rule: Child Start >= Parent Start
-        if (cStart.isBefore(pStart)) {
-            return String.format("%s start date (%s) cannot be before %s start date (%s).", cName, cStart, pName, pStart);
-        }
+        // Case: Child Start < Parent Start
+//        if (cStart.isBefore(pStart)) {
+//            return String.format("%s start date (%s) cannot be before %s start date (%s).", cName, cStart, pName, pStart);
+//        }
 
-        // Rule: Child End <= Parent End
-        if (cEnd.isAfter(pEnd)) {
-            return String.format("%s end date (%s) cannot be after %s end date (%s).", cName, cEnd, pName, pEnd);
-        }
+        // Case: Child End > Parent End
+//        if (cEnd.isAfter(pEnd)) {
+//            return String.format("%s end date (%s) cannot be after %s end date (%s).", cName, cEnd, pName, pEnd);
+//        }
 
         return null; // Valid
     }
@@ -382,5 +448,90 @@ public class TimelineServiceImpl implements TimelineService {
             }
         }
         return null;
+    }
+
+    private void recalculatePhaseBounds(Long phaseId) {
+        if (phaseId == null) return;
+
+        PM_Phase phase = phaseRepository.findById(phaseId)
+                .orElseThrow(() -> new RuntimeException("Phase not found"));
+
+        // 1. Get all siblings (tasks in this phase)
+        List<PM_Task> tasks = taskRepository.findAllByPhaseId(phaseId);
+
+        if (tasks.isEmpty()) return;
+
+        // 2. Calculate Min Start and Max End
+        LocalDate minStart = tasks.stream()
+                .map(PM_Task::getStartDate)
+                .filter(Objects::nonNull)
+                .min(LocalDate::compareTo)
+                .orElse(null);
+
+        LocalDate maxEnd = tasks.stream()
+                .map(PM_Task::getEndDate)
+                .filter(Objects::nonNull)
+                .max(LocalDate::compareTo)
+                .orElse(null);
+
+        // 3. Update if changed
+        boolean changed = false;
+
+        // Handle logic: If calculated is null, do we keep old date or set null?
+        // Usually, if tasks exist, we enforce the calculated date.
+        if (phase.getStartDate().isAfter(minStart)) {
+            phase.setStartDate(minStart);
+            changed = true;
+        }
+        if (phase.getEndDate().isBefore(maxEnd)) {
+            phase.setEndDate(maxEnd);
+            changed = true;
+        }
+
+        if (changed) {
+            phaseRepository.save(phase);
+            recalculateDeliverableBounds(phase.getDeliverableId());
+        }
+    }
+
+    private void recalculateDeliverableBounds(Long deliverableId) {
+        if (deliverableId == null) return;
+
+        PM_Deliverable deliverable = deliverableRepository.findById(deliverableId)
+                .orElseThrow(() -> new RuntimeException("Deliverable not found"));
+
+        // 1. Get all siblings (Phases in this Deliverable)
+        List<PM_Phase> phases = phaseRepository.findAllByDeliverableId(deliverableId);
+
+        if (phases.isEmpty()) return;
+
+        // 2. Calculate Min Start and Max End from Phases
+        LocalDate minStart = phases.stream()
+                .map(PM_Phase::getStartDate)
+                .filter(Objects::nonNull)
+                .min(LocalDate::compareTo)
+                .orElse(null);
+
+        LocalDate maxEnd = phases.stream()
+                .map(PM_Phase::getEndDate)
+                .filter(Objects::nonNull)
+                .max(LocalDate::compareTo)
+                .orElse(null);
+
+        // 3. Update if changed
+        boolean changed = false;
+
+        if (deliverable.getStartDate().isAfter(minStart)) {
+            deliverable.setStartDate(minStart);
+            changed = true;
+        }
+        if (deliverable.getEndDate().isBefore(maxEnd)) {
+            deliverable.setEndDate(maxEnd);
+            changed = true;
+        }
+
+        if (changed) {
+            deliverableRepository.save(deliverable);
+        }
     }
 }

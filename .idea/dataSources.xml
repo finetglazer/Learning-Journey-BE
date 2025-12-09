@@ -14,11 +14,19 @@
       </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
+<<<<<<< Updated upstream
     <data-source source="LOCAL" name="neondb@ep-bold-credit-a1uzb84b-pooler.ap-southeast-1.aws.neon.tech" uuid="f771df5e-9282-4589-b300-e4ef7c8c4099">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
       <jdbc-url>jdbc:postgresql://ep-bold-credit-a1uzb84b-pooler.ap-southeast-1.aws.neon.tech/neondb</jdbc-url>
+=======
+    <data-source source="LOCAL" name="neondb@ep-bold-credit-a1uzb84b-pooler.ap-southeast-1.aws.neon.tech" uuid="366050f6-fc18-4405-96d8-b24f4af27ed5">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://ep-bold-credit-a1uzb84b-pooler.ap-southeast-1.aws.neon.tech:5432/neondb</jdbc-url>
+>>>>>>> Stashed changes
       <jdbc-additional-properties>
         <property name="com.intellij.clouds.kubernetes.db.host.port" />
         <property name="com.intellij.clouds.kubernetes.db.enabled" value="false" />
@@ -26,11 +34,19 @@
       </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
+<<<<<<< Updated upstream
     <data-source source="LOCAL" name="neondb@ep-gentle-king-a1w4bd80-pooler.ap-southeast-1.aws.neon.tech" uuid="8e9b0eb3-6ef6-4c3d-98f4-da78643d67de">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
       <jdbc-url>jdbc:postgresql://ep-gentle-king-a1w4bd80-pooler.ap-southeast-1.aws.neon.tech/neondb</jdbc-url>
+=======
+    <data-source source="LOCAL" name="neondb@ep-gentle-king-a1w4bd80-pooler.ap-southeast-1.aws.neon.tech" uuid="d0b8fd56-ebe5-4108-b663-3ee998d86f7a">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://ep-gentle-king-a1w4bd80-pooler.ap-southeast-1.aws.neon.tech:5432/neondb</jdbc-url>
+>>>>>>> Stashed changes
       <jdbc-additional-properties>
         <property name="com.intellij.clouds.kubernetes.db.host.port" />
         <property name="com.intellij.clouds.kubernetes.db.enabled" value="false" />

@@ -152,6 +152,9 @@ public class TaskServiceImpl implements TaskService {
             Integer maxOrder = taskRepository.findMaxOrderByPhaseId(phaseId);
             Integer nextOrder = maxOrder + 1;
 
+            LocalDate startDate = phase.getStartDate();
+            LocalDate endDate = phase.getEndDate().isBefore(startDate.plusWeeks(2)) ? phase.getEndDate() : startDate.plusWeeks(2);
+
             // Create task
             PM_Task task = new PM_Task();
             task.setPhaseId(phaseId);
@@ -159,6 +162,8 @@ public class TaskServiceImpl implements TaskService {
             task.setKey(key);
             task.setOrder(nextOrder);
             task.setDateAdded(LocalDate.now());
+            task.setStartDate(startDate);
+            task.setEndDate(endDate);
 
             PM_Task savedTask = taskRepository.save(task);
 

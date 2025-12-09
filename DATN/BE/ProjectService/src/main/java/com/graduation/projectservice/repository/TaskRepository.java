@@ -46,4 +46,6 @@ public interface TaskRepository extends JpaRepository<PM_Task, Long> {
     List<TaskProjectProjection> findActiveTasksForUser(@Param("userId") Long userId);
 
     Optional<PM_Task> findPM_TaskByTaskId(Long taskId);
+
+    List<PM_Task> findAllByPhaseId(Long phaseId);
 }
