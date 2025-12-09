@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -19,4 +20,7 @@ public class TimelineStructureResponse {
 
     @JsonProperty("milestones")
     private List<TimelineMilestoneDTO> milestones;
+
+    @JsonProperty("projectStartDate")
+    private LocalDate projectStartDate;
 }

@@ -2,21 +2,15 @@ package com.graduation.projectservice.service.impl;
 
 import com.graduation.projectservice.constant.Constant;
 import com.graduation.projectservice.helper.ProjectAuthorizationHelper;
-import com.graduation.projectservice.model.PM_Deliverable;
-import com.graduation.projectservice.model.PM_Milestone;
-import com.graduation.projectservice.model.PM_Phase;
-import com.graduation.projectservice.model.PM_Task;
+import com.graduation.projectservice.model.*;
+import com.graduation.projectservice.payload.request.GetTimelineStructureRequest;
 import com.graduation.projectservice.payload.request.UpdateTimelineDatesRequest;
 import com.graduation.projectservice.payload.request.UpdateTimelineOffsetRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
 import com.graduation.projectservice.payload.response.TimelineItemDTO;
 import com.graduation.projectservice.payload.response.TimelineMilestoneDTO;
 import com.graduation.projectservice.payload.response.TimelineStructureResponse;
-import com.graduation.projectservice.repository.DeliverableRepository;
-import com.graduation.projectservice.repository.MilestoneRepository;
-import com.graduation.projectservice.repository.PhaseRepository;
-import com.graduation.projectservice.repository.TaskRepository;
-import com.graduation.projectservice.service.DeliverableService;
+import com.graduation.projectservice.repository.*;
 import com.graduation.projectservice.service.TimelineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,10 +18,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.Collections; // Import this
+import java.util.Collections;
 import java.util.Comparator;
-import java.util.stream.Collectors;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -36,6 +31,7 @@ public class TimelineServiceImpl implements TimelineService {
 
     private final TaskRepository taskRepository;
     private final PhaseRepository phaseRepository;
+    private final ProjectRepository projectRepository;
     private final DeliverableRepository deliverableRepository;
     private final ProjectAuthorizationHelper projectAuthorizationHelper;
     private final MilestoneRepository milestoneRepository;
@@ -134,27 +130,47 @@ public class TimelineServiceImpl implements TimelineService {
 
     @Override
     @Transactional(readOnly = true)
-    public BaseResponse<?> getTimelineStructure(Long userId, Long projectId) {
-        // 1. Auth Check: Owner or Member
+    public BaseResponse<?> getTimelineStructure(Long userId, Long projectId, GetTimelineStructureRequest request) {
+        // 1. Auth Check
         projectAuthorizationHelper.requireActiveMember(projectId, userId);
 
-        // 2. Fetch Deliverables (Phases are fetched via relationship)
-        // Note: Assuming Repository has findAllByProjectIdOrderByOrderAsc
+        // 2. Prepare Search Term (Normalize to lowercase for case-insensitive search)
+        String rawSearch = request.getSearch();
+        String search = (rawSearch != null) ? rawSearch.trim().toLowerCase() : "";
+        boolean hasSearch = !search.isEmpty();
+
+        // 3. Fetch Deliverables
         List<PM_Deliverable> deliverables = deliverableRepository.findAllByProjectIdOrderByOrderAsc(projectId);
 
-        // 3. Map Deliverables and Phases to TimelineItemDTO
+        // 4. Map and Filter (Search Logic)
         List<TimelineItemDTO> items = deliverables.stream()
-                .map(this::mapToTimelineItem)
+                .map(d -> mapToTimelineItem(d, search, hasSearch)) // Pass search params
+                .filter(Objects::nonNull) // Remove items that don't match search criteria
+                .sorted((d1, d2) -> {
+                    // If searching, prioritize Deliverables that match the name directly
+                    if (hasSearch) {
+                        boolean d1Matches = d1.getName().toLowerCase().contains(search);
+                        boolean d2Matches = d2.getName().toLowerCase().contains(search);
+                        if (d1Matches && !d2Matches) return -1; // d1 comes first
+                        if (!d1Matches && d2Matches) return 1;  // d2 comes first
+                    }
+                    // Fallback to original order (assuming ID or list index preserves order)
+                    return 0;
+                })
                 .collect(Collectors.toList());
 
-        // 4. Fetch and Map Milestones
+        // 5. Fetch Milestones (Optional: You can apply search here too if needed)
         List<PM_Milestone> pmMilestones = milestoneRepository.findAllByProjectIdOrderByDateAsc(projectId);
         List<TimelineMilestoneDTO> milestones = pmMilestones.stream()
                 .map(m -> new TimelineMilestoneDTO(m.getMilestoneId(), m.getName(), m.getDate()))
                 .collect(Collectors.toList());
 
-        // 5. Build Response Data
+        PM_Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+
+        // 6. Build Response
         TimelineStructureResponse data = TimelineStructureResponse.builder()
+                .projectStartDate(project.getStartDate())
                 .items(items)
                 .milestones(milestones)
                 .build();
@@ -162,29 +178,44 @@ public class TimelineServiceImpl implements TimelineService {
         return new BaseResponse<>(1, "Timeline structure retrieved", data);
     }
 
-    private TimelineItemDTO mapToTimelineItem(PM_Deliverable deliverable) {
-        // Map Phases (Children)
+    private TimelineItemDTO mapToTimelineItem(PM_Deliverable deliverable, String search, boolean hasSearch) {
+        // 1. Filter and Map Phases (Children)
         List<TimelineItemDTO> children = deliverable.getPhases().stream()
+                // If searching, filter out phases that don't match. If not searching, keep all.
+                .filter(phase -> !hasSearch || phase.getName().toLowerCase().contains(search))
                 .sorted(Comparator.comparing(phase -> phase.getOrder() != null ? phase.getOrder() : 0))
                 .map(phase -> TimelineItemDTO.builder()
-                        .id("phase-" + phase.getPhaseId()) // Prefix ID
+                        .id("phase-" + phase.getPhaseId())
                         .type("PHASE")
                         .name(phase.getName())
                         .startDate(phase.getStartDate())
                         .endDate(phase.getEndDate())
-                        // Phases have no children in this view
+                        .childrenContainSearchKeyword(false)
                         .build())
                 .collect(Collectors.toList());
 
-        // Map Deliverable
-        return TimelineItemDTO.builder()
-                .id("del-" + deliverable.getDeliverableId()) // Prefix ID
-                .type("DELIVERABLE")
-                .name(deliverable.getName())
-                .startDate(deliverable.getStartDate())
-                .endDate(deliverable.getEndDate())
-                .children(children)
-                .build();
+        // 2. Check if Parent (Deliverable) matches
+        boolean parentMatches = !hasSearch || deliverable.getName().toLowerCase().contains(search);
+        boolean hasMatchingChildren = !children.isEmpty();
+
+        // 3. Decision: Should we return this Deliverable?
+        // Return if:
+        // a. No search is active (return everything)
+        // b. The Deliverable name matches the search
+        // c. The Deliverable name doesn't match, BUT it contains children that do
+        if (parentMatches || hasMatchingChildren) {
+            return TimelineItemDTO.builder()
+                    .id("del-" + deliverable.getDeliverableId())
+                    .type("DELIVERABLE")
+                    .name(deliverable.getName())
+                    .startDate(deliverable.getStartDate())
+                    .endDate(deliverable.getEndDate())
+                    .children(children)
+                    .childrenContainSearchKeyword(hasMatchingChildren)
+                    .build();
+        }
+
+        return null;
     }
 
     @Override

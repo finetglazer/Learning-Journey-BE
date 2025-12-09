@@ -94,17 +94,17 @@ public class RiskServiceImpl implements RiskService {
             return RiskDTO.builder()
                     .id(risk.getRiskId())
                     .key(risk.getKey())
-                    .risk_statement(risk.getRiskStatement())
+                    .riskStatement(risk.getRiskStatement())
                     .probability(risk.getProbability().getLabel())
                     .impact(risk.getImpact().getLabel())
                     .status(risk.getStatus().name())
-                    .risk_score(score)
-                    .risk_degree(degree)
+                    .riskScore(score)
+                    .riskDegree(degree)
                     .assignees(assigneeDTOS)
-                    .mitigation_plan(risk.getMitigationPlan())
+                    .mitigationPlan(risk.getMitigationPlan())
                     .note(risk.getNote())
-                    .revised_probability(risk.getRevisedProbability() != null ? risk.getRevisedProbability().getLabel() : null)
-                    .revised_impact(risk.getRevisedImpact() != null ? risk.getRevisedImpact().getLabel() : null)
+                    .revisedProbability(risk.getRevisedProbability() != null ? risk.getRevisedProbability().getLabel() : null)
+                    .revisedImpact(risk.getRevisedImpact() != null ? risk.getRevisedImpact().getLabel() : null)
                     .build();
         }).collect(Collectors.toList());
 

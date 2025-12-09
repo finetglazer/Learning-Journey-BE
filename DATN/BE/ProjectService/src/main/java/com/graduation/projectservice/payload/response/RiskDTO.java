@@ -9,15 +9,15 @@ import java.util.List;
 public class RiskDTO {
     private Long id;
     private String key;
-    private String risk_statement;
+    private String riskStatement;
     private String probability; // Return label: "5-Very high"
     private String impact;      // Return label: "5-Very high"
     private String status;
-    private Integer risk_score; // Calculated field (Prob * Impact)
-    private String risk_degree; // LOW, MEDIUM, HIGH
+    private Integer riskScore; // Calculated field (Prob * Impact)
+    private String riskDegree; // LOW, MEDIUM, HIGH
     private List<AssigneeDTO> assignees;
-    private String mitigation_plan;
+    private String mitigationPlan;
     private String note;
-    private String revised_probability;
-    private String revised_impact;
+    private String revisedProbability;
+    private String revisedImpact;
 }

@@ -26,12 +26,15 @@ public class TimelineItemDTO {
     @JsonProperty("name")
     private String name;
 
-    @JsonProperty("start_date")
+    @JsonProperty("startDate")
     private LocalDate startDate;
 
-    @JsonProperty("end_date")
+    @JsonProperty("endDate")
     private LocalDate endDate;
 
     @JsonProperty("children")
     private List<TimelineItemDTO> children;
+
+    @JsonProperty("childrenContainSearchKeyword")
+    private boolean childrenContainSearchKeyword;
 }
