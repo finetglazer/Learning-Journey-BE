@@ -1,6 +1,7 @@
-package com.graduation.userservice.payload.request;
+package com.graduation.schedulingservice.payload.request;
 
-import com.graduation.userservice.payload.response.DailyLimitDto;
+
+import com.graduation.schedulingservice.payload.response.DailyLimitDto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

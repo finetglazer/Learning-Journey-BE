@@ -1,6 +1,6 @@
-package com.graduation.userservice.model;
+package com.graduation.schedulingservice.model;
 
-import com.graduation.userservice.constant.Constant;
+import com.graduation.schedulingservice.constant.Constant;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

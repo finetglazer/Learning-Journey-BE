@@ -7,7 +7,7 @@ import java.util.Map;
 
 @Data
 public class UserConstraintsDTO {
-    private List<TimeRangeDTO> sleepHours;
+    private List<TimeRangeDto> sleepHours;
     private Boolean allowOverlapping;
     private Boolean dailyLimitFeatureEnabled;
     private Map<String, Integer> dailyLimits;

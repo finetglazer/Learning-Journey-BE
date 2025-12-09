@@ -1,4 +1,4 @@
-package com.graduation.userservice.payload.response;
+package com.graduation.schedulingservice.payload.response;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotNull;

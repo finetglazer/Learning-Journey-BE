@@ -20,7 +20,6 @@ public class Constant {
     public static final String TABLE_PASSWORD_RESET_TOKENS = "password_reset_tokens";
     public static final String TABLE_USER_SESSIONS = "user_sessions";
     public static final String TABLE_OAUTH_PROVIDERS = "oauth_providers";
-    public static final String TABLE_USER_CONSTRAINTS = "user_constraints";
     public static final String TABLE_PROCESSED_MESSAGES = "processed_messages";
 
     // Column Names for ProcessedMessage

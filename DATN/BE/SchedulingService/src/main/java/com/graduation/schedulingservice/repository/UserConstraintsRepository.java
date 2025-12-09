@@ -1,6 +1,6 @@
-package com.graduation.userservice.repository;
+package com.graduation.schedulingservice.repository;
 
-import com.graduation.userservice.model.UserConstraints;
+import com.graduation.schedulingservice.model.UserConstraints;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

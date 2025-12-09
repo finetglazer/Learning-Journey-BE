@@ -3,7 +3,7 @@ package com.graduation.schedulingservice.service;
 import com.graduation.schedulingservice.client.UserServiceClient;
 import com.graduation.schedulingservice.model.CalendarItem;
 import com.graduation.schedulingservice.model.enums.ItemType;
-import com.graduation.schedulingservice.payload.response.TimeRangeDTO;
+import com.graduation.schedulingservice.payload.response.TimeRangeDto;
 import com.graduation.schedulingservice.payload.response.UserConstraintsDTO;
 import com.graduation.schedulingservice.repository.CalendarItemRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +27,8 @@ public class ConstraintValidationService {
 
     private final UserServiceClient userServiceClient;
     private final CalendarItemRepository calendarItemRepository;
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter DISPLAY_FORMATTER = DateTimeFormatter.ofPattern("h:mm a");
 
     /**
      * Validate all constraints for scheduling a calendar item
@@ -150,38 +152,42 @@ public class ConstraintValidationService {
      */
     private void validateSleepHours(UserConstraintsDTO constraints, LocalDateTime startTime,
                                     LocalDateTime endTime, List<String> violations) {
-        List<TimeRangeDTO> sleepHours = constraints.getSleepHours();
+        List<TimeRangeDto> sleepHours = constraints.getSleepHours();
 
         if (sleepHours == null || sleepHours.isEmpty()) {
-            return; // No sleep hours configured
+            return;
         }
 
         LocalTime startLocalTime = startTime.toLocalTime();
         LocalTime endLocalTime = endTime.toLocalTime();
 
-        // Define a formatter for friendly time (e.g., 10:00 PM)
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
-
-        for (TimeRangeDTO sleepRange : sleepHours) {
-            LocalTime sleepStart = sleepRange.getStartTime();
-            LocalTime sleepEnd = sleepRange.getEndTime();
+        for (TimeRangeDto sleepRange : sleepHours) {
+            // --- FIX STARTS HERE ---
+            // 1. Parse the String from DTO into LocalTime
+            LocalTime sleepStart = LocalTime.parse(sleepRange.getStartTime(), TIME_FORMATTER);
+            LocalTime sleepEnd = LocalTime.parse(sleepRange.getEndTime(), TIME_FORMATTER);
+            // --- FIX ENDS HERE ---
 
             boolean startInSleep = isTimeInRange(startLocalTime, sleepStart, sleepEnd);
             boolean endInSleep = isTimeInRange(endLocalTime, sleepStart, sleepEnd);
 
-            if (startInSleep || endInSleep) {
-                // Format the LocalTime objects for a friendlier message
-                String formattedStart = sleepStart.format(timeFormatter);
-                String formattedEnd = sleepEnd.format(timeFormatter);
+            // Note: You also need to check if the sleep time is entirely *inside* the task time
+            // (e.g. Task is 10PM-8AM, Sleep is 2AM-4AM)
+            boolean sleepInsideTask = isTimeInRange(sleepStart, startLocalTime, endLocalTime);
+
+            if (startInSleep || endInSleep || sleepInsideTask) {
+                String formattedStart = sleepStart.format(DISPLAY_FORMATTER);
+                String formattedEnd = sleepEnd.format(DISPLAY_FORMATTER);
 
                 violations.add(String.format(
                         "Time slot conflicts with sleep hours (%s - %s).",
                         formattedStart,
                         formattedEnd));
-                return; // One violation is enough
+                return;
             }
         }
     }
+
 
     /**
      * Helper method to check if a time falls within a range
