@@ -22,6 +22,7 @@ public class Constant {
     public static final String COLUMN_PROCESSED_AT = "processed_at";
     public static final String COLUMN_SAGA_ID = "saga_id";
     public static final String COLUMN_MESSAGE_ID = "message_id";
+    public static final String TABLE_USER_CONSTRAINTS = "user_constraints";
 
 
     // ===================== CLEANUP CONFIGURATION =====================

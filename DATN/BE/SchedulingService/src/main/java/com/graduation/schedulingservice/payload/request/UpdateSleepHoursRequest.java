@@ -1,6 +1,6 @@
-package com.graduation.userservice.payload.request;
+package com.graduation.schedulingservice.payload.request;
 
-import com.graduation.userservice.payload.response.TimeRangeDto;
+import com.graduation.schedulingservice.payload.response.TimeRangeDto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
