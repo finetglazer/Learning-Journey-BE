@@ -119,14 +119,24 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/com.google.cloud/spring-cloud-gcp-starter-sql-postgresql -->
-        <!--        <dependency>-->
-        <!--            <groupId>com.google.cloud</groupId>-->
-        <!--            <artifactId>spring-cloud-gcp-starter-sql-postgresql</artifactId>-->
-        <!--            <version>7.4.0</version>-->
-        <!--        </dependency>-->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>spring-cloud-gcp-starter-storage</artifactId>
+        </dependency>
 
     </dependencies>
+
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>spring-cloud-gcp-dependencies</artifactId>
+                <version>5.0.0</version> <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <plugins>
