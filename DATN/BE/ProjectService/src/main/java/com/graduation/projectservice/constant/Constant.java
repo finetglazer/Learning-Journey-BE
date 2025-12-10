@@ -192,4 +192,38 @@ public class Constant {
     public static final String ERROR_COMMENT_DELETE_FORBIDDEN = "Only the comment creator or project owner can delete this comment";
     public static final String ERROR_PARENT_COMMENT_INVALID = "Parent comment does not belong to this task";
     public static final String DELETED_COMMENT_PREVIEW = "[Comment was deleted]";
+
+
+    // ============================================
+    // Version/Snapshot Reasons
+    // ============================================
+    public static final String REASON_AUTO_30MIN = "AUTO_30MIN";
+    public static final String REASON_SESSION_END = "SESSION_END";
+    public static final String REASON_RESTORED = "RESTORED";
+    public static final String REASON_MANUAL = "MANUAL";
+    public static final String REASON_BEFORE_RESTORE = "BEFORE_RESTORE";
+
+    // ============================================
+    // Notion Document Messages
+    // ============================================
+    public static final String NOTION_DOC_CREATED = "Page created";
+    public static final String NOTION_DOC_DETAILS_LOADED = "Details loaded";
+    public static final String NOTION_DOC_NOT_FOUND = "Document not found";
+    public static final String NOTION_DOC_INVALID_TYPE = "This is not a Notion document";
+    public static final String VERSION_HISTORY_RETRIEVED = "Version history retrieved";
+    public static final String VERSION_NOT_FOUND = "Version not found";
+    public static final String VERSION_RESTORED = "Version restored successfully";
+    public static final String ACCESS_GRANTED = "Access granted";
+    public static final String ACCESS_DENIED = "Access denied";
+
+    // ============================================
+    // Log Messages
+    // ============================================
+    public static final String LOG_CREATING_NOTION_DOC = "Creating Notion document '{}' in project {} by user {}";
+    public static final String LOG_NOTION_DOC_CREATED = "Notion document created. NodeId: {}, StorageRef: {}";
+    public static final String LOG_GETTING_DOC_DETAILS = "Getting document details for nodeId: {} by user: {}";
+    public static final String LOG_GETTING_VERSION_HISTORY = "Getting version history for nodeId: {} by user: {}";
+    public static final String LOG_RESTORING_VERSION = "Restoring version {} for nodeId: {} by user: {}";
+    public static final String LOG_VERSION_RESTORED = "Version {} restored successfully for nodeId: {}";
+    public static final String LOG_VALIDATING_ACCESS = "Validating document access for user: {}, storageRef: {}";
 }

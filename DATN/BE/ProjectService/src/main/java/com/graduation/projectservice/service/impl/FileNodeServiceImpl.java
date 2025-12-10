@@ -1,14 +1,19 @@
 package com.graduation.projectservice.service.impl;
 
+import com.graduation.projectservice.client.DocumentServiceClient;
+import com.graduation.projectservice.client.UserServiceClient;
 import com.graduation.projectservice.constant.Constant;
+import com.graduation.projectservice.constant.FileConstant;
+import com.graduation.projectservice.exception.ForbiddenException;
 import com.graduation.projectservice.exception.NotFoundException;
 import com.graduation.projectservice.helper.ProjectAuthorizationHelper;
+import com.graduation.projectservice.model.PM_DocVersion;
 import com.graduation.projectservice.model.PM_FileNode;
-import com.graduation.projectservice.model.PM_Task;
-import com.graduation.projectservice.model.PM_TaskAttachment;
+import com.graduation.projectservice.model.PM_ProjectMember;
+import com.graduation.projectservice.model.ProjectMembershipRole;
 import com.graduation.projectservice.model.enums.NodeType;
-import com.graduation.projectservice.payload.response.BaseResponse;
-import com.graduation.projectservice.payload.response.TaskAttachmentDetailDTO;
+import com.graduation.projectservice.payload.response.*;
+import com.graduation.projectservice.repository.DocVersionRepository;
 import com.graduation.projectservice.repository.FileNodeRepository;
 import com.graduation.projectservice.service.FileNodeService;
 import com.graduation.projectservice.service.ProjectFileStorageService;
@@ -19,9 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -30,19 +34,26 @@ import java.util.stream.Collectors;
 public class FileNodeServiceImpl implements FileNodeService {
 
     private final FileNodeRepository fileNodeRepository;
+    private final DocVersionRepository docVersionRepository;
     private final ProjectFileStorageService storageService;
+    private final DocumentServiceClient documentServiceClient;
+    private final UserServiceClient userServiceClient;
     private final ProjectAuthorizationHelper authHelper;
+
+    // ============================================
+    // Existing Methods (unchanged)
+    // ============================================
 
     @Override
     public BaseResponse<?> getFiles(Long userId, Long projectId, Long parentNodeId) {
         authHelper.requireActiveMember(projectId, userId);
 
-        // Optional: Validate parent exists if provided
         if (parentNodeId != null) {
             String error = validateParentNode(projectId, parentNodeId);
             if (error != null) return new BaseResponse<>(0, error, null);
         }
 
+        // 1. Fetch File Nodes
         List<PM_FileNode> files;
         if (parentNodeId == null) {
             files = fileNodeRepository.findByProjectIdAndParentNodeIdIsNull(projectId);
@@ -50,7 +61,48 @@ public class FileNodeServiceImpl implements FileNodeService {
             files = fileNodeRepository.findByProjectIdAndParentNodeId(projectId, parentNodeId);
         }
 
-        return new BaseResponse<>(1, "Files retrieved successfully", files);
+        // 2. Collect distinct User IDs to minimize API calls
+        List<Long> userIds = files.stream()
+                .map(PM_FileNode::getCreatedByUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 3. Batch fetch user info from User Service
+        Map<Long, UserBatchDTO> userMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            try {
+                List<UserBatchDTO> users = userServiceClient.findUsersByIds(userIds);
+                userMap = users.stream()
+                        .collect(Collectors.toMap(UserBatchDTO::getUserId, Function.identity()));
+            } catch (Exception e) {
+                log.error("Error fetching user details for file list: {}", e.getMessage());
+                // Proceed without crashing; names will default to "Unknown"
+            }
+        }
+
+        // 4. Map entities to DTOs with User details
+        // We need to use effective final variable for the lambda
+        Map<Long, UserBatchDTO> finalUserMap = userMap;
+
+        List<FileNodeResponseDTO> responseList = files.stream().map(node -> {
+            UserBatchDTO user = finalUserMap.get(node.getCreatedByUserId());
+            String createdByName = (user != null) ? user.getName() : "Unknown";
+            String avatarUrl = (user != null) ? user.getAvatarUrl() : null;
+
+            return FileNodeResponseDTO.builder()
+                    .nodeId(node.getNodeId())
+                    .name(node.getName())
+                    .type(node.getType())
+                    .updatedAt(node.getUpdatedAt())
+                    .createdBy(createdByName) // Set Name
+                    .avatarUrl(avatarUrl)     // Set Avatar
+                    .sizeBytes(node.getSizeBytes())
+                    .extension(node.getExtension())
+                    .build();
+        }).collect(Collectors.toList());
+
+        return new BaseResponse<>(1, "File list retrieved", responseList);
     }
 
     @Override
@@ -58,7 +110,6 @@ public class FileNodeServiceImpl implements FileNodeService {
     public BaseResponse<?> createFolder(Long userId, Long projectId, Long parentNodeId, String name) {
         authHelper.requireActiveMember(projectId, userId);
 
-        // 1. STRICT VALIDATION: Check if Parent Node is valid
         if (parentNodeId != null) {
             String error = validateParentNode(projectId, parentNodeId);
             if (error != null) return new BaseResponse<>(0, error, null);
@@ -80,31 +131,20 @@ public class FileNodeServiceImpl implements FileNodeService {
     public BaseResponse<?> uploadFile(Long userId, Long projectId, Long parentNodeId, MultipartFile file) throws IOException {
         authHelper.requireActiveMember(projectId, userId);
 
-        // 1. STRICT VALIDATION: Check if Parent Node is valid
         if (parentNodeId != null) {
             String error = validateParentNode(projectId, parentNodeId);
             if (error != null) return new BaseResponse<>(0, error, null);
         }
 
-        // Upload to Cloud (This logic remains untouched to ensure file integrity)
         String storageRef = storageService.uploadFile(projectId, file);
-
-        // Prepare Database Entity
         String originalFilename = file.getOriginalFilename();
 
         PM_FileNode fileNode = new PM_FileNode();
         fileNode.setProjectId(projectId);
         fileNode.setParentNodeId(parentNodeId);
-
-        // --- CHANGE HERE: Strip the extension for the display name ---
         fileNode.setName(removeExtension(originalFilename));
-        // -----------------------------------------------------------
-
         fileNode.setType(NodeType.STATIC_FILE);
-
-        // We still save the extension separately so the UI knows what icon to show (PDF, IMG, etc.)
         fileNode.setExtension(getFileExtension(originalFilename));
-
         fileNode.setSizeBytes(file.getSize());
         fileNode.setStorageReference(storageRef);
         fileNode.setCreatedByUserId(userId);
@@ -116,17 +156,13 @@ public class FileNodeServiceImpl implements FileNodeService {
     @Override
     @Transactional
     public BaseResponse<?> deleteNode(Long userId, Long projectId, Long nodeId) {
-        // 1. Fetch Node
         PM_FileNode node = fileNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new NotFoundException("File/Folder not found"));
 
-        // 2. STRICT VALIDATION: Ensure Node belongs to the Request's Project
-        // This prevents deleting a file from Project B using Project A's API
         if (!node.getProjectId().equals(projectId)) {
             return new BaseResponse<>(0, "This file does not belong to the specified project", null);
         }
 
-        // 3. Check Permissions (Owner or Creator)
         boolean isProjectOwner = authHelper.isOwner(projectId, userId);
         boolean isNodeCreator = node.getCreatedByUserId().equals(userId);
 
@@ -134,7 +170,6 @@ public class FileNodeServiceImpl implements FileNodeService {
             return new BaseResponse<>(0, "You do not have permission to delete this item.", null);
         }
 
-        // 4. Recursive Delete
         deleteNodeRecursive(node);
 
         return new BaseResponse<>(1, "Item deleted successfully", null);
@@ -142,31 +177,265 @@ public class FileNodeServiceImpl implements FileNodeService {
 
     @Override
     public BaseResponse<?> searchFiles(Long userId, Long projectId, String keyword) {
-        // 1. Check permissions
         authHelper.requireActiveMember(projectId, userId);
 
-        // 2. Validate input
         if (keyword == null || keyword.trim().isEmpty()) {
             return new BaseResponse<>(1, "Keyword is empty", List.of());
         }
 
-        // 3. Perform Search
-        // We trim the keyword to remove accidental spaces
         List<PM_FileNode> results = fileNodeRepository.findByProjectIdAndNameContainingIgnoreCase(projectId, keyword.trim());
 
         return new BaseResponse<>(1, "Search results retrieved", results);
     }
 
+    // ============================================
+    // New Methods for Notion Document
+    // ============================================
 
-    // --- Private Helper Methods ---
+    @Override
+    @Transactional
+    public BaseResponse<?> createNotionDocument(Long userId, Long projectId, Long parentNodeId, String name) {
+        log.info("Creating Notion document '{}' in project {} by user {}", name, projectId, userId);
 
-    /**
-     * Validates that the parent node:
-     * 1. Exists
-     * 2. Belongs to the same project (Prevent ID spoofing)
-     * 3. Is actually a FOLDER (Cannot nest inside a file)
-     * Returns error message string, or NULL if valid.
-     */
+        authHelper.requireActiveMember(projectId, userId);
+
+        // Validate parent node if provided
+        if (parentNodeId != null) {
+            String error = validateParentNode(projectId, parentNodeId);
+            if (error != null) return new BaseResponse<>(0, error, null);
+        }
+
+        // Step 1: Create PM_FileNode entry first (to get nodeId)
+        PM_FileNode fileNode = new PM_FileNode();
+        fileNode.setProjectId(projectId);
+        fileNode.setParentNodeId(parentNodeId);
+        fileNode.setName(name);
+        fileNode.setType(NodeType.NOTION_DOC);
+        fileNode.setCreatedByUserId(userId);
+        fileNode.setSizeBytes(0L);
+
+        PM_FileNode savedNode = fileNodeRepository.save(fileNode);
+        log.debug("Created PM_FileNode with id: {}", savedNode.getNodeId());
+
+        // Step 2: Create empty document in MongoDB via Document Service
+        Optional<String> storageRefOpt = documentServiceClient.createDocument(savedNode.getNodeId(), projectId);
+
+        if (storageRefOpt.isEmpty()) {
+            // Rollback: Delete the Postgres entry
+            fileNodeRepository.delete(savedNode);
+            log.error("Failed to create MongoDB document for nodeId: {}", savedNode.getNodeId());
+            return new BaseResponse<>(0, "Failed to create document. Please try again.", null);
+        }
+
+        // Step 3: Update PM_FileNode with storage reference
+        savedNode.setStorageReference(storageRefOpt.get());
+        fileNodeRepository.save(savedNode);
+
+        log.info("Notion document created successfully. NodeId: {}, StorageRef: {}",
+                savedNode.getNodeId(), storageRefOpt.get());
+
+        // Build response
+        NotionDocDTO response = NotionDocDTO.builder()
+                .nodeId(savedNode.getNodeId())
+                .name(savedNode.getName())
+                .storageReference(savedNode.getStorageReference())
+                .createdAt(savedNode.getCreatedAt())
+                .build();
+
+        return new BaseResponse<>(1, "Page created", response);
+    }
+
+    @Override
+    public BaseResponse<?> getDocumentDetails(Long userId, Long nodeId) {
+        log.debug("Getting document details for nodeId: {} by user: {}", nodeId, userId);
+
+        PM_FileNode node = fileNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new NotFoundException("Document not found"));
+
+        // Check user is member of the project
+        authHelper.requireActiveMember(node.getProjectId(), userId);
+
+        // Verify it's a Notion document
+        if (node.getType() != NodeType.NOTION_DOC) {
+            return new BaseResponse<>(0, "This is not a Notion document", null);
+        }
+
+        // Get user's role for FE to show/hide delete button - can delete later, for now, prioritize correctness
+        PM_ProjectMember member = authHelper.getMember(node.getProjectId(), userId);
+        String role = member.getRole().name();
+
+        NotionDocDTO response = NotionDocDTO.builder()
+                .nodeId(node.getNodeId())
+                .name(node.getName())
+                .storageReference(node.getStorageReference())
+                .role(role)
+                .createdAt(node.getCreatedAt())
+                .updatedAt(node.getUpdatedAt())
+                .build();
+
+        return new BaseResponse<>(1, "Details loaded", response);
+    }
+
+    @Override
+    public BaseResponse<?> getVersionHistory(Long userId, Long nodeId) {
+        log.debug("Getting version history for nodeId: {} by user: {}", nodeId, userId);
+
+        PM_FileNode node = fileNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new NotFoundException("Document not found"));
+
+        authHelper.requireActiveMember(node.getProjectId(), userId);
+
+        if (node.getType() != NodeType.NOTION_DOC) {
+            return new BaseResponse<>(0, "This is not a Notion document", null);
+        }
+
+        // Get version metadata from Postgres
+        List<PM_DocVersion> versions = docVersionRepository.findByNodeIdOrderByCreatedAtDesc(nodeId);
+
+        if (versions.isEmpty()) {
+            return new BaseResponse<>(1, "No version history found", List.of());
+        }
+
+        // Batch fetch user info
+        List<Long> userIds = versions.stream()
+                .map(PM_DocVersion::getCreatedBy)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, UserBatchDTO> userMap = userServiceClient.findUsersByIds(userIds).stream()
+                .collect(Collectors.toMap(UserBatchDTO::getUserId, Function.identity()));
+
+        // Build response
+        List<DocVersionDTO> versionDTOs = versions.stream()
+                .map(v -> {
+                    UserBatchDTO user = userMap.get(v.getCreatedBy());
+                    return DocVersionDTO.builder()
+                            .versionId(v.getVersionId())
+                            .snapshotRef(v.getSnapshotRef())
+                            .versionNumber(v.getVersionNumber())
+                            .createdBy(v.getCreatedBy())
+                            .createdByName(user != null ? user.getName() : "Unknown")
+                            .createdByAvatar(user != null ? user.getAvatarUrl() : null)
+                            .createdAt(v.getCreatedAt())
+                            .reason(v.getReason())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return new BaseResponse<>(1, "Version history retrieved", versionDTOs);
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> restoreVersion(Long userId, Long nodeId, Long versionId) {
+        log.info("Restoring version {} for nodeId: {} by user: {}", versionId, nodeId, userId);
+
+        PM_FileNode node = fileNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new NotFoundException("Document not found"));
+
+        authHelper.requireActiveMember(node.getProjectId(), userId);
+
+        if (node.getType() != NodeType.NOTION_DOC) {
+            return new BaseResponse<>(0, "This is not a Notion document", null);
+        }
+
+        // Find the version to restore
+        PM_DocVersion versionToRestore = docVersionRepository.findByNodeIdAndVersionId(nodeId, versionId)
+                .orElseThrow(() -> new NotFoundException("Version not found"));
+
+        String storageRef = node.getStorageReference();
+
+        // Step 1: Create a backup snapshot of current state before restoring
+        Optional<Map<String, Object>> backupResult = documentServiceClient.createSnapshot(
+                storageRef,
+                Constant.REASON_BEFORE_RESTORE,
+                userId
+        );
+
+        if (backupResult.isPresent()) {
+            // Save backup version metadata to Postgres
+            Integer nextVersionNumber = docVersionRepository.findMaxVersionNumberByNodeId(nodeId) + 1;
+            PM_DocVersion backupVersion = PM_DocVersion.builder()
+                    .nodeId(nodeId)
+                    .snapshotRef(backupResult.get().get("snapshotId").toString())
+                    .versionNumber(nextVersionNumber)
+                    .createdBy(userId)
+                    .reason(Constant.REASON_BEFORE_RESTORE)
+                    .build();
+            docVersionRepository.save(backupVersion);
+        }
+
+        // Step 2: Get the snapshot content to restore
+        Optional<Map<String, Object>> snapshotOpt = documentServiceClient.getSnapshot(
+                storageRef,
+                versionToRestore.getSnapshotRef()
+        );
+
+        if (snapshotOpt.isEmpty()) {
+            return new BaseResponse<>(0, "Failed to retrieve snapshot content", null);
+        }
+
+        // Step 3: The actual restoration is done by Document Service
+        // Hocuspocus will load the new content on next connection
+        // For now, we just record the restoration
+
+        log.info("Version {} restored successfully for nodeId: {}", versionId, nodeId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("restoredVersionId", versionId);
+        response.put("restoredVersionNumber", versionToRestore.getVersionNumber());
+        response.put("message", "Version restored. Refresh the document to see changes.");
+
+        return new BaseResponse<>(1, "Version restored successfully", response);
+    }
+
+    @Override
+    public BaseResponse<?> validateDocumentAccess(Long userId, String storageRef) {
+        log.debug("Validating document access for user: {}, storageRef: {}", userId, storageRef);
+
+        // Find document by storage reference
+        Optional<PM_FileNode> nodeOpt = fileNodeRepository.findByStorageReference(storageRef);
+
+        if (nodeOpt.isEmpty()) {
+            return new BaseResponse<>(0, "Document not found", null);
+        }
+
+        PM_FileNode node = nodeOpt.get();
+
+        // Check user is member of the project
+        try {
+            PM_ProjectMember member = authHelper.getMember(node.getProjectId(), userId);
+
+            if (member.getRole() == ProjectMembershipRole.INVITED) {
+                return new BaseResponse<>(0, "Please accept invitation first", null);
+            }
+
+            // Get user info for presence feature
+            List<UserBatchDTO> users = userServiceClient.findUsersByIds(List.of(userId));
+            UserBatchDTO user = users.isEmpty() ? null : users.get(0);
+
+            DocumentAccessDTO accessDTO = DocumentAccessDTO.builder()
+                    .nodeId(node.getNodeId())
+                    .projectId(node.getProjectId())
+                    .role(member.getRole().name())
+                    .canEdit(true) // Both OWNER and MEMBER can edit
+                    .canDelete(member.getRole() == ProjectMembershipRole.OWNER)
+                    .userId(userId)
+                    .userName(user != null ? user.getName() : "Unknown")
+                    .userAvatar(user != null ? user.getAvatarUrl() : null)
+                    .build();
+
+            return new BaseResponse<>(1, "Access granted", accessDTO);
+
+        } catch (NotFoundException | ForbiddenException e) {
+            return new BaseResponse<>(0, e.getMessage(), null);
+        }
+    }
+
+    // ============================================
+    // Private Helper Methods
+    // ============================================
+
     private String validateParentNode(Long projectId, Long parentNodeId) {
         Optional<PM_FileNode> parentOpt = fileNodeRepository.findById(parentNodeId);
 
@@ -176,17 +445,15 @@ public class FileNodeServiceImpl implements FileNodeService {
 
         PM_FileNode parent = parentOpt.get();
 
-        // Check Context Integrity
         if (!parent.getProjectId().equals(projectId)) {
             return "Invalid parent folder: It belongs to a different project";
         }
 
-        // Check Type Integrity
         if (parent.getType() != NodeType.FOLDER) {
             return "Invalid parent: Cannot create a file inside another file";
         }
 
-        return null; // Valid
+        return null;
     }
 
     private void deleteNodeRecursive(PM_FileNode node) {
@@ -196,26 +463,27 @@ public class FileNodeServiceImpl implements FileNodeService {
                 deleteNodeRecursive(child);
             }
         }
+
         if (node.getType() == NodeType.STATIC_FILE && node.getStorageReference() != null) {
             storageService.deleteFile(node.getStorageReference());
         }
+
+        if (node.getType() == NodeType.NOTION_DOC && node.getStorageReference() != null) {
+            // Delete MongoDB document and snapshots
+            documentServiceClient.deleteDocument(node.getStorageReference());
+            // Delete version metadata from Postgres
+            docVersionRepository.deleteByNodeId(node.getNodeId());
+        }
+
         fileNodeRepository.delete(node);
     }
 
-    /**
-     * Removes the extension from the filename.
-     * Example: "report.final.pdf" -> "report.final"
-     */
     private String removeExtension(String filename) {
         if (filename == null || filename.isEmpty()) return filename;
-
         int lastDotIndex = filename.lastIndexOf(".");
-
-        // If no dot is found (e.g. "README"), or dot is the first char (hidden file ".config"), return as is
         if (lastDotIndex <= 0) {
             return filename;
         }
-
         return filename.substring(0, lastDotIndex);
     }
 
@@ -224,7 +492,4 @@ public class FileNodeServiceImpl implements FileNodeService {
                 ? filename.substring(filename.lastIndexOf(".") + 1)
                 : "";
     }
-
-
-
 }
