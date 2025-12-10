@@ -1,4 +1,4 @@
-package com.graduation.userservice.security;
+package com.graduation.documentservice.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -10,16 +10,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Slf4j
 @Component
 public class InternalApiKeyFilter extends OncePerRequestFilter {
 
-    @Value("${app.security.trusted-services.scheduling-service}")
-    private String schedulingServiceApiKey;
-
     @Value("${app.security.trusted-services.project-service}")
     private String projectServiceApiKey;
+
+    @Value("${app.security.trusted-services.hocuspocus-service}")
+    private String hocuspocusServiceApiKey;
 
     private static final String API_KEY_HEADER = "X-Internal-API-Key";
 
@@ -31,7 +32,6 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
 
         String requestPath = request.getRequestURI();
 
-        // Only check internal endpoints
         if (requestPath.startsWith("/api/internal/")) {
             String apiKey = request.getHeader(API_KEY_HEADER);
 
@@ -39,15 +39,15 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
                 log.warn("Missing API key for internal endpoint: {}", requestPath);
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
-                response.getWriter().write("{\"error\":\"Missing internal API key\"}");
+                response.getWriter().write("{\"status\":0,\"msg\":\"Missing internal API key\",\"data\":null}");
                 return;
             }
 
-            if (!apiKey.equals(schedulingServiceApiKey) && !apiKey.equals(projectServiceApiKey)) {
+            if (!List.of(projectServiceApiKey, hocuspocusServiceApiKey).contains(apiKey)) {
                 log.warn("Invalid API key for internal endpoint: {}", requestPath);
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 response.setContentType("application/json");
-                response.getWriter().write("{\"error\":\"Invalid internal API key\"}");
+                response.getWriter().write("{\"status\":0,\"msg\":\"Invalid internal API key\",\"data\":null}");
                 return;
             }
 
