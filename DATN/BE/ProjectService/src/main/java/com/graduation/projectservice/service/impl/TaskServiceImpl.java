@@ -18,9 +18,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.graduation.projectservice.exception.ForbiddenException;
+import com.graduation.projectservice.model.PM_FileNode;
+import com.graduation.projectservice.model.PM_TaskAttachment;
+import com.graduation.projectservice.model.PM_TaskAttachmentId;
+import com.graduation.projectservice.payload.response.TaskAttachmentDTO;
+import com.graduation.projectservice.repository.TaskAttachmentRepository;
+import com.graduation.projectservice.repository.FileNodeRepository;
+import java.time.LocalDateTime;
+
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -35,6 +45,8 @@ public class TaskServiceImpl implements TaskService {
     private final TaskAssigneeRepository taskAssigneeRepository;
     private final ProjectAuthorizationHelper authHelper;
     private final UserServiceClient userServiceClient;
+    private final TaskAttachmentRepository taskAttachmentRepository;
+    private final FileNodeRepository fileNodeRepository;
 
     @Override
     public BaseResponse<?> getTasks(Long userId, Long projectId, GetTaskRequest request) {
@@ -73,15 +85,15 @@ public class TaskServiceImpl implements TaskService {
         Optional<PM_Task> optionalTask = taskRepository.findPM_TaskByTaskId(taskId);
         if (optionalTask.isEmpty()) {
             return new BaseResponse<>(
-                Constant.ERROR_STATUS,
-                Constant.ERROR_TASK_NOT_FOUND,
-                null
+                    Constant.ERROR_STATUS,
+                    Constant.ERROR_TASK_NOT_FOUND,
+                    null
             );
         }
 
         PM_Task task = optionalTask.get();
         TaskDTO dto = new TaskDTO(
-            task.getTaskId(),
+                task.getTaskId(),
                 task.getPhaseId(),
                 task.getName(),
                 task.getKey(),
@@ -90,9 +102,9 @@ public class TaskServiceImpl implements TaskService {
                 task.getOrder()
         );
         return new BaseResponse<>(
-            Constant.SUCCESS_STATUS,
-            Constant.LOG_GET_TASK_SUCCESS,
-            dto
+                Constant.SUCCESS_STATUS,
+                Constant.LOG_GET_TASK_SUCCESS,
+                dto
         );
     }
 
@@ -338,13 +350,13 @@ public class TaskServiceImpl implements TaskService {
 
     private void verifyTaskBelongsToProject(PM_Task task, Long projectId) {
         PM_Phase phase = phaseRepository.findById(task.getPhaseId())
-                .orElseThrow(() -> new RuntimeException(Constant.ERROR_PHASE_NOT_FOUND));
+                .orElseThrow(() -> new NotFoundException(Constant.ERROR_PHASE_NOT_FOUND));
 
         PM_Deliverable deliverable = deliverableRepository.findById(phase.getDeliverableId())
-                .orElseThrow(() -> new RuntimeException(Constant.ERROR_DELIVERABLE_NOT_FOUND));
+                .orElseThrow(() -> new NotFoundException(Constant.ERROR_DELIVERABLE_NOT_FOUND));
 
         if (!deliverable.getProjectId().equals(projectId)) {
-            throw new RuntimeException(Constant.ERROR_TASK_NOT_IN_PROJECT);
+            throw new ForbiddenException(Constant.ERROR_TASK_NOT_IN_PROJECT);
         }
     }
 
@@ -504,4 +516,174 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
+    @Override
+    @Transactional
+    public BaseResponse<?> attachFileToTask(Long userId, Long projectId, Long taskId, Long nodeId) {
+        log.info("Attaching file node {} to task {} in project {} by user {}", nodeId, taskId, projectId, userId);
+
+        // 1. Authorization: Owner or Member can attach
+        authHelper.requireActiveMember(projectId, userId);
+
+        // 2. Verify task exists
+        PM_Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new NotFoundException("Task not found"));
+
+        // 3. Verify task belongs to project (security: don't trust frontend)
+        verifyTaskBelongsToProject(task, projectId);
+
+        // 4. Verify file node exists
+        PM_FileNode fileNode = fileNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new NotFoundException("File not found"));
+
+        // 5. Verify file node belongs to same project (security: don't trust frontend)
+        if (!fileNode.getProjectId().equals(projectId)) {
+            throw new ForbiddenException("File does not belong to this project");
+        }
+
+        // 6. Check for duplicate attachment
+        PM_TaskAttachmentId attachmentId = new PM_TaskAttachmentId(taskId, nodeId);
+        if (taskAttachmentRepository.existsById(attachmentId)) {
+            return new BaseResponse<>(
+                    Constant.ERROR_STATUS,
+                    "File is already attached to this task",
+                    null
+            );
+        }
+
+        // 7. Create attachment
+        PM_TaskAttachment attachment = new PM_TaskAttachment(taskId, nodeId, userId);
+        PM_TaskAttachment saved = taskAttachmentRepository.save(attachment);
+
+        log.info("File node {} attached to task {} successfully", nodeId, taskId);
+
+        // 8. Build response
+        TaskAttachmentDTO responseData = TaskAttachmentDTO.forAttach(
+                saved.getTaskId(),
+                saved.getNodeId(),
+                saved.getAttachedAt()
+        );
+
+        return new BaseResponse<>(
+                Constant.SUCCESS_STATUS,
+                "File attached to task",
+                responseData
+        );
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> detachFileFromTask(Long userId, Long projectId, Long taskId, Long nodeId) {
+        log.info("Detaching file node {} from task {} in project {} by user {}", nodeId, taskId, projectId, userId);
+
+        // 1. Authorization: Owner or Member can detach
+        authHelper.requireActiveMember(projectId, userId);
+
+        // 2. Verify task exists
+        PM_Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new NotFoundException("Task not found"));
+
+        // 3. Verify task belongs to project (security: don't trust frontend)
+        verifyTaskBelongsToProject(task, projectId);
+
+        // 4. Check attachment exists
+        PM_TaskAttachmentId attachmentId = new PM_TaskAttachmentId(taskId, nodeId);
+        if (!taskAttachmentRepository.existsById(attachmentId)) {
+            return new BaseResponse<>(
+                    Constant.ERROR_STATUS,
+                    "Attachment not found",
+                    null
+            );
+        }
+
+        // 5. Delete attachment (does NOT delete the actual file)
+        taskAttachmentRepository.deleteById(attachmentId);
+
+        log.info("File node {} detached from task {} successfully", nodeId, taskId);
+
+        // 6. Build response
+        TaskAttachmentDTO responseData = TaskAttachmentDTO.forDetach(
+                taskId,
+                nodeId,
+                LocalDateTime.now()
+        );
+
+        return new BaseResponse<>(
+                Constant.SUCCESS_STATUS,
+                "File detached from task",
+                responseData
+        );
+    }
+
+    @Override
+    public Integer getAttachmentCount(Long taskId) {
+        return taskAttachmentRepository.countByTaskId(taskId);
+    }
+
+    @Override
+    public BaseResponse<?> getTaskAttachments(Long userId, Long projectId, Long taskId) {
+        log.info("Retrieving attachments for task {} in project {} by user {}", taskId, projectId, userId);
+
+        // 1. Authorization: Owner or Member can view
+        authHelper.requireActiveMember(projectId, userId);
+
+        // 2. Verify task exists
+        PM_Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new NotFoundException(Constant.ERROR_TASK_NOT_FOUND));
+
+        // 3. Verify task belongs to project
+        verifyTaskBelongsToProject(task, projectId);
+
+        // 4. Fetch attachment links
+        List<PM_TaskAttachment> attachments = taskAttachmentRepository.findByTaskId(taskId);
+
+        if (attachments.isEmpty()) {
+            return new BaseResponse<>(
+                    Constant.SUCCESS_STATUS,
+                    "No attachments found",
+                    new ArrayList<>()
+            );
+        }
+
+        // 5. Fetch File Node Details
+        // Extract nodeIds from attachments
+        List<Long> nodeIds = attachments.stream()
+                .map(PM_TaskAttachment::getNodeId)
+                .toList();
+
+        // Query FileNodeRepository for details (e.g., name, type)
+        List<PM_FileNode> fileNodes = fileNodeRepository.findAllById(nodeIds);
+
+        // Create a Map for faster lookup: nodeId -> PM_FileNode
+        Map<Long, PM_FileNode> fileNodeMap = fileNodes.stream()
+                .collect(Collectors.toMap(PM_FileNode::getNodeId, Function.identity()));
+
+        // 6. Combine data into DTOs
+        List<TaskAttachmentDetailDTO> resultDTOs = attachments.stream()
+                .map(attachment -> {
+                    PM_FileNode node = fileNodeMap.get(attachment.getNodeId());
+
+                    // Handle case where file node might have been deleted but attachment link remains (edge case)
+                    String fileName = (node != null) ? node.getName() : "Unknown File";
+                    String fileType = (node != null) ? String.valueOf(node.getType()) : "unknown"; // Assuming 'getType' or 'getExtension' exists on PM_FileNode
+
+                    return new TaskAttachmentDetailDTO(
+//                            attachment.getNodeId(),
+                            fileName,
+                            fileType,
+                            attachment.getAttachedAt(),
+                            node.getSizeBytes()
+//                            attachment.getAddedByUserId() // The user who attached it
+                    );
+                })
+                .toList();
+
+        log.info("Retrieved {} attachments for task {}", resultDTOs.size(), taskId);
+
+        return new BaseResponse<>(
+                Constant.SUCCESS_STATUS,
+                "Task attachments retrieved successfully",
+                resultDTOs
+        );
+    }
 }
+

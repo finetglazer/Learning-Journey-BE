@@ -158,4 +158,38 @@ public class Constant {
 
     // Phase Tasks Success Messages
     public static final String PHASE_TASKS_RETRIEVED_SUCCESS = "Tasks for phase {} retrieved";
+
+// ============================================
+// ADD THESE TO YOUR EXISTING Constant.java FILE
+// ============================================
+
+    // ============================================
+// Task Comment Log Messages
+// ============================================
+    public static final String LOG_GETTING_COMMENTS = "Getting comments for task {} by user {}";
+    public static final String LOG_COMMENTS_RETRIEVED = "Comments retrieved for task {}. Found {} comments";
+    public static final String LOG_CREATING_COMMENT = "Creating comment for task {} by user {}";
+    public static final String LOG_COMMENT_CREATED = "Comment {} created for task {}";
+    public static final String LOG_UPDATING_COMMENT = "Updating comment {} by user {}";
+    public static final String LOG_COMMENT_UPDATED = "Comment {} updated";
+    public static final String LOG_DELETING_COMMENT = "Deleting comment {} by user {}";
+    public static final String LOG_COMMENT_DELETED = "Comment {} deleted";
+
+    // ============================================
+// Task Comment Success Messages
+// ============================================
+    public static final String COMMENTS_RETRIEVED_SUCCESS = "Comments retrieved";
+    public static final String COMMENT_CREATED_SUCCESS = "Comment added";
+    public static final String COMMENT_UPDATED_SUCCESS = "Comment updated";
+    public static final String COMMENT_DELETED_SUCCESS = "Comment deleted";
+
+    // ============================================
+// Task Comment Error Messages
+// ============================================
+    public static final String ERROR_COMMENT_NOT_FOUND = "Comment not found";
+    public static final String ERROR_COMMENT_CONTENT_REQUIRED = "Comment content is required";
+    public static final String ERROR_COMMENT_EDIT_FORBIDDEN = "Only the comment creator can edit this comment";
+    public static final String ERROR_COMMENT_DELETE_FORBIDDEN = "Only the comment creator or project owner can delete this comment";
+    public static final String ERROR_PARENT_COMMENT_INVALID = "Parent comment does not belong to this task";
+    public static final String DELETED_COMMENT_PREVIEW = "[Comment was deleted]";
 }
