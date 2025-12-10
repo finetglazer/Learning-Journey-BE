@@ -3,6 +3,7 @@ package com.graduation.projectservice.service.impl;
 import com.graduation.projectservice.constant.Constant;
 import com.graduation.projectservice.helper.ProjectAuthorizationHelper;
 import com.graduation.projectservice.model.*;
+import com.graduation.projectservice.payload.request.DeleteTimelineRequest;
 import com.graduation.projectservice.payload.request.GetTimelineStructureRequest;
 import com.graduation.projectservice.payload.request.UpdateTimelineDatesRequest;
 import com.graduation.projectservice.payload.request.UpdateTimelineOffsetRequest;
@@ -16,12 +17,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.time.LocalDate;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -35,6 +34,7 @@ public class TimelineServiceImpl implements TimelineService {
     private final DeliverableRepository deliverableRepository;
     private final ProjectAuthorizationHelper projectAuthorizationHelper;
     private final MilestoneRepository milestoneRepository;
+    private final DependencyRepository dependencyRepository;
     @Override
     @Transactional
     public BaseResponse<?> updateTimelineDates(Long userId, Long projectId, UpdateTimelineDatesRequest request) {
@@ -182,6 +182,115 @@ public class TimelineServiceImpl implements TimelineService {
         return new BaseResponse<>(1, "Timeline structure retrieved", data);
     }
 
+    @Override
+    @Transactional
+    public BaseResponse<?> deleteTimeline(Long userId, Long projectId, DeleteTimelineRequest request) {
+        try {
+            // Check Authorization
+            projectAuthorizationHelper.requireActiveMember(projectId, userId);
+
+            switch (request.getType()) {
+                case "TASK":
+                    Optional<PM_Task> task = taskRepository.findPM_TaskByTaskId(request.getId());
+                    if (task.isEmpty()) {
+                        throw new RuntimeException("Task not found");
+                    }
+                    deleteTaskTimelineAndDependencies(task.get() , projectId);
+                    break;
+                case "PHASE":
+                    Optional<PM_Phase> phase = phaseRepository.findById(request.getId());
+                    if (phase.isEmpty()) {
+                        throw new RuntimeException("Phase not found");
+                    }
+                    deletePhaseTimelineAndChildren(phase.get(), projectId);
+                    break;
+                case "DELIVERABLE":
+                    Optional<PM_Deliverable> deliverable = deliverableRepository.findById(request.getId());
+                    if (deliverable.isEmpty()) {
+                        throw new RuntimeException("Deliverable not found");
+                    }
+                    deleteDeliverableTimelineAndChildren(deliverable.get(), projectId);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + request.getType());
+            }
+
+            return new BaseResponse<>(1, "Removed timeline item and all associated children/dependencies", null);
+
+        } catch (Exception e) {
+            log.error("Failed to delete timeline item {} for project {} by user {}", request, projectId, userId, e);
+            // Ensure transaction rollback on error
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return new BaseResponse<>(Constant.ERROR_STATUS, e.getMessage(), null);
+        }
+    }
+
+    /**
+     * Deletes a Deliverable, its Phases, their Tasks, and all associated Dependencies.
+     */
+    private void deleteDeliverableTimelineAndChildren(PM_Deliverable deliverable, Long projectId) {
+        // 1. Find all child Phases
+        List<PM_Phase> childPhases = phaseRepository.findAllByDeliverableId(deliverable.getDeliverableId());
+
+        // 2. Recursively delete each Phase
+        for (PM_Phase phase : childPhases) {
+            deletePhaseTimelineAndChildren(phase, projectId);
+        }
+
+        // 3. Delete dependencies specific to this Deliverable
+        deleteDependencies(projectId, "DELIVERABLE", deliverable.getDeliverableId());
+
+        // 4. Set startDate and endDate to null
+        deliverable.setStartDate(null);
+        deliverable.setEndDate(null);
+
+        deliverableRepository.save(deliverable);
+    }
+
+    /**
+     * Deletes a Phase, its Tasks, and all associated Dependencies.
+     */
+    private void deletePhaseTimelineAndChildren(PM_Phase phase, Long projectId) {
+        // 1. Find all child Tasks
+        List<PM_Task> childTasks = taskRepository.findAllByPhaseId(phase.getPhaseId());
+
+        // 2. Recursively delete each Task
+        for (PM_Task task : childTasks) {
+            deleteTaskTimelineAndDependencies(task, projectId);
+        }
+
+        // 3. Delete dependencies specific to this Phase
+        deleteDependencies(projectId, "PHASE", phase.getPhaseId());
+
+        // 4. Set startDate and endDate to null
+        phase.setStartDate(null);
+        phase.setEndDate(null);
+        phaseRepository.save(phase);
+    }
+
+    /**
+     * Deletes a Task and its associated Dependencies.
+     */
+    private void deleteTaskTimelineAndDependencies(PM_Task task, Long projectId) {
+        // 1. Delete dependencies specific to this Task
+        deleteDependencies(projectId, "TASK", task.getTaskId());
+
+        // 2. Set task startDate and endDate to null
+        task.setStartDate(null);
+        task.setEndDate(null);
+        taskRepository.save(task);
+    }
+
+    /**
+     * Centralized logic to remove dependencies for any item type.
+     */
+    private void deleteDependencies(Long projectId, String itemType, Long itemId) {
+        List<PM_Dependency> dependencies = dependencyRepository.findAllRelatedDependencies(projectId, itemType, itemId);
+        if (!dependencies.isEmpty()) {
+            dependencyRepository.deleteAll(dependencies);
+        }
+    }
+
     private TimelineItemDTO mapToTimelineItem(PM_Deliverable deliverable, String search, boolean hasSearch) {
         // 1. Filter and Map Phases (and their Tasks)
         List<TimelineItemDTO> childrenPhases = deliverable.getPhases().stream()
@@ -284,11 +393,12 @@ public class TimelineServiceImpl implements TimelineService {
                                 newTaskStart, newTaskEnd,
                                 "Phase", "Task");
                         if (offsetWarning != null) return new BaseResponse<>(0, offsetWarning, null);
-                    } else {
-                        if (parentPhase.getStartDate() == null || parentPhase.getEndDate() == null) {
-                            return new BaseResponse<>(0, "Parent Phase dates are not set, cannot offset Phase.", null);
-                        }
                     }
+//                    else {
+//                        if (parentPhase.getStartDate() == null || parentPhase.getEndDate() == null) {
+//                            return new BaseResponse<>(0, "Parent Phase dates are not set, cannot offset Phase.", null);
+//                        }
+//                    }
 
                     // Apply Shift
                     shiftTask(task, days);
@@ -317,13 +427,14 @@ public class TimelineServiceImpl implements TimelineService {
                                 newStart, newEnd,
                                 "Deliverable", "Phase");
                         if (offsetWarning != null) return new BaseResponse<>(0, offsetWarning, null);
-                    } else {
-                        // If Phase has no dates, we can't offset it effectively, but let's allow "shifting null" (which does nothing) or block?
-                        // Assuming we block if parent dates are missing based on your rule.
-                        if (parentDel.getStartDate() == null || parentDel.getEndDate() == null) {
-                            return new BaseResponse<>(0, "Parent Deliverable dates are not set, cannot offset Phase.", null);
-                        }
                     }
+//                    else {
+//                        // If Phase has no dates, we can't offset it effectively, but let's allow "shifting null" (which does nothing) or block?
+//                        // Assuming we block if parent dates are missing based on your rule.
+//                        if (parentDel.getStartDate() == null || parentDel.getEndDate() == null) {
+//                            return new BaseResponse<>(0, "Parent Deliverable dates are not set, cannot offset Phase.", null);
+//                        }
+//                    }
 
                     // Apply Shift
                     shiftPhase(phase, days);
@@ -399,9 +510,9 @@ public class TimelineServiceImpl implements TimelineService {
      */
     private String validateParentChildConstraint(LocalDate pStart, LocalDate pEnd, LocalDate cStart, LocalDate cEnd, String pName, String cName) {
         // Rule: If Parent dates are null, Child cannot set dates.
-        if (pStart == null || pEnd == null) {
-            return String.format("%s start/end dates are not set. Cannot set %s dates.", pName, cName);
-        }
+//        if (pStart == null || pEnd == null) {
+//            return String.format("%s start/end dates are not set. Cannot set %s dates.", pName, cName);
+//        }
 
         // Case: Child Start < Parent Start
 //        if (cStart.isBefore(pStart)) {
@@ -479,11 +590,11 @@ public class TimelineServiceImpl implements TimelineService {
 
         // Handle logic: If calculated is null, do we keep old date or set null?
         // Usually, if tasks exist, we enforce the calculated date.
-        if (phase.getStartDate().isAfter(minStart)) {
+        if (phase.getStartDate() == null || phase.getStartDate().isAfter(minStart)) {
             phase.setStartDate(minStart);
             changed = true;
         }
-        if (phase.getEndDate().isBefore(maxEnd)) {
+        if (phase.getEndDate() == null || phase.getEndDate().isBefore(maxEnd)) {
             phase.setEndDate(maxEnd);
             changed = true;
         }
@@ -521,11 +632,11 @@ public class TimelineServiceImpl implements TimelineService {
         // 3. Update if changed
         boolean changed = false;
 
-        if (deliverable.getStartDate().isAfter(minStart)) {
+        if (deliverable.getStartDate() == null || deliverable.getStartDate().isAfter(minStart)) {
             deliverable.setStartDate(minStart);
             changed = true;
         }
-        if (deliverable.getEndDate().isBefore(maxEnd)) {
+        if (deliverable.getEndDate() == null || deliverable.getEndDate().isBefore(maxEnd)) {
             deliverable.setEndDate(maxEnd);
             changed = true;
         }

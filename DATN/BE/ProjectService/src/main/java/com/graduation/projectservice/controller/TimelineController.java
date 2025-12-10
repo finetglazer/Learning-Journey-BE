@@ -1,5 +1,6 @@
 package com.graduation.projectservice.controller;
 
+import com.graduation.projectservice.payload.request.DeleteTimelineRequest;
 import com.graduation.projectservice.payload.request.GetTimelineStructureRequest;
 import com.graduation.projectservice.payload.request.UpdateTimelineDatesRequest;
 import com.graduation.projectservice.payload.request.UpdateTimelineOffsetRequest;
@@ -54,6 +55,17 @@ public class TimelineController {
                 projectId, userId, request.getType(), request.getOffsetDays());
 
         BaseResponse<?> response = timelineService.offsetTimelineItem(userId, projectId, request);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("")
+    public ResponseEntity<BaseResponse<?>> deleteTimelineItem(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long projectId,
+            @Valid @RequestBody DeleteTimelineRequest request) {
+
+        BaseResponse<?> response = timelineService.deleteTimeline(userId, projectId, request);
 
         return ResponseEntity.ok(response);
     }
