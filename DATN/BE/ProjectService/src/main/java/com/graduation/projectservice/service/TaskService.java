@@ -25,4 +25,24 @@ public interface TaskService {
     BaseResponse<?> getTasksByPhase(Long projectId, Long phaseId, Long userId);
 
     BaseResponse<?> getUserProjectTasks(Long userId);
+
+    /**
+     * Attach a file node to a task
+     */
+    BaseResponse<?> attachFileToTask(Long userId, Long projectId, Long taskId, Long nodeId);
+
+    /**
+     * Detach a file node from a task
+     */
+    BaseResponse<?> detachFileFromTask(Long userId, Long projectId, Long taskId, Long nodeId);
+
+    /**
+     * Get attachment count for a task (dynamic count)
+     */
+    Integer getAttachmentCount(Long taskId);
+
+    /**
+     * Get all attachments for a specific task
+     */
+    BaseResponse<?> getTaskAttachments(Long userId, Long projectId, Long taskId);
 }

@@ -8,6 +8,7 @@
         <option value="$PROJECT_DIR$/DATN/integration-tests/pom.xml" />
         <option value="$PROJECT_DIR$/DATN/BE/ProjectService/pom.xml" />
         <option value="$PROJECT_DIR$/DATN/BE/RiskService/pom.xml" />
+        <option value="$PROJECT_DIR$/DATN/BE/DocumentService/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">

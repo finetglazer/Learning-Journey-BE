@@ -18,6 +18,9 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
     @Value("${app.security.trusted-services.scheduling-service}")
     private String schedulingServiceApiKey;
 
+    @Value("${app.security.trusted-services.project-service}")
+    private String projectServiceApiKey;
+
     private static final String API_KEY_HEADER = "X-Internal-API-Key";
 
     @Override
@@ -40,7 +43,7 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
                 return;
             }
 
-            if (!apiKey.equals(schedulingServiceApiKey)) {
+            if (!apiKey.equals(schedulingServiceApiKey) && !apiKey.equals(projectServiceApiKey)) {
                 log.warn("Invalid API key for internal endpoint: {}", requestPath);
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 response.setContentType("application/json");
