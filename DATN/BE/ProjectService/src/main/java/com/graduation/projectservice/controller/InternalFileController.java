@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/internal/files")
+@RequestMapping("/api/pm/internal/files")
 @RequiredArgsConstructor
 public class InternalFileController {
 
@@ -23,7 +23,7 @@ public class InternalFileController {
     @GetMapping("/{storageRef}/access")
     public ResponseEntity<?> validateDocumentAccess(
             @PathVariable String storageRef,
-            @RequestParam("user_id") Long userId
+            @RequestHeader("X-User-Id") Long userId
     ) {
         log.debug("GET /api/internal/files/{}/access - User: {}", storageRef, userId);
         

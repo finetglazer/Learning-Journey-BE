@@ -154,4 +154,17 @@ public class FileNodeController {
         BaseResponse<?> response = fileNodeService.restoreVersion(userId, nodeId, versionId);
         return ResponseEntity.ok(response);
     }
+
+    @PatchMapping("/files/{nodeId}")
+    public ResponseEntity<?> updateDocument(
+            @PathVariable Long nodeId,
+            @RequestBody Map<String, Object> request,
+            @RequestHeader("X-User-Id") Long userId
+    ) {
+        String name = (String) request.get("name");
+        log.debug("PATCH /api/pm/files/{} - User: {}, Name: {}", nodeId, userId, name);
+
+        BaseResponse<?> response = fileNodeService.updateDocument(userId, nodeId, name);
+        return ResponseEntity.ok(response);
+    }
 }
