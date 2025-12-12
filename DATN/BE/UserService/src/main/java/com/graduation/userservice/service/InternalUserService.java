@@ -22,4 +22,6 @@ public interface InternalUserService {
      * @return Map with userId and projectId if valid, empty if invalid
      */
     Optional<Map<String, Long>> validateInvitationToken(String token);
+
+    Optional<UserBatchDTO> findById(Long userId);
 }

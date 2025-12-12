@@ -51,4 +51,6 @@ public interface FileNodeService {
      * Called by Hocuspocus server via API Gateway
      */
     BaseResponse<?> validateDocumentAccess(Long userId, String storageRef);
+
+    BaseResponse<?> updateDocument(Long userId, Long nodeId, String name);
 }

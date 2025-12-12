@@ -124,6 +124,40 @@ public class UserServiceClient {
         }
     }
 
+    public Optional<UserBatchDTO> findById(Long userId) {
+        if (userId == null) {
+            return Optional.empty();
+        }
+
+        // Assumption: The single fetch endpoint follows standard REST pattern /users/{id}
+        String url = userServiceUrl + "/api/internal/users/" + userId;
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Internal-API-Key", internalApiKey);
+            // Note: GET requests usually don't need Content-Type, but keeping headers consistent
+            headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+
+            HttpEntity<?> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<UserBatchDTO> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET, // Single resource fetch usually uses GET
+                    entity,
+                    UserBatchDTO.class
+            );
+
+            return Optional.ofNullable(response.getBody());
+
+        } catch (HttpClientErrorException.NotFound e) {
+            // Handle 404 specifically (User not found is a valid business case)
+            return Optional.empty();
+        } catch (Exception e) {
+            log.error("Failed to fetch user by ID {}: {}", userId, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
     /**
      * Send invitation email and create token
      */

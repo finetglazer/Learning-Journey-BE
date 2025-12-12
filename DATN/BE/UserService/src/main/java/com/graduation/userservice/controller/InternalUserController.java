@@ -44,6 +44,15 @@ public class InternalUserController {
         return ResponseEntity.ok(users);
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<UserBatchDTO> getUserById(@PathVariable Long id) {
+        log.info("Internal API: Finding user by ID: {}", id);
+
+        return internalUserService.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @PostMapping("/send-invitation")
     public ResponseEntity<?> sendInvitation(@RequestBody Map<String, Object> request) {
         Long userId = ((Number) request.get("userId")).longValue();

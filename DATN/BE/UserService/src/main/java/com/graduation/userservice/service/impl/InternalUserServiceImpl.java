@@ -133,4 +133,16 @@ public class InternalUserServiceImpl implements InternalUserService {
                 "projectId", invitationToken.getProjectId()
         ));
     }
+
+    @Override
+    public Optional<UserBatchDTO> findById(Long userId) {
+        // - Using similar mapping style as findUserByEmail
+        return userRepository.findById(userId)
+                .map(user -> new UserBatchDTO(
+                        user.getId(),
+                        user.getDisplayName(),
+                        user.getEmail(),
+                        user.getAvatarUrl()
+                ));
+    }
 }
