@@ -15,4 +15,5 @@ public class ProfileResponse {
     private String name;
     private String dateOfBirth; // Format: dd/MM/yyyy
     private String avatarUrl;
+    private String email;
 }
