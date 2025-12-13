@@ -42,4 +42,6 @@ public interface DocumentService {
      * Get list of all snapshots for a document (metadata only)
      */
     BaseResponse<?> getSnapshotList(String storageRef);
+
+    BaseResponse<?> restoreToSnapshot(String storageRef, String snapshotId);
 }

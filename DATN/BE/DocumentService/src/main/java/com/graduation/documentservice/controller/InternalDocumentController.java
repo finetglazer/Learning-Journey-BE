@@ -121,4 +121,15 @@ public class InternalDocumentController {
         BaseResponse<?> response = documentService.getSnapshotList(storageRef);
         return ResponseEntity.ok(response);
     }
+
+    // POST /api/internal/documents/{storageRef}/restore/{snapshotId}
+    @PostMapping("/{storageRef}/restore/{snapshotId}")
+    public ResponseEntity<BaseResponse<?>> restoreDocument(
+            @PathVariable String storageRef,
+            @PathVariable String snapshotId
+    ) {
+
+        BaseResponse<?> response = documentService.restoreToSnapshot(storageRef, snapshotId);
+        return ResponseEntity.ok(response);
+    }
 }

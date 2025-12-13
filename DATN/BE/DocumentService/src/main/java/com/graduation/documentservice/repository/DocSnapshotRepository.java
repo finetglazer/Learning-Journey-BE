@@ -12,6 +12,8 @@ import java.util.Optional;
 @Repository
 public interface DocSnapshotRepository extends MongoRepository<DocSnapshot, ObjectId> {
 
+    Optional<DocSnapshot> findById(String id);
+
     List<DocSnapshot> findByPageIdOrderByCreatedAtDesc(String pageId);
 
     List<DocSnapshot> findByPgNodeIdOrderByCreatedAtDesc(Long pgNodeId);

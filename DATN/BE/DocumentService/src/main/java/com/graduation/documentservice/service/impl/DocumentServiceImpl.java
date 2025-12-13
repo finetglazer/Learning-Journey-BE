@@ -1,5 +1,6 @@
 package com.graduation.documentservice.service.impl;
 
+import com.graduation.documentservice.client.ProjectServiceClient;
 import com.graduation.documentservice.constant.DocumentConstant;
 import com.graduation.documentservice.model.CommentThread;
 import com.graduation.documentservice.model.DocContent;
@@ -28,6 +29,7 @@ public class DocumentServiceImpl implements DocumentService {
 
     private final DocContentRepository docContentRepository;
     private final DocSnapshotRepository docSnapshotRepository;
+    private final ProjectServiceClient projectServiceClient;
 
     @Value("${app.snapshot.max-per-document:50}")
     private int maxSnapshotsPerDocument;
@@ -201,8 +203,29 @@ public class DocumentServiceImpl implements DocumentService {
         DocSnapshot saved = docSnapshotRepository.save(snapshot);
         enforceMaxSnapshots(doc.getPgNodeId());
 
-        // ... return response ...
-        return new BaseResponse<>(DocumentConstant.SUCCESS_STATUS, DocumentConstant.SNAPSHOT_CREATED_SUCCESS, saved.getIdAsString());
+
+        // ✅ NEW: Sync to Project Service immediately
+        // We run this asynchronously or safely so if it fails, it doesn't rollback the Mongo save
+        try {
+            projectServiceClient.syncSnapshotToVersion(
+                    doc.getPgNodeId(),      // 30
+                    saved.getIdAsString(),  // "693d..."
+                    createdBy,              // 35
+                    reason                  // "SESSION_END"
+            );
+        } catch (Exception e) {
+            log.error("Failed to sync version to Project Service", e);
+            // Don't throw exception here, or you lose the MongoDB data
+        }
+        Map<String, Object> responseData = new HashMap<>();
+        responseData.put("snapshotId", saved.getIdAsString());
+        responseData.put("versionNumber", saved.getVersionAtSnapshot());
+
+        return new BaseResponse<>(
+                DocumentConstant.SUCCESS_STATUS,
+                DocumentConstant.SNAPSHOT_CREATED_SUCCESS,
+                responseData // Sending a Map instead of String
+        );
     }
 
     @Override
@@ -264,6 +287,29 @@ public class DocumentServiceImpl implements DocumentService {
         );
     }
 
+    // In DocumentServiceImpl.java
+
+    @Override
+    @Transactional
+    public BaseResponse<?> restoreToSnapshot(String storageRef, String snapshotId) {
+        // 1. Find the Snapshot
+        DocSnapshot snapshot = docSnapshotRepository.findById(snapshotId)
+                .orElseThrow(() -> new RuntimeException("Snapshot not found"));
+
+        // 2. Find the Live Document
+        DocContent doc = docContentRepository.findById(storageRef)
+                .orElseThrow(() -> new RuntimeException("Document not found"));
+
+        // 3. 🛑 THE CRITICAL STEP: Overwrite live content with snapshot content
+        doc.setContent(snapshot.getContentSnapshot()); // Assuming field is 'contentSnapshot'
+        doc.setUpdatedAt(LocalDateTime.now());
+
+        docContentRepository.save(doc);
+
+        log.info("Restored document {} to snapshot {}", storageRef, snapshotId);
+        return new BaseResponse<>(DocumentConstant.SUCCESS_STATUS, "Restored successfully", null);
+    }
+
     @Override
     public BaseResponse<?> getSnapshotList(String storageRef) {
         Optional<DocContent> docOpt = findByStorageRef(storageRef);
@@ -281,7 +327,13 @@ public class DocumentServiceImpl implements DocumentService {
         List<Map<String, Object>> snapshotList = snapshots.stream()
                 .map(s -> {
                     Map<String, Object> map = new HashMap<>();
-                    map.put("versionId", s.getIdAsString());
+                    // ✅ FIX 1: Map the MongoDB ID to 'snapshotRef' (Matches Frontend DTO)
+                    map.put("snapshotRef", s.getIdAsString());
+
+                    // ✅ FIX 2: Provide a dummy 'versionId' (Matches Frontend DTO type: number)
+                    // The Document Service doesn't know the SQL ID, but that's okay.
+                    // The Frontend uses 'snapshotRef' for restoring now.
+                    map.put("versionId", 0);
                     map.put("versionNumber", s.getVersionAtSnapshot());
                     map.put("createdAt", s.getCreatedAt());
                     map.put("reason", s.getReason());

@@ -332,8 +332,8 @@ public class FileNodeServiceImpl implements FileNodeService {
 
     @Override
     @Transactional
-    public BaseResponse<?> restoreVersion(Long userId, Long nodeId, Long versionId) {
-        log.info("Restoring version {} for nodeId: {} by user: {}", versionId, nodeId, userId);
+    public BaseResponse<?> restoreVersion(Long userId, Long nodeId, String snapShotRef) {
+        log.info("Restoring version {} for nodeId: {} by user: {}", snapShotRef, nodeId, userId);
 
         PM_FileNode node = fileNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new NotFoundException("Document not found"));
@@ -345,7 +345,7 @@ public class FileNodeServiceImpl implements FileNodeService {
         }
 
         // Find the version to restore
-        PM_DocVersion versionToRestore = docVersionRepository.findByNodeIdAndVersionId(nodeId, versionId)
+        PM_DocVersion versionToRestore = docVersionRepository.findBySnapshotRef(snapShotRef)
                 .orElseThrow(() -> new NotFoundException("Version not found"));
 
         String storageRef = node.getStorageReference();
@@ -370,26 +370,22 @@ public class FileNodeServiceImpl implements FileNodeService {
             docVersionRepository.save(backupVersion);
         }
 
-        // Step 2: Get the snapshot content to restore
-        Optional<Map<String, Object>> snapshotOpt = documentServiceClient.getSnapshot(
+        // ✅ ADD NEW STEP 2: Execute Restore
+        boolean success = documentServiceClient.restoreToSnapshot(
                 storageRef,
                 versionToRestore.getSnapshotRef()
         );
 
-        if (snapshotOpt.isEmpty()) {
-            return new BaseResponse<>(0, "Failed to retrieve snapshot content", null);
+        if (!success) {
+            return new BaseResponse<>(0, "Failed to restore document content in Document Service", null);
         }
 
-        // Step 3: The actual restoration is done by Document Service
-        // Hocuspocus will load the new content on next connection
-        // For now, we just record the restoration
-
-        log.info("Version {} restored successfully for nodeId: {}", versionId, nodeId);
+        log.info("Version {} restored successfully for nodeId: {}", snapShotRef, nodeId);
 
         Map<String, Object> response = new HashMap<>();
-        response.put("restoredVersionId", versionId);
+        response.put("restoredVersionId", snapShotRef);
         response.put("restoredVersionNumber", versionToRestore.getVersionNumber());
-        response.put("message", "Version restored. Refresh the document to see changes.");
+        response.put("message", "Version restored. Please refresh the page.");
 
         return new BaseResponse<>(1, "Version restored successfully", response);
     }
@@ -456,6 +452,39 @@ public class FileNodeServiceImpl implements FileNodeService {
         // 4. Return Simple Success
         return new BaseResponse<>(1, "Title updated successfully", null);
     }
+
+    // Add to Interface first:
+    // void syncVersion(Long nodeId, String snapshotRef, Long userId, String reason);
+
+    @Override
+    @Transactional
+    public BaseResponse<?> syncVersion(Long nodeId, String snapshotRef, Long userId, String reason) {
+        // 1. Verify Node exists
+        if (!fileNodeRepository.existsById(nodeId)) {
+            log.warn("Cannot sync version: Node {} does not exist", nodeId);
+            return new BaseResponse<>(0, "Node does not exist", null);
+        }
+
+        // 2. Calculate next Version Number (1, 2, 3...)
+        Integer maxVersion = docVersionRepository.findMaxVersionNumberByNodeId(nodeId);
+        int nextVersion = (maxVersion == null) ? 1 : maxVersion + 1;
+
+        // 3. Save to SQL Table (pm_doc_version)
+        PM_DocVersion newVersion = PM_DocVersion.builder()
+                .nodeId(nodeId)
+                .snapshotRef(snapshotRef) // "693d..."
+                .versionNumber(nextVersion)
+                .createdBy(userId)
+                .reason(reason != null ? reason : "AUTO_SAVE")
+                .build();
+
+        docVersionRepository.save(newVersion);
+        log.info("Saved Version {} (Snapshot: {}) for Node {}", nextVersion, snapshotRef, nodeId);
+
+        return new BaseResponse<>(1, "Version synced successfully", null);
+    }
+
+
 
     // ============================================
     // Private Helper Methods
