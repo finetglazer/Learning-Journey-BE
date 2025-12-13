@@ -40,8 +40,8 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     @Transactional
     public BaseResponse<?> addMember(Long userId, Long projectId, AddMemberRequest request) {
         try {
-            // 1. Authorization: Only OWNER can add members
-            authHelper.requireOwner(projectId, userId);
+            // 1. Authorization: Only active member can invite other members
+            authHelper.requireActiveMember(projectId, userId);
 
             // 2. Verify project exists
             PM_Project project = projectRepository.findById(projectId)
