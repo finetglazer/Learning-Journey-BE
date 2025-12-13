@@ -77,24 +77,23 @@ public class InternalDocumentController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * POST /api/internal/documents/{storageRef}/snapshot
-     * Create version snapshot
-     */
     @PostMapping("/{storageRef}/snapshot")
     public ResponseEntity<BaseResponse<?>> createSnapshot(
             @PathVariable String storageRef,
             @RequestBody CreateSnapshotRequest request
     ) {
-        log.debug("POST /api/internal/documents/{}/snapshot - reason: {}", storageRef, request.getReason());
+        log.debug("POST .../snapshot - reason: {}, user: {}", request.getReason(), request.getCreatedByName());
 
         BaseResponse<?> response = documentService.createSnapshot(
                 storageRef,
                 request.getReason(),
-                request.getCreatedBy()
+                request.getCreatedBy(),
+                request.getCreatedByName(),   // ✅ Pass Name
+                request.getCreatedByAvatar()  // ✅ Pass Avatar
         );
         return ResponseEntity.ok(response);
     }
+
 
     /**
      * GET /api/internal/documents/{storageRef}/snapshot/{snapshotId}

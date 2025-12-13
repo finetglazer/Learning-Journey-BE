@@ -1,5 +1,6 @@
 package com.graduation.documentservice.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,11 +16,20 @@ import java.util.List;
 @AllArgsConstructor
 public class CommentThread {
 
-    private String id;
+    @JsonProperty("threadId")
+    private String threadId;
 
+    // ✅ FIX 1: Map frontend 'userId' to backend 'authorId'
+    @JsonProperty("userId")
     private Long authorId;
 
+    // ✅ FIX 2: Map frontend 'userName' to backend 'authorName'
+    @JsonProperty("userName")
     private String authorName;
+
+    // ✅ FIX 3: Add Avatar field and map it
+    @JsonProperty("userAvatar")
+    private String authorAvatar;
 
     private String content;
 
@@ -31,7 +41,7 @@ public class CommentThread {
 
     private LocalDateTime resolvedAt;
 
-    private String resolvedReason; // "MANUAL" or "ORPHANED"
+    private String resolvedReason;
 
     private LocalDateTime createdAt;
 

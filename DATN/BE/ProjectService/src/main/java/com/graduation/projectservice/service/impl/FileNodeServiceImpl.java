@@ -264,6 +264,10 @@ public class FileNodeServiceImpl implements FileNodeService {
         PM_ProjectMember member = authHelper.getMember(node.getProjectId(), userId);
         String role = member.getRole().name();
 
+        UserBatchDTO userBatchDTO = userServiceClient.findById(node.getCreatedByUserId())
+                .orElseThrow(() -> new NotFoundException("Document creator not found"));
+
+
         NotionDocDTO response = NotionDocDTO.builder()
                 .nodeId(node.getNodeId())
                 .name(node.getName())
@@ -271,6 +275,7 @@ public class FileNodeServiceImpl implements FileNodeService {
                 .role(role)
                 .createdAt(node.getCreatedAt())
                 .updatedAt(node.getUpdatedAt())
+                .createdBy(userBatchDTO.getName())
                 .build();
 
         return new BaseResponse<>(1, "Details loaded", response);
@@ -430,6 +435,26 @@ public class FileNodeServiceImpl implements FileNodeService {
         } catch (NotFoundException | ForbiddenException e) {
             return new BaseResponse<>(0, e.getMessage(), null);
         }
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> updateDocument(Long userId, Long nodeId, String name) {
+        // 1. Fetch Node
+        PM_FileNode node = fileNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new NotFoundException("Document not found"));
+
+        // 2. Check Permission (Must be an active member)
+        authHelper.requireActiveMember(node.getProjectId(), userId);
+
+        // 3. Update Name
+        if (name != null && !name.trim().isEmpty()) {
+            node.setName(name.trim());
+            fileNodeRepository.save(node);
+        }
+
+        // 4. Return Simple Success
+        return new BaseResponse<>(1, "Title updated successfully", null);
     }
 
     // ============================================

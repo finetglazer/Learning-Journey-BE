@@ -31,7 +31,7 @@ public interface DocumentService {
     /**
      * Create a version snapshot
      */
-    BaseResponse<?> createSnapshot(String storageRef, String reason, Long createdBy);
+    BaseResponse<?> createSnapshot(String storageRef, String reason, Long createdBy, String createdByName, String createdByAvatar);
 
     /**
      * Get snapshot content by snapshot ID

@@ -170,47 +170,39 @@ public class DocumentServiceImpl implements DocumentService {
 
     @Override
     @Transactional
-    public BaseResponse<?> createSnapshot(String storageRef, String reason, Long createdBy) {
+    // ✅ Updated signature
+    public BaseResponse<?> createSnapshot(String storageRef, String reason, Long createdBy, String createdByName, String createdByAvatar) {
         log.info(DocumentConstant.LOG_CREATING_SNAPSHOT, storageRef);
 
         Optional<DocContent> docOpt = findByStorageRef(storageRef);
         if (docOpt.isEmpty()) {
-            return new BaseResponse<>(
-                    DocumentConstant.ERROR_STATUS,
-                    DocumentConstant.ERROR_DOCUMENT_NOT_FOUND,
-                    null
-            );
+            return new BaseResponse<>(DocumentConstant.ERROR_STATUS, DocumentConstant.ERROR_DOCUMENT_NOT_FOUND, null);
         }
 
         DocContent doc = docOpt.get();
 
-        // Create snapshot
+        // ✅ Use passed info, or fallback to defaults if missing
+        String finalName = (createdByName != null && !createdByName.isEmpty()) ? createdByName : "User " + createdBy;
+        String finalAvatar = (createdByAvatar != null) ? createdByAvatar : "";
+
         DocSnapshot snapshot = DocSnapshot.builder()
-                .pageId(doc.getId())
+                .pageId(doc.getIdAsString()) // Ensure we save String ID
                 .pgNodeId(doc.getPgNodeId())
                 .contentSnapshot(doc.getContent())
                 .threadsSnapshot(doc.getThreads())
                 .versionAtSnapshot(doc.getVersion())
+                .reason(reason)
+                .createdBy(createdBy)
+                .createdByName(finalName)   // ✅ Save real name
+                .createdByAvatar(finalAvatar) // ✅ Save real avatar
                 .createdAt(LocalDateTime.now())
                 .build();
 
         DocSnapshot saved = docSnapshotRepository.save(snapshot);
-
-        // Enforce max snapshots limit
         enforceMaxSnapshots(doc.getPgNodeId());
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("snapshotId", saved.getIdAsString());
-        response.put("pgNodeId", doc.getPgNodeId());
-        response.put("versionAtSnapshot", doc.getVersion());
-        response.put("reason", reason);
-        response.put("createdBy", createdBy);
-
-        return new BaseResponse<>(
-                DocumentConstant.SUCCESS_STATUS,
-                DocumentConstant.SNAPSHOT_CREATED_SUCCESS,
-                response
-        );
+        // ... return response ...
+        return new BaseResponse<>(DocumentConstant.SUCCESS_STATUS, DocumentConstant.SNAPSHOT_CREATED_SUCCESS, saved.getIdAsString());
     }
 
     @Override
@@ -276,31 +268,32 @@ public class DocumentServiceImpl implements DocumentService {
     public BaseResponse<?> getSnapshotList(String storageRef) {
         Optional<DocContent> docOpt = findByStorageRef(storageRef);
         if (docOpt.isEmpty()) {
-            return new BaseResponse<>(
-                    DocumentConstant.ERROR_STATUS,
-                    DocumentConstant.ERROR_DOCUMENT_NOT_FOUND,
-                    null
-            );
+            return new BaseResponse<>(DocumentConstant.ERROR_STATUS, DocumentConstant.ERROR_DOCUMENT_NOT_FOUND, null);
         }
 
         DocContent doc = docOpt.get();
-        List<DocSnapshot> snapshots = docSnapshotRepository.findByPageIdOrderByCreatedAtDesc(doc.getId());
+
+        // 🛑 CRITICAL FIX: Use getIdAsString() instead of getId()
+        // Your DB stores pageId as "693c..." (String), but doc.getId() is an ObjectId object.
+        // This mismatch caused the empty list.
+        List<DocSnapshot> snapshots = docSnapshotRepository.findByPageIdOrderByCreatedAtDesc(doc.getIdAsString());
 
         List<Map<String, Object>> snapshotList = snapshots.stream()
                 .map(s -> {
                     Map<String, Object> map = new HashMap<>();
-                    map.put("snapshotId", s.getIdAsString());
-                    map.put("versionAtSnapshot", s.getVersionAtSnapshot());
+                    map.put("versionId", s.getIdAsString());
+                    map.put("versionNumber", s.getVersionAtSnapshot());
                     map.put("createdAt", s.getCreatedAt());
+                    map.put("reason", s.getReason());
+                    map.put("createdByName", s.getCreatedByName());
+                    map.put("createdByAvatar", s.getCreatedByAvatar());
+                    // ✅ Add this if you want to verify the user ID in frontend
+                    map.put("createdBy", s.getCreatedBy());
                     return map;
                 })
                 .collect(Collectors.toList());
 
-        return new BaseResponse<>(
-                DocumentConstant.SUCCESS_STATUS,
-                "Snapshots retrieved",
-                snapshotList
-        );
+        return new BaseResponse<>(DocumentConstant.SUCCESS_STATUS, "Snapshots retrieved", snapshotList);
     }
 
     // ============================================
@@ -327,7 +320,9 @@ public class DocumentServiceImpl implements DocumentService {
 
         // Mark orphaned comments as resolved
         for (CommentThread thread : threads) {
-            if (!thread.getResolved() && !activeCommentIds.contains(thread.getId())) {
+            // ✅ FIX 2: Use getThreadId() instead of getId()
+            // And ensure we check for null ID to avoid crashes
+            if (thread.getThreadId() != null && !Boolean.TRUE.equals(thread.getResolved()) && !activeCommentIds.contains(thread.getThreadId())) {
                 thread.setResolved(true);
                 thread.setResolvedReason(DocumentConstant.RESOLVED_ORPHANED);
                 thread.setResolvedAt(LocalDateTime.now());
@@ -356,9 +351,11 @@ public class DocumentServiceImpl implements DocumentService {
                     if ("comment".equals(markMap.get("type"))) {
                         Object attrs = markMap.get("attrs");
                         if (attrs instanceof Map) {
-                            Object commentId = ((Map<String, Object>) attrs).get("commentId");
-                            if (commentId != null) {
-                                commentIds.add(commentId.toString());
+                            // ✅ FIX 3: Look for "threadId", NOT "commentId"
+                            // Your frontend extension saves it as "threadId"
+                            Object threadIdVal = ((Map<String, Object>) attrs).get("threadId");
+                            if (threadIdVal != null) {
+                                commentIds.add(threadIdVal.toString());
                             }
                         }
                     }
@@ -366,7 +363,7 @@ public class DocumentServiceImpl implements DocumentService {
             }
         }
 
-        // Recursively check content array
+        // Recursively check content array... (rest is fine)
         Object contentArray = content.get("content");
         if (contentArray instanceof List) {
             for (Object child : (List<?>) contentArray) {
@@ -378,7 +375,6 @@ public class DocumentServiceImpl implements DocumentService {
 
         return commentIds;
     }
-
     /**
      * Enforce maximum snapshots per document
      */
