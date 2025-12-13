@@ -18,4 +18,6 @@ public interface PhaseRepository extends JpaRepository<PM_Phase, Long> {
 
     @Query("SELECT p.deliverableId FROM PM_Phase p WHERE p.phaseId = :phaseId")
     Long findDeliverableIdByPhaseId(@Param("phaseId") Long phaseId);
+
+    List<PM_Phase> findAllByDeliverableId(Long deliverableId);
 }

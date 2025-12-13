@@ -41,7 +41,8 @@ public class UserProfileServiceImpl implements UserProfileService {
             ProfileResponse response = new ProfileResponse(
                     user.getDisplayName(),
                     String.valueOf(user.getDateOfBirth()),
-                    user.getAvatarUrl()
+                    user.getAvatarUrl(),
+                    user.getEmail()
             );
 
             log.info(Constant.LOG_GET_PROFILE_SUCCESS, userId);
@@ -129,7 +130,8 @@ public class UserProfileServiceImpl implements UserProfileService {
             ProfileResponse response = new ProfileResponse(
                     user.getDisplayName(),
                     dateOfBirth,
-                    user.getAvatarUrl()
+                    user.getAvatarUrl(),
+                    user.getEmail()
             );
 
             log.info(Constant.LOG_UPDATE_PROFILE_SUCCESS, userId);

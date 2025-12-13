@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.temporal.TemporalUnit;
 import java.util.*;
 
 @Slf4j
@@ -59,6 +60,8 @@ public class DeliverableServiceImpl implements DeliverableService {
             deliverable.setName(request.getName());
             deliverable.setKey(key);
             deliverable.setOrder(nextOrder);
+            deliverable.setStartDate(project.getStartDate());
+            deliverable.setEndDate(project.getStartDate().plusWeeks(2));
 
             PM_Deliverable savedDeliverable = deliverableRepository.save(deliverable);
 

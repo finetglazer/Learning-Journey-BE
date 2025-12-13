@@ -8,6 +8,7 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="DocumentService" />
+        <module name="document-service" />
       </profile>
       <profile name="Annotation profile for ProjectService" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
@@ -78,7 +79,8 @@
       <module name="SagaOrchestratorService" options="-parameters" />
       <module name="SchedulingService" options="-parameters" />
       <module name="UserService" options="-parameters" />
-      <module name="integration-tests" options="-parameters" />
+      <module name="document-service" options="-parameters" />
+      <module name="integration-tests" options="" />
     </option>
   </component>
 </project>
