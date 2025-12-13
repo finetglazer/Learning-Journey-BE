@@ -41,18 +41,31 @@ const server = Server.configure({
 
     async onAuthenticate(data) {
         const { token, documentName } = data;
-        if (!token) throw new Error("No token");
 
-        const access = await validateAccess(documentName, token);
-        console.log("[Debug] Access validation for", documentName, ":", access);
+        // 1. Get the API Response
+        const apiResponse = await validateAccess(documentName, token);
+        console.log(`[Debug] API Response:`, JSON.stringify(apiResponse));
 
-        if (!access) throw new Error("Access denied");
+        if (!apiResponse) {
+            throw new Error("Access denied: No response from API");
+        }
 
+        // 2. ✅ FIX: Handle both "nested data" and "flat" formats
+        // If apiResponse.data exists, use it. Otherwise, assume apiResponse IS the data.
+        const userData = apiResponse.data || apiResponse;
+
+        // 3. Validation
+        if (!userData.userId) {
+            console.error("[onAuthenticate] Error: userId is missing in userData:", userData);
+            throw new Error("Access denied: Invalid user data");
+        }
+
+        // 4. Return context for Hocuspocus
         return {
-            userId: access.userId,
-            userName: access.userName || access.name || "Anonymous",
-            userAvatar: access.userAvatar,
-            canEdit: access.canEdit,
+            userId: userData.userId,
+            userName: userData.userName || "Anonymous",
+            userAvatar: userData.userAvatar || "",
+            canEdit: userData.canEdit,
         };
     },
 
