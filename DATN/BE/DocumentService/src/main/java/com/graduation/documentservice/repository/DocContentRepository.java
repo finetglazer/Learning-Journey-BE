@@ -10,6 +10,8 @@ import java.util.Optional;
 @Repository
 public interface DocContentRepository extends MongoRepository<DocContent, ObjectId> {
 
+    Optional<DocContent> findById(String id);
+
     Optional<DocContent> findByPgNodeId(Long pgNodeId);
 
     void deleteByPgNodeId(Long pgNodeId);

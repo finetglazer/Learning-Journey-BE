@@ -16,6 +16,8 @@ public interface DocVersionRepository extends JpaRepository<PM_DocVersion, Long>
 
     Optional<PM_DocVersion> findByNodeIdAndVersionId(Long nodeId, Long versionId);
 
+    Optional<PM_DocVersion> findBySnapshotRef(String snapshotRef);
+
     @Query("SELECT COALESCE(MAX(d.versionNumber), 0) FROM PM_DocVersion d WHERE d.nodeId = :nodeId")
     Integer findMaxVersionNumberByNodeId(@Param("nodeId") Long nodeId);
 

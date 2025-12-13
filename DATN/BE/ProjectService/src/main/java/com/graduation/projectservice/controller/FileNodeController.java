@@ -146,17 +146,17 @@ public class FileNodeController {
     @PostMapping("/files/{nodeId}/history/{versionId}/restore")
     public ResponseEntity<?> restoreVersion(
             @PathVariable Long nodeId,
-            @PathVariable Long versionId,
+            @PathVariable String versionId, // ✅ FIX: Change Long to String
             @RequestHeader("X-User-Id") Long userId
     ) {
-        log.debug("POST /api/pm/files/{}/history/{}/restore - User: {}", nodeId, versionId, userId);
+        log.debug("POST .../restore - User: {}, Version: {}", userId, versionId);
 
         BaseResponse<?> response = fileNodeService.restoreVersion(userId, nodeId, versionId);
         return ResponseEntity.ok(response);
     }
 
     @PatchMapping("/files/{nodeId}")
-    public ResponseEntity<?> updateDocument(
+    public ResponseEntity<?> updateTitleDocument(
             @PathVariable Long nodeId,
             @RequestBody Map<String, Object> request,
             @RequestHeader("X-User-Id") Long userId

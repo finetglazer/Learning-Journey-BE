@@ -186,6 +186,31 @@ public class DocumentServiceClient {
         }
     }
 
+    /**
+     * ✅ NEW: Command Document Service to overwrite data
+     */
+    public boolean restoreToSnapshot(String storageRef, String snapshotId) {
+        String url = documentServiceUrl + "/api/internal/documents/" + storageRef + "/restore/" + snapshotId;
+
+        try {
+            HttpHeaders headers = createHeaders();
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<BaseResponse<Void>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    new ParameterizedTypeReference<BaseResponse<Void>>() {}
+            );
+
+            return response.getBody() != null && response.getBody().getStatus() == 1;
+
+        } catch (Exception e) {
+            log.error("Error restoring document {} to snapshot {}: {}", storageRef, snapshotId, e.getMessage());
+            return false;
+        }
+    }
+
     private HttpHeaders createHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Internal-API-Key", internalApiKey);

@@ -41,11 +41,8 @@ public interface FileNodeService {
      */
     BaseResponse<?> getVersionHistory(Long userId, Long nodeId);
 
-    /**
-     * Restore a document to a previous version
-     */
-    BaseResponse<?> restoreVersion(Long userId, Long nodeId, Long versionId);
-
+    // Update signature
+    BaseResponse<?> restoreVersion(Long userId, Long nodeId, String versionId);
     /**
      * Internal: Validate document access for WebSocket authentication
      * Called by Hocuspocus server via API Gateway
@@ -53,4 +50,7 @@ public interface FileNodeService {
     BaseResponse<?> validateDocumentAccess(Long userId, String storageRef);
 
     BaseResponse<?> updateDocument(Long userId, Long nodeId, String name);
+
+
+    BaseResponse<?> syncVersion(Long nodeId, String snapshotRef, Long userId, String reason);
 }

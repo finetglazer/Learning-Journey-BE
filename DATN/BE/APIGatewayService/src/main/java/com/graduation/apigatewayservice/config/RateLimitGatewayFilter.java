@@ -101,7 +101,7 @@ public class RateLimitGatewayFilter extends AbstractGatewayFilterFactory<RateLim
     }
 
     public static class Config {
-        private int maxRequests = 100; // requests per window
+        private int maxRequests = 150; // requests per window
         private int windowSizeInSeconds = 60; // 1 minute window
 
         public int getMaxRequests() {
