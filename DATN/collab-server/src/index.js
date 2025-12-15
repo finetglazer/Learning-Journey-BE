@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { Mark, Node } from "@tiptap/core"; // Import Mark and Node to create custom extensions
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import Image from "@tiptap/extension-image"; // ✅ Add Image extension
 import "dotenv/config";
 // ✅ ADD 'createSnapshot' to this list
 import { validateAccess, loadDocument, saveDocument, createSnapshot } from "./api.js";
@@ -115,6 +116,7 @@ const TIPTAP_EXTENSIONS = [
     CommentExtension,
     CalloutExtension,  // ✅ Add the Callout extension
     FileNodeExtension, // ✅ Add the FileNode extension
+    Image,             // ✅ Add the Image extension
     // ✅ Task List extensions
     TaskList,
     TaskItem.configure({

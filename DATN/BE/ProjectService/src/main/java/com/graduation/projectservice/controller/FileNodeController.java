@@ -160,4 +160,20 @@ public class FileNodeController {
                 BaseResponse<?> response = fileNodeService.updateDocument(userId, nodeId, name);
                 return ResponseEntity.ok(response);
         }
+
+        /**
+         * POST /api/pm/projects/{projectId}/editor-images/upload
+         * Upload image for Notion editor (stored separately, does not create file node)
+         */
+        @PostMapping("/projects/{projectId}/editor-images/upload")
+        public ResponseEntity<?> uploadEditorImage(
+                        @PathVariable Long projectId,
+                        @RequestParam("file") MultipartFile file,
+                        @RequestHeader("X-User-Id") Long userId) throws IOException {
+                log.debug("POST /api/pm/projects/{}/editor-images/upload - User: {}, File: {}",
+                                projectId, userId, file.getOriginalFilename());
+
+                BaseResponse<?> response = fileNodeService.uploadEditorImage(userId, projectId, file);
+                return ResponseEntity.ok(response);
+        }
 }
