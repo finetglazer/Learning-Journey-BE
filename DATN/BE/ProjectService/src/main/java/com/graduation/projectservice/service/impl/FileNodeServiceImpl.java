@@ -45,30 +45,61 @@ public class FileNodeServiceImpl implements FileNodeService {
     // ============================================
 
     @Override
-    public BaseResponse<?> getFiles(Long userId, Long projectId, Long parentNodeId) {
+    public BaseResponse<?> getFiles(Long userId, Long projectId, Long parentNodeId, Boolean flatten, String types) {
         authHelper.requireActiveMember(projectId, userId);
 
         if (parentNodeId != null) {
             String error = validateParentNode(projectId, parentNodeId);
-            if (error != null) return new BaseResponse<>(0, error, null);
+            if (error != null)
+                return new BaseResponse<>(0, error, null);
         }
 
-        // 1. Fetch File Nodes
+        // 1. Parse type filters if provided
+        List<NodeType> typeFilters = new ArrayList<>();
+        if (types != null && !types.trim().isEmpty()) {
+            String[] typeArray = types.split(",");
+            for (String type : typeArray) {
+                try {
+                    typeFilters.add(NodeType.valueOf(type.trim()));
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid NodeType filter: {}", type);
+                }
+            }
+        }
+
+        // 2. Fetch File Nodes
         List<PM_FileNode> files;
-        if (parentNodeId == null) {
-            files = fileNodeRepository.findByProjectIdAndParentNodeIdIsNull(projectId);
+        if (flatten != null && flatten) {
+            // Flatten: Get all files recursively from entire project
+            files = fileNodeRepository.findByProjectId(projectId);
+            // Filter out folders since we only want files for the picker
+            files = files.stream()
+                    .filter(f -> f.getType() != NodeType.FOLDER)
+                    .collect(Collectors.toList());
         } else {
-            files = fileNodeRepository.findByProjectIdAndParentNodeId(projectId, parentNodeId);
+            // Original behavior: Get files by parent
+            if (parentNodeId == null) {
+                files = fileNodeRepository.findByProjectIdAndParentNodeIdIsNull(projectId);
+            } else {
+                files = fileNodeRepository.findByProjectIdAndParentNodeId(projectId, parentNodeId);
+            }
         }
 
-        // 2. Collect distinct User IDs to minimize API calls
+        // 3. Apply type filtering if provided
+        if (!typeFilters.isEmpty()) {
+            files = files.stream()
+                    .filter(f -> typeFilters.contains(f.getType()))
+                    .collect(Collectors.toList());
+        }
+
+        // 4. Collect distinct User IDs to minimize API calls
         List<Long> userIds = files.stream()
                 .map(PM_FileNode::getCreatedByUserId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
 
-        // 3. Batch fetch user info from User Service
+        // 5. Batch fetch user info from User Service
         Map<Long, UserBatchDTO> userMap = new HashMap<>();
         if (!userIds.isEmpty()) {
             try {
@@ -81,8 +112,7 @@ public class FileNodeServiceImpl implements FileNodeService {
             }
         }
 
-        // 4. Map entities to DTOs with User details
-        // We need to use effective final variable for the lambda
+        // 6. Map entities to DTOs with User details
         Map<Long, UserBatchDTO> finalUserMap = userMap;
 
         List<FileNodeResponseDTO> responseList = files.stream().map(node -> {
@@ -95,10 +125,11 @@ public class FileNodeServiceImpl implements FileNodeService {
                     .name(node.getName())
                     .type(node.getType())
                     .updatedAt(node.getUpdatedAt())
-                    .createdBy(createdByName) // Set Name
-                    .avatarUrl(avatarUrl)     // Set Avatar
+                    .createdBy(createdByName)
+                    .avatarUrl(avatarUrl)
                     .sizeBytes(node.getSizeBytes())
                     .extension(node.getExtension())
+                    .storageReference(node.getStorageReference())
                     .build();
         }).collect(Collectors.toList());
 
@@ -112,7 +143,8 @@ public class FileNodeServiceImpl implements FileNodeService {
 
         if (parentNodeId != null) {
             String error = validateParentNode(projectId, parentNodeId);
-            if (error != null) return new BaseResponse<>(0, error, null);
+            if (error != null)
+                return new BaseResponse<>(0, error, null);
         }
 
         PM_FileNode folder = new PM_FileNode();
@@ -128,12 +160,14 @@ public class FileNodeServiceImpl implements FileNodeService {
 
     @Override
     @Transactional
-    public BaseResponse<?> uploadFile(Long userId, Long projectId, Long parentNodeId, MultipartFile file) throws IOException {
+    public BaseResponse<?> uploadFile(Long userId, Long projectId, Long parentNodeId, MultipartFile file)
+            throws IOException {
         authHelper.requireActiveMember(projectId, userId);
 
         if (parentNodeId != null) {
             String error = validateParentNode(projectId, parentNodeId);
-            if (error != null) return new BaseResponse<>(0, error, null);
+            if (error != null)
+                return new BaseResponse<>(0, error, null);
         }
 
         String storageRef = storageService.uploadFile(projectId, file);
@@ -183,7 +217,8 @@ public class FileNodeServiceImpl implements FileNodeService {
             return new BaseResponse<>(1, "Keyword is empty", List.of());
         }
 
-        List<PM_FileNode> results = fileNodeRepository.findByProjectIdAndNameContainingIgnoreCase(projectId, keyword.trim());
+        List<PM_FileNode> results = fileNodeRepository.findByProjectIdAndNameContainingIgnoreCase(projectId,
+                keyword.trim());
 
         return new BaseResponse<>(1, "Search results retrieved", results);
     }
@@ -202,7 +237,8 @@ public class FileNodeServiceImpl implements FileNodeService {
         // Validate parent node if provided
         if (parentNodeId != null) {
             String error = validateParentNode(projectId, parentNodeId);
-            if (error != null) return new BaseResponse<>(0, error, null);
+            if (error != null)
+                return new BaseResponse<>(0, error, null);
         }
 
         // Step 1: Create PM_FileNode entry first (to get nodeId)
@@ -260,16 +296,17 @@ public class FileNodeServiceImpl implements FileNodeService {
             return new BaseResponse<>(0, "This is not a Notion document", null);
         }
 
-        // Get user's role for FE to show/hide delete button - can delete later, for now, prioritize correctness
+        // Get user's role for FE to show/hide delete button - can delete later, for
+        // now, prioritize correctness
         PM_ProjectMember member = authHelper.getMember(node.getProjectId(), userId);
         String role = member.getRole().name();
 
         UserBatchDTO userBatchDTO = userServiceClient.findById(node.getCreatedByUserId())
                 .orElseThrow(() -> new NotFoundException("Document creator not found"));
 
-
         NotionDocDTO response = NotionDocDTO.builder()
                 .nodeId(node.getNodeId())
+                .projectId(node.getProjectId()) // Add this for file picker
                 .name(node.getName())
                 .storageReference(node.getStorageReference())
                 .role(role)
@@ -354,8 +391,7 @@ public class FileNodeServiceImpl implements FileNodeService {
         Optional<Map<String, Object>> backupResult = documentServiceClient.createSnapshot(
                 storageRef,
                 Constant.REASON_BEFORE_RESTORE,
-                userId
-        );
+                userId);
 
         if (backupResult.isPresent()) {
             // Save backup version metadata to Postgres
@@ -373,8 +409,7 @@ public class FileNodeServiceImpl implements FileNodeService {
         // ✅ ADD NEW STEP 2: Execute Restore
         boolean success = documentServiceClient.restoreToSnapshot(
                 storageRef,
-                versionToRestore.getSnapshotRef()
-        );
+                versionToRestore.getSnapshotRef());
 
         if (!success) {
             return new BaseResponse<>(0, "Failed to restore document content in Document Service", null);
@@ -454,7 +489,8 @@ public class FileNodeServiceImpl implements FileNodeService {
     }
 
     // Add to Interface first:
-    // void syncVersion(Long nodeId, String snapshotRef, Long userId, String reason);
+    // void syncVersion(Long nodeId, String snapshotRef, Long userId, String
+    // reason);
 
     @Override
     @Transactional
@@ -483,8 +519,6 @@ public class FileNodeServiceImpl implements FileNodeService {
 
         return new BaseResponse<>(1, "Version synced successfully", null);
     }
-
-
 
     // ============================================
     // Private Helper Methods
@@ -533,7 +567,8 @@ public class FileNodeServiceImpl implements FileNodeService {
     }
 
     private String removeExtension(String filename) {
-        if (filename == null || filename.isEmpty()) return filename;
+        if (filename == null || filename.isEmpty())
+            return filename;
         int lastDotIndex = filename.lastIndexOf(".");
         if (lastDotIndex <= 0) {
             return filename;

@@ -11,7 +11,7 @@ public interface FileNodeService {
     // Existing Methods
     // ============================================
 
-    BaseResponse<?> getFiles(Long userId, Long projectId, Long parentNodeId);
+    BaseResponse<?> getFiles(Long userId, Long projectId, Long parentNodeId, Boolean flatten, String types);
 
     BaseResponse<?> createFolder(Long userId, Long projectId, Long parentNodeId, String name);
 
@@ -43,6 +43,7 @@ public interface FileNodeService {
 
     // Update signature
     BaseResponse<?> restoreVersion(Long userId, Long nodeId, String versionId);
+
     /**
      * Internal: Validate document access for WebSocket authentication
      * Called by Hocuspocus server via API Gateway
@@ -50,7 +51,6 @@ public interface FileNodeService {
     BaseResponse<?> validateDocumentAccess(Long userId, String storageRef);
 
     BaseResponse<?> updateDocument(Long userId, Long nodeId, String name);
-
 
     BaseResponse<?> syncVersion(Long nodeId, String snapshotRef, Long userId, String reason);
 }

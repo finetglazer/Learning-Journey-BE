@@ -23,6 +23,9 @@ public interface FileNodeRepository extends JpaRepository<PM_FileNode, Long> {
     // For search functionality
     List<PM_FileNode> findByProjectIdAndNameContainingIgnoreCase(Long projectId, String name);
 
+    // Find all files in project (for flatten functionality)
+    List<PM_FileNode> findByProjectId(Long projectId);
+
     // Find by storage reference (for WebSocket auth)
     Optional<PM_FileNode> findByStorageReference(String storageReference);
 

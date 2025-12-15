@@ -1,4 +1,4 @@
-package com.project.userservice.security;
+package com.graduation.userservice.security;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
