@@ -38,7 +38,8 @@ public class ProjectFileStorageService {
 
         // --- FIX: Force UTF-8 for text files ---
         String contentType = file.getContentType();
-        if (contentType != null && (contentType.startsWith("text/") || contentType.contains("json") || contentType.contains("xml"))) {
+        if (contentType != null
+                && (contentType.startsWith("text/") || contentType.contains("json") || contentType.contains("xml"))) {
             // If it is text/plain, change it to text/plain; charset=utf-8
             contentType += "; charset=utf-8";
         }
@@ -54,7 +55,8 @@ public class ProjectFileStorageService {
     }
 
     public void deleteFile(String fullUrl) {
-        if (fullUrl == null || fullUrl.isEmpty()) return;
+        if (fullUrl == null || fullUrl.isEmpty())
+            return;
         try {
             String prefix = String.format("%s/%s/", baseUrl, bucketName);
             if (!fullUrl.startsWith(prefix)) {
@@ -76,6 +78,29 @@ public class ProjectFileStorageService {
         }
     }
 
+    /**
+     * Upload editor image to separate GCS path (does not create file node)
+     */
+    public String uploadEditorImage(Long projectId, MultipartFile file) throws IOException {
+        validateImageFile(file);
+
+        String originalFilename = file.getOriginalFilename();
+        String extension = getExtension(originalFilename);
+
+        // Generate Object Name in editor-images path
+        String objectName = String.format("projects/%d/editor-images/%s.%s",
+                projectId, UUID.randomUUID(), extension);
+        BlobId blobId = BlobId.of(bucketName, objectName);
+
+        BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+                .setContentType(file.getContentType())
+                .build();
+
+        storage.create(blobInfo, file.getBytes());
+
+        return String.format("%s/%s/%s", baseUrl, bucketName, objectName);
+    }
+
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File is required");
@@ -89,8 +114,23 @@ public class ProjectFileStorageService {
         }
     }
 
+    private void validateImageFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Image file is required");
+        }
+        if (file.getSize() > FileConstant.MAX_FILE_SIZE) {
+            throw new IllegalArgumentException("Image size exceeds 10MB limit");
+        }
+        if (!FileConstant.IMAGE_CONTENT_TYPES.contains(file.getContentType())) {
+            log.warn("Rejected image content type: {}", file.getContentType());
+            throw new IllegalArgumentException(
+                    "Unsupported image type. Please upload a JPEG, PNG, GIF, or WebP image.");
+        }
+    }
+
     private String getExtension(String filename) {
-        if (filename == null || filename.lastIndexOf(".") == -1) return "bin";
+        if (filename == null || filename.lastIndexOf(".") == -1)
+            return "bin";
         return filename.substring(filename.lastIndexOf(".") + 1);
     }
 }

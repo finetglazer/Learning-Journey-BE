@@ -53,4 +53,10 @@ public interface FileNodeService {
     BaseResponse<?> updateDocument(Long userId, Long nodeId, String name);
 
     BaseResponse<?> syncVersion(Long nodeId, String snapshotRef, Long userId, String reason);
+
+    /**
+     * Upload image for editor (stores in separate GCS path, does not create file
+     * node)
+     */
+    BaseResponse<?> uploadEditorImage(Long userId, Long projectId, MultipartFile file) throws IOException;
 }

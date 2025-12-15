@@ -520,6 +520,22 @@ public class FileNodeServiceImpl implements FileNodeService {
         return new BaseResponse<>(1, "Version synced successfully", null);
     }
 
+    @Override
+    public BaseResponse<?> uploadEditorImage(Long userId, Long projectId, MultipartFile file) throws IOException {
+        log.info("Uploading editor image for project {} by user {}", projectId, userId);
+
+        authHelper.requireActiveMember(projectId, userId);
+
+        // Upload to separate GCS path for editor images
+        String imageUrl = storageService.uploadEditorImage(projectId, file);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("url", imageUrl);
+        response.put("filename", file.getOriginalFilename());
+
+        return new BaseResponse<>(1, "Image uploaded successfully", response);
+    }
+
     // ============================================
     // Private Helper Methods
     // ============================================

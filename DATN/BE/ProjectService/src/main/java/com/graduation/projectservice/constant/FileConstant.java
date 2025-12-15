@@ -17,4 +17,13 @@ public class FileConstant {
             "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // XLS/XLSX
             "image/jpeg", "image/png", "image/jpg"
     );
+
+    // Image types for editor (more permissive)
+    public static final List<String> IMAGE_CONTENT_TYPES = Arrays.asList(
+            "image/jpeg",
+            "image/jpg", 
+            "image/png",
+            "image/gif",
+            "image/webp"
+    );
 }
