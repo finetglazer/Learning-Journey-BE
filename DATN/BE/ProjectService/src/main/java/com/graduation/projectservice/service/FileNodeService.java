@@ -11,7 +11,7 @@ public interface FileNodeService {
     // Existing Methods
     // ============================================
 
-    BaseResponse<?> getFiles(Long userId, Long projectId, Long parentNodeId, Boolean flatten, String types);
+    BaseResponse<?> getFiles(Long userId, Long projectId, Long parentNodeId, Boolean flatten, String types, String search);
 
     BaseResponse<?> createFolder(Long userId, Long projectId, Long parentNodeId, String name);
 
@@ -51,6 +51,7 @@ public interface FileNodeService {
     BaseResponse<?> validateDocumentAccess(Long userId, String storageRef);
 
     BaseResponse<?> updateDocument(Long userId, Long nodeId, String name);
+
 
     BaseResponse<?> syncVersion(Long nodeId, String snapshotRef, Long userId, String reason);
 

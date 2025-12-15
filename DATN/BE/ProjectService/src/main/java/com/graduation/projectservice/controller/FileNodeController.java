@@ -1,6 +1,7 @@
 package com.graduation.projectservice.controller;
 
 import com.graduation.projectservice.payload.request.CreateNotionDocRequest;
+import com.graduation.projectservice.payload.request.UpdateDocumentTitleRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
 import com.graduation.projectservice.service.FileNodeService;
 import lombok.RequiredArgsConstructor;
@@ -32,8 +33,9 @@ public class FileNodeController {
                         @RequestParam(value = "parent_node_id", required = false) Long parentNodeId,
                         @RequestParam(value = "flatten", required = false, defaultValue = "false") Boolean flatten,
                         @RequestParam(value = "types", required = false) String types,
+                        @RequestParam(value = "search", required = false) String search,
                         @RequestHeader("X-User-Id") Long userId) {
-                BaseResponse<?> response = fileNodeService.getFiles(userId, projectId, parentNodeId, flatten, types);
+                BaseResponse<?> response = fileNodeService.getFiles(userId, projectId, parentNodeId, flatten, types, search);
                 return ResponseEntity.ok(response);
         }
 
@@ -149,15 +151,14 @@ public class FileNodeController {
                 return ResponseEntity.ok(response);
         }
 
-        @PatchMapping("/files/{nodeId}")
+        @PostMapping("/projects/files/{nodeId}/update-title")
         public ResponseEntity<?> updateTitleDocument(
                         @PathVariable Long nodeId,
-                        @RequestBody Map<String, Object> request,
+                        @RequestBody UpdateDocumentTitleRequest request,
                         @RequestHeader("X-User-Id") Long userId) {
-                String name = (String) request.get("name");
-                log.debug("PATCH /api/pm/files/{} - User: {}, Name: {}", nodeId, userId, name);
+                log.debug("POST /api/pm/files/{}/update-title - User: {}, Name: {}", nodeId, userId, request.getName());
 
-                BaseResponse<?> response = fileNodeService.updateDocument(userId, nodeId, name);
+                BaseResponse<?> response = fileNodeService.updateDocument(userId, nodeId, request.getName());
                 return ResponseEntity.ok(response);
         }
 

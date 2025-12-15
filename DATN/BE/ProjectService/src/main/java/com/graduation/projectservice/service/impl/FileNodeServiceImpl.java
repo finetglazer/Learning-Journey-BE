@@ -3,7 +3,6 @@ package com.graduation.projectservice.service.impl;
 import com.graduation.projectservice.client.DocumentServiceClient;
 import com.graduation.projectservice.client.UserServiceClient;
 import com.graduation.projectservice.constant.Constant;
-import com.graduation.projectservice.constant.FileConstant;
 import com.graduation.projectservice.exception.ForbiddenException;
 import com.graduation.projectservice.exception.NotFoundException;
 import com.graduation.projectservice.helper.ProjectAuthorizationHelper;
@@ -45,8 +44,12 @@ public class FileNodeServiceImpl implements FileNodeService {
     // ============================================
 
     @Override
-    public BaseResponse<?> getFiles(Long userId, Long projectId, Long parentNodeId, Boolean flatten, String types) {
+    public BaseResponse<?> getFiles(Long userId, Long projectId, Long parentNodeId, Boolean flatten, String types, String search) {
         authHelper.requireActiveMember(projectId, userId);
+
+        if (search == null) {
+            search = "";
+        }
 
         if (parentNodeId != null) {
             String error = validateParentNode(projectId, parentNodeId);
@@ -79,9 +82,9 @@ public class FileNodeServiceImpl implements FileNodeService {
         } else {
             // Original behavior: Get files by parent
             if (parentNodeId == null) {
-                files = fileNodeRepository.findByProjectIdAndParentNodeIdIsNull(projectId);
+                files = fileNodeRepository.findByProjectIdAndParentNodeIdIsNullAndNameContainingIgnoreCase(projectId, search);
             } else {
-                files = fileNodeRepository.findByProjectIdAndParentNodeId(projectId, parentNodeId);
+                files = fileNodeRepository.findByProjectIdAndParentNodeIdAndNameContainingIgnoreCase(projectId, parentNodeId, search);
             }
         }
 
@@ -122,6 +125,7 @@ public class FileNodeServiceImpl implements FileNodeService {
 
             return FileNodeResponseDTO.builder()
                     .nodeId(node.getNodeId())
+                    .parentNodeId(node.getParentNodeId())
                     .name(node.getName())
                     .type(node.getType())
                     .updatedAt(node.getUpdatedAt())
@@ -296,8 +300,7 @@ public class FileNodeServiceImpl implements FileNodeService {
             return new BaseResponse<>(0, "This is not a Notion document", null);
         }
 
-        // Get user's role for FE to show/hide delete button - can delete later, for
-        // now, prioritize correctness
+        // Get user's role for FE to show/hide delete button - can delete later, for now, prioritize correctness
         PM_ProjectMember member = authHelper.getMember(node.getProjectId(), userId);
         String role = member.getRole().name();
 
@@ -391,7 +394,8 @@ public class FileNodeServiceImpl implements FileNodeService {
         Optional<Map<String, Object>> backupResult = documentServiceClient.createSnapshot(
                 storageRef,
                 Constant.REASON_BEFORE_RESTORE,
-                userId);
+                userId
+        );
 
         if (backupResult.isPresent()) {
             // Save backup version metadata to Postgres

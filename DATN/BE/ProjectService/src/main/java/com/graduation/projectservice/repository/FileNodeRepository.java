@@ -31,4 +31,8 @@ public interface FileNodeRepository extends JpaRepository<PM_FileNode, Long> {
 
     // Find by storage reference and type
     Optional<PM_FileNode> findByStorageReferenceAndType(String storageReference, NodeType type);
+
+    List<PM_FileNode> findByProjectIdAndParentNodeIdIsNullAndNameContainingIgnoreCase(Long projectId, String name);
+
+    List<PM_FileNode> findByProjectIdAndParentNodeIdAndNameContainingIgnoreCase(Long projectId, Long parentNodeId, String name);
 }
