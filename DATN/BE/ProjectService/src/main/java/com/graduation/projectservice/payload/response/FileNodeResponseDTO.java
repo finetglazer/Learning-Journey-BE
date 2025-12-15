@@ -29,4 +29,7 @@ public class FileNodeResponseDTO {
     private Long sizeBytes;
 
     private String extension;
+
+    @JsonProperty("storage_reference")
+    private String storageReference;
 }

@@ -2,7 +2,9 @@ import { Server } from "@hocuspocus/server";
 import { TiptapTransformer } from "@hocuspocus/transformer";
 import * as Y from "yjs";
 import StarterKit from "@tiptap/starter-kit";
-import { Mark } from "@tiptap/core"; // Import Mark to create the custom extension
+import { Mark, Node } from "@tiptap/core"; // Import Mark and Node to create custom extensions
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
 import "dotenv/config";
 // ✅ ADD 'createSnapshot' to this list
 import { validateAccess, loadDocument, saveDocument, createSnapshot } from "./api.js";
@@ -12,7 +14,7 @@ const AUTO_SAVE_INTERVAL = 5000; // Your existing debounce
 const SNAPSHOT_INTERVAL = 30 * 60 * 1000; // 30 Minutes
 
 // ✅ FIX 1: Define the Comment Extension for the Server
-// The transformer needs to kn  ow this schema exists, or it might strip it.
+// The transformer needs to know this schema exists, or it might strip it.
 const CommentExtension = Mark.create({
     name: "comment",
     addAttributes() {
@@ -24,13 +26,100 @@ const CommentExtension = Mark.create({
     },
 });
 
+// ✅ NEW: Define the Callout Extension for the Server
+// This matches the frontend Callout node definition
+const CalloutExtension = Node.create({
+    name: "callout",
+    group: "block",
+    content: "block+",
+    defining: true,
+    addAttributes() {
+        return {
+            emoji: {
+                default: "💡",
+            },
+        };
+    },
+    parseHTML() {
+        return [
+            {
+                tag: 'div[data-type="callout"]',
+            },
+        ];
+    },
+    renderHTML({ HTMLAttributes }) {
+        return [
+            "div",
+            {
+                "data-type": "callout",
+                "data-emoji": HTMLAttributes.emoji || "💡",
+            },
+            0,
+        ];
+    },
+});
+
+// ✅ NEW: Define the FileNode Extension for the Server
+// This matches the frontend FileNode node definition
+const FileNodeExtension = Node.create({
+    name: "fileNode",
+    group: "block",
+    atom: true,
+    addAttributes() {
+        return {
+            name: {
+                default: null,
+            },
+            extension: {
+                default: null,
+            },
+            sizeBytes: {
+                default: null,
+            },
+            storageReference: {
+                default: null,
+            },
+            nodeType: {
+                default: "STATIC_FILE",
+            },
+        };
+    },
+    parseHTML() {
+        return [
+            {
+                tag: 'div[data-type="file-node"]',
+            },
+        ];
+    },
+    renderHTML({ HTMLAttributes }) {
+        return [
+            "div",
+            {
+                "data-type": "file-node",
+                "data-name": HTMLAttributes.name || "",
+                "data-extension": HTMLAttributes.extension || "",
+                "data-size-bytes": HTMLAttributes.sizeBytes || "",
+                "data-storage-reference": HTMLAttributes.storageReference || "",
+                "data-node-type": HTMLAttributes.nodeType || "STATIC_FILE",
+            },
+        ];
+    },
+});
+
 console.log("StarterKit Check:", StarterKit);
 
 const TIPTAP_EXTENSIONS = [
-    // ✅ FIX: Handle both ESM and CommonJS import styles
-    // If StarterKit is undefined, try StarterKit.default, or configure it explicitly
+    // ✅ StarterKit handles basic nodes including codeBlock
+    // Frontend uses CodeBlockLowlight which extends codeBlock, server handles it normally
     StarterKit.default || StarterKit,
     CommentExtension,
+    CalloutExtension,  // ✅ Add the Callout extension
+    FileNodeExtension, // ✅ Add the FileNode extension
+    // ✅ Task List extensions
+    TaskList,
+    TaskItem.configure({
+        nested: true,
+    }),
 ];
 
 const documentMeta = new Map();
