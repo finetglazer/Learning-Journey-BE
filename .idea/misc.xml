@@ -9,6 +9,8 @@
         <option value="$PROJECT_DIR$/DATN/BE/ProjectService/pom.xml" />
         <option value="$PROJECT_DIR$/DATN/BE/RiskService/pom.xml" />
         <option value="$PROJECT_DIR$/DATN/BE/DocumentService/pom.xml" />
+        <option value="$PROJECT_DIR$/DATN/BE/ForumService/pom.xml" />
+        <option value="$PROJECT_DIR$/DATN/BE/NotificationService/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">
