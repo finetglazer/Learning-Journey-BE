@@ -186,6 +186,11 @@
             <artifactId>google-cloud-storage</artifactId>
         </dependency>
 
+        <!-- Kafka Dependencies -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
 
     </dependencies>
 
