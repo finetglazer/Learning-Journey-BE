@@ -2,6 +2,7 @@ package com.graduation.projectservice.service.impl;
 
 import com.graduation.projectservice.client.UserServiceClient;
 import com.graduation.projectservice.constant.Constant;
+import com.graduation.projectservice.exception.ForbiddenException;
 import com.graduation.projectservice.exception.NotFoundException;
 import com.graduation.projectservice.helper.ProjectAuthorizationHelper;
 import com.graduation.projectservice.model.*;
@@ -18,17 +19,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.graduation.projectservice.exception.ForbiddenException;
-import com.graduation.projectservice.model.PM_FileNode;
-import com.graduation.projectservice.model.PM_TaskAttachment;
-import com.graduation.projectservice.model.PM_TaskAttachmentId;
-import com.graduation.projectservice.payload.response.TaskAttachmentDTO;
-import com.graduation.projectservice.repository.TaskAttachmentRepository;
-import com.graduation.projectservice.repository.FileNodeRepository;
-import java.time.LocalDateTime;
-
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -47,6 +40,7 @@ public class TaskServiceImpl implements TaskService {
     private final UserServiceClient userServiceClient;
     private final TaskAttachmentRepository taskAttachmentRepository;
     private final FileNodeRepository fileNodeRepository;
+    private final TaskCommentRepository taskCommentRepository;
 
     @Override
     public BaseResponse<?> getTasks(Long userId, Long projectId, GetTaskRequest request) {
@@ -76,6 +70,84 @@ public class TaskServiceImpl implements TaskService {
                 Constant.LOG_TASK_RETRIEVED_SUCCESS,
                 filteredTaskDTOs
         );
+    }
+
+    @Override
+    public BaseResponse<?> getTaskDetail(Long userId, Long projectId, Long taskId) {
+        log.info("Retrieving full details for task {} in project {} by user {}", taskId, projectId, userId);
+
+        // 1. Authorization: Only active members can view task details
+        authHelper.requireActiveMember(projectId, userId);
+
+        // 2. Fetch the Task core entity
+        PM_Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new NotFoundException(Constant.ERROR_TASK_NOT_FOUND));
+
+        // 3. Security: Verify task belongs to the project
+        verifyTaskBelongsToProject(task, projectId);
+
+        // 5. Get Attachments
+        // Re-using the logic from your getTaskAttachments method
+        List<PM_TaskAttachment> attachmentLinks = taskAttachmentRepository.findByTaskId(taskId);
+        List<Long> nodeIds = attachmentLinks.stream().map(PM_TaskAttachment::getNodeId).toList();
+        List<PM_FileNode> fileNodes = fileNodeRepository.findAllById(nodeIds);
+        Map<Long, PM_FileNode> fileNodeMap = fileNodes.stream()
+                .collect(Collectors.toMap(PM_FileNode::getNodeId, Function.identity()));
+
+        List<TaskAttachmentDetailDTO> attachments = attachmentLinks.stream()
+                .map(link -> {
+                    PM_FileNode node = fileNodeMap.get(link.getNodeId());
+                    return new TaskAttachmentDetailDTO(
+                            (node != null) ? node.getName() : "Unknown File",
+                            (node != null) ? String.valueOf(node.getType()) : "unknown",
+                            (node != null) ? node.getExtension() : "",
+                            link.getAttachedAt(),
+                            (node != null) ? node.getSizeBytes() : 0L
+                    );
+                }).toList();
+
+        // 6. Get Comments
+        // Assuming TaskCommentRepository has findByTaskIdOrderByCreatedAtDesc
+        List<PM_TaskComment> commentEntities = taskCommentRepository.findByTaskIdOrderByCreatedAtAsc(taskId);
+        List<TaskCommentDTO> comments = convertToCommentDTOs(commentEntities);
+
+        // 7. Build Final Response
+        TaskDetailDTO detail = TaskDetailDTO.builder()
+                .taskInfo(task)
+                .attachments(attachments)
+                .comments(comments)
+                .build();
+
+        return new BaseResponse<>(
+                Constant.SUCCESS_STATUS,
+                "Task details retrieved successfully",
+                detail
+        );
+    }
+
+    /**
+     * Helper to convert comment entities to DTOs and fetch user info
+     */
+    private List<TaskCommentDTO> convertToCommentDTOs(List<PM_TaskComment> entities) {
+        if (entities.isEmpty()) return new ArrayList<>();
+
+        List<Long> userIds = entities.stream().map(PM_TaskComment::getUserId).distinct().toList();
+        List<UserBatchDTO> userBatch = userServiceClient.findUsersByIds(userIds);
+        Map<Long, UserBatchDTO> userMap = userBatch.stream()
+                .collect(Collectors.toMap(UserBatchDTO::getUserId, Function.identity()));
+
+        return entities.stream().map(entity -> {
+            UserBatchDTO user = userMap.get(entity.getUserId());
+            return TaskCommentDTO.builder()
+                    .commentId(entity.getCommentId())
+                    .userId(entity.getUserId())
+                    .userName(user != null ? user.getName() : "Unknown User")
+                    .userAvatar(user != null ? user.getAvatarUrl() : null)
+                    .content(entity.getContent())
+                    .createdAt(entity.getCreatedAt())
+                    // .replyInfo(...) // Handle recursion if your DB supports nested comments
+                    .build();
+        }).toList();
     }
 
     @Override
@@ -675,6 +747,7 @@ public class TaskServiceImpl implements TaskService {
 //                            attachment.getNodeId(),
                             fileName,
                             fileType,
+                            (node != null) ? node.getExtension() : "",
                             attachment.getAttachedAt(),
                             node.getSizeBytes()
 //                            attachment.getAddedByUserId() // The user who attached it

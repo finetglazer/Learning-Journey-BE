@@ -14,23 +14,17 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class TaskCommentDTO {
 
-    @JsonProperty("comment_id")
     private Long commentId;
 
-    @JsonProperty("user_id")
     private Long userId;
 
-    @JsonProperty("user_name")
     private String userName;
 
-    @JsonProperty("user_avatar")
     private String userAvatar;
 
     private String content;
 
-    @JsonProperty("created_at")
     private LocalDateTime createdAt;
 
-    @JsonProperty("reply_info")
     private ReplyInfoDTO replyInfo;
 }

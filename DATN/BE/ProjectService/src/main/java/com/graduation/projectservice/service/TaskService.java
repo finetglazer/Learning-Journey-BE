@@ -9,6 +9,8 @@ import com.graduation.projectservice.payload.response.BaseResponse;
 public interface TaskService {
     BaseResponse<?> getTasks(Long userId, Long projectId, GetTaskRequest request);
 
+    BaseResponse<?> getTaskDetail(Long userId, Long projectId, Long taskId);
+
     BaseResponse<?> getTaskById(Long taskId);
 
     BaseResponse<?> createTask(Long userId, Long projectId, Long phaseId, CreateTaskRequest request);

@@ -97,6 +97,20 @@ public class TaskController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/api/pm/projects/{projectId}/tasks/{taskId}/detail")
+    public ResponseEntity<BaseResponse<?>> getTaskDetail(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long projectId,
+            @PathVariable Long taskId) {
+
+        log.info("Request received: Get detail information of task {} in project {} by user {}",
+                taskId, projectId, userId);
+
+        BaseResponse<?> response = taskService.getTaskDetail(userId, projectId, taskId);
+
+        return ResponseEntity.ok(response);
+    }
+
     /**
      * Attach a file node to a task
      * POST /api/pm/projects/{projectId}/tasks/{taskId}/attachments
