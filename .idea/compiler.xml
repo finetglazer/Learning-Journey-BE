@@ -56,15 +56,6 @@
         </processorPath>
         <module name="integration-tests" />
       </profile>
-      <profile name="Annotation profile for microservices-parent" enabled="true">
-        <sourceOutputDir name="target/generated-sources/annotations" />
-        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
-        <outputRelativeToContentRoot value="true" />
-        <processorPath useClasspath="false">
-          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.30/lombok-1.18.30.jar" />
-        </processorPath>
-        <module name="APIGatewayService" />
-      </profile>
       <profile name="Annotation profile for ForumService" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
@@ -83,6 +74,15 @@
         </processorPath>
         <module name="NotificationService" />
       </profile>
+      <profile name="Annotation profile for microservices-parent" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.30/lombok-1.18.30.jar" />
+        </processorPath>
+        <module name="APIGatewayService" />
+      </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="RiskService" target="17" />
@@ -100,7 +100,7 @@
       <module name="SchedulingService" options="-parameters" />
       <module name="UserService" options="-parameters" />
       <module name="document-service" options="-parameters" />
-      <module name="integration-tests" options="-parameters" />
+      <module name="integration-tests" options="" />
     </option>
   </component>
 </project>

@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TaskServiceImpl implements TaskService {
 
+    private static final int REPLY_PREVIEW_MAX_LENGTH = 50;
     private final TaskRepository taskRepository;
     private final PhaseRepository phaseRepository;
     private final DeliverableRepository deliverableRepository;
@@ -98,6 +99,7 @@ public class TaskServiceImpl implements TaskService {
                 .map(link -> {
                     PM_FileNode node = fileNodeMap.get(link.getNodeId());
                     return new TaskAttachmentDetailDTO(
+                            (node != null) ? node.getNodeId() : null,
                             (node != null) ? node.getName() : "Unknown File",
                             (node != null) ? String.valueOf(node.getType()) : "unknown",
                             (node != null) ? node.getExtension() : "",
@@ -131,13 +133,38 @@ public class TaskServiceImpl implements TaskService {
     private List<TaskCommentDTO> convertToCommentDTOs(List<PM_TaskComment> entities) {
         if (entities.isEmpty()) return new ArrayList<>();
 
+        // 1. Fetch User details in bulk
         List<Long> userIds = entities.stream().map(PM_TaskComment::getUserId).distinct().toList();
         List<UserBatchDTO> userBatch = userServiceClient.findUsersByIds(userIds);
         Map<Long, UserBatchDTO> userMap = userBatch.stream()
                 .collect(Collectors.toMap(UserBatchDTO::getUserId, Function.identity()));
 
+        // 2. Fetch all unique Parent Comments in bulk to avoid N+1 queries
+        Set<Long> parentIds = entities.stream()
+                .map(PM_TaskComment::getParentCommentId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, PM_TaskComment> parentCommentMap = parentIds.isEmpty() ? Collections.emptyMap() :
+                taskCommentRepository.findAllById(parentIds).stream()
+                        .collect(Collectors.toMap(PM_TaskComment::getCommentId, Function.identity()));
+
+        // 3. Map entities to DTOs
         return entities.stream().map(entity -> {
             UserBatchDTO user = userMap.get(entity.getUserId());
+
+            ReplyInfoDTO replyInfo = null;
+            if (entity.getParentCommentId() != null) {
+                PM_TaskComment parent = parentCommentMap.get(entity.getParentCommentId());
+                if (parent != null) {
+                    // Assuming ReplyInfoDTO contains basic info of the parent being replied to
+                    replyInfo = new ReplyInfoDTO(
+                            parent.getUserId(),
+                            truncateForPreview(parent.getContent())
+                    );
+                }
+            }
+
             return TaskCommentDTO.builder()
                     .commentId(entity.getCommentId())
                     .userId(entity.getUserId())
@@ -145,9 +172,23 @@ public class TaskServiceImpl implements TaskService {
                     .userAvatar(user != null ? user.getAvatarUrl() : null)
                     .content(entity.getContent())
                     .createdAt(entity.getCreatedAt())
-                    // .replyInfo(...) // Handle recursion if your DB supports nested comments
+                    .replyInfo(replyInfo) // Correctly setting the object
                     .build();
         }).toList();
+    }
+
+    /**
+     * Truncate content to create a preview for replies
+     * Max 50 characters + "..." suffix
+     */
+    private String truncateForPreview(String content) {
+        if (content == null) {
+            return null;
+        }
+        if (content.length() <= REPLY_PREVIEW_MAX_LENGTH) {
+            return content;
+        }
+        return content.substring(0, REPLY_PREVIEW_MAX_LENGTH) + "...";
     }
 
     @Override
@@ -744,7 +785,7 @@ public class TaskServiceImpl implements TaskService {
                     String fileType = (node != null) ? String.valueOf(node.getType()) : "unknown"; // Assuming 'getType' or 'getExtension' exists on PM_FileNode
 
                     return new TaskAttachmentDetailDTO(
-//                            attachment.getNodeId(),
+                            (node != null) ? node.getNodeId() : null,
                             fileName,
                             fileType,
                             (node != null) ? node.getExtension() : "",

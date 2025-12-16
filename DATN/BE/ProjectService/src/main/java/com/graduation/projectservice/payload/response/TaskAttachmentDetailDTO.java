@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class TaskAttachmentDetailDTO {
-//    private Long nodeId;
+    private Long nodeId;
     private String fileName;
     private String fileType; // extension or mime type
     private String extension;
