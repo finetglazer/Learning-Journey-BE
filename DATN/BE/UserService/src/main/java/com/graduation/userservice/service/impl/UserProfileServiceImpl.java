@@ -1,6 +1,7 @@
 package com.graduation.userservice.service.impl;
 
 import com.graduation.userservice.constant.Constant;
+import com.graduation.userservice.event.UserProfileEventPublisher;
 import com.graduation.userservice.model.User;
 import com.graduation.userservice.payload.response.BaseResponse;
 import com.graduation.userservice.payload.response.ProfileResponse;
@@ -25,6 +26,7 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserRepository userRepository;
     private final GcsStorageService gcsStorageService;
+    private final UserProfileEventPublisher userProfileEventPublisher;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
@@ -42,8 +44,7 @@ public class UserProfileServiceImpl implements UserProfileService {
                     user.getDisplayName(),
                     String.valueOf(user.getDateOfBirth()),
                     user.getAvatarUrl(),
-                    user.getEmail()
-            );
+                    user.getEmail());
 
             log.info(Constant.LOG_GET_PROFILE_SUCCESS, userId);
             return new BaseResponse<>(1, Constant.MSG_GET_PROFILE_SUCCESS, response);
@@ -70,7 +71,7 @@ public class UserProfileServiceImpl implements UserProfileService {
                 log.warn(Constant.LOG_INVALID_NAME, userId);
                 return new BaseResponse<>(0, Constant.MSG_NAME_REQUIRED, null);
             }
-            
+
             if (name.trim().length() > 100) {
                 log.warn(Constant.LOG_NAME_TOO_LONG, userId);
                 return new BaseResponse<>(0, Constant.MSG_NAME_TOO_LONG, null);
@@ -126,13 +127,15 @@ public class UserProfileServiceImpl implements UserProfileService {
             // 5. Save user
             userRepository.save(user);
 
-            // 6. Build response
+            // 6. Publish event to RabbitMQ for cache sync (async)
+            userProfileEventPublisher.publishUserUpdatedEvent(user);
+
+            // 7. Build response
             ProfileResponse response = new ProfileResponse(
                     user.getDisplayName(),
                     dateOfBirth,
                     user.getAvatarUrl(),
-                    user.getEmail()
-            );
+                    user.getEmail());
 
             log.info(Constant.LOG_UPDATE_PROFILE_SUCCESS, userId);
             return new BaseResponse<>(1, Constant.MSG_UPDATE_PROFILE_SUCCESS, response);
