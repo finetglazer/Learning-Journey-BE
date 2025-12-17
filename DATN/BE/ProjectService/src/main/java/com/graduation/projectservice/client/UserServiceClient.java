@@ -42,8 +42,7 @@ public class UserServiceClient {
                     url,
                     HttpMethod.GET,
                     entity,
-                    UserBatchDTO.class
-            );
+                    UserBatchDTO.class);
 
             return Optional.ofNullable(response.getBody());
 
@@ -68,16 +67,15 @@ public class UserServiceClient {
 
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            ParameterizedTypeReference<List<UserBatchDTO>> responseType =
-                    new ParameterizedTypeReference<>() {};
+            ParameterizedTypeReference<List<UserBatchDTO>> responseType = new ParameterizedTypeReference<>() {
+            };
 
             ResponseEntity<List<UserBatchDTO>> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     entity,
                     responseType,
-                    email
-            );
+                    email);
 
             List<UserBatchDTO> users = response.getBody();
             return users != null ? users : Collections.emptyList();
@@ -113,8 +111,7 @@ public class UserServiceClient {
                     HttpMethod.POST,
                     entity,
                     new ParameterizedTypeReference<List<UserBatchDTO>>() {
-                    }
-            );
+                    });
 
             return response.getBody() != null ? response.getBody() : Collections.emptyList();
 
@@ -129,13 +126,15 @@ public class UserServiceClient {
             return Optional.empty();
         }
 
-        // Assumption: The single fetch endpoint follows standard REST pattern /users/{id}
+        // Assumption: The single fetch endpoint follows standard REST pattern
+        // /users/{id}
         String url = userServiceUrl + "/api/internal/users/" + userId;
 
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Internal-API-Key", internalApiKey);
-            // Note: GET requests usually don't need Content-Type, but keeping headers consistent
+            // Note: GET requests usually don't need Content-Type, but keeping headers
+            // consistent
             headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
 
             HttpEntity<?> entity = new HttpEntity<>(headers);
@@ -144,8 +143,7 @@ public class UserServiceClient {
                     url,
                     HttpMethod.GET, // Single resource fetch usually uses GET
                     entity,
-                    UserBatchDTO.class
-            );
+                    UserBatchDTO.class);
 
             return Optional.ofNullable(response.getBody());
 
@@ -161,8 +159,11 @@ public class UserServiceClient {
     /**
      * Send invitation email and create token
      */
-    public Optional<String> sendInvitation(Long userId, Long projectId, String projectName) {
-        String url = userServiceUrl + "/api/internal/users/send-invitation";
+    /**
+     * Send invitation email only
+     */
+    public boolean sendInvitationEmail(Long userId, Long projectId, String projectName, String token) {
+        String url = userServiceUrl + "/api/internal/users/send-invitation-email";
 
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -173,63 +174,22 @@ public class UserServiceClient {
             requestBody.put("userId", userId);
             requestBody.put("projectId", projectId);
             requestBody.put("projectName", projectName);
+            requestBody.put("token", token);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            ResponseEntity<Map<String, String>> response = restTemplate.exchange(
+            ResponseEntity<Void> response = restTemplate.exchange(
                     url,
                     HttpMethod.POST,
                     entity,
-                    new ParameterizedTypeReference<Map<String, String>>() {
-                    }
-            );
+                    Void.class);
 
-            if (response.getBody() != null && response.getBody().containsKey("token")) {
-                return Optional.of(response.getBody().get("token"));
-            }
-
-            return Optional.empty();
+            return response.getStatusCode().is2xxSuccessful();
 
         } catch (Exception e) {
-            log.error("Failed to send invitation for user {} to project {}: {}", userId, projectId, e.getMessage());
-            return Optional.empty();
-        }
-    }
-
-
-    public Map<String, Long> validateInvitationToken(String token) {
-        try {
-            String url = userServiceUrl + "/api/internal/users/validate-invitation-token?token=" + token;
-
-            // Create headers with API key
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("X-Internal-API-Key", internalApiKey);
-
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-            // Use exchange instead of postForEntity to include headers
-            ResponseEntity<BaseResponse> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    entity,
-                    BaseResponse.class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful() &&
-                    response.getBody() != null &&
-                    response.getBody().getStatus() == 1) {
-
-                Map<String, Object> data = (Map<String, Object>) response.getBody().getData();
-                return Map.of(
-                        "userId", ((Number) data.get("userId")).longValue(),
-                        "projectId", ((Number) data.get("projectId")).longValue()
-                );
-            }
-
-            return null;
-        } catch (Exception e) {
-            log.error("Failed to validate invitation token: {}", e.getMessage(), e);
-            return null;
+            log.error("Failed to send invitation email for user {} to project {}: {}", userId, projectId,
+                    e.getMessage());
+            return false;
         }
     }
 

@@ -15,7 +15,15 @@ import com.graduation.projectservice.payload.response.MemberResponse;
 import com.graduation.projectservice.payload.response.UserBatchDTO;
 import com.graduation.projectservice.repository.ProjectMemberRepository;
 import com.graduation.projectservice.repository.ProjectRepository;
+import com.graduation.projectservice.config.KafkaConfig;
+import com.graduation.projectservice.event.ProjectInvitationEvent;
+import com.graduation.projectservice.model.InvitationToken;
+import com.graduation.projectservice.repository.InvitationTokenRepository;
 import com.graduation.projectservice.service.ProjectMemberService;
+import org.springframework.kafka.core.KafkaTemplate;
+
+import java.time.LocalDateTime;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,6 +43,8 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     private final ProjectRepository projectRepository;
     private final UserServiceClient userServiceClient;
     private final ProjectAuthorizationHelper authHelper;
+    private final InvitationTokenRepository invitationTokenRepository;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
     @Transactional
@@ -52,7 +62,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                     .orElse(null);
 
             if (userToInvite == null) {
-                return new BaseResponse<>(0, "No user found with that email address.", 
+                return new BaseResponse<>(0, "No user found with that email address.",
                         Map.of("error_code", "USER_NOT_FOUND"));
             }
 
@@ -67,11 +77,42 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
             member.setUserId(userToInvite.getUserId());
             member.setRole(ProjectMembershipRole.INVITED);
             member.setCustomRoleName(null);
-            
+
             projectMemberRepository.save(member);
 
-            // 6. Send invitation email via UserService
-            userServiceClient.sendInvitation(userToInvite.getUserId(), projectId, project.getName());
+            // 6. Create or reuse Invitation Token
+            // Check if there's an existing unused token
+            InvitationToken token = invitationTokenRepository
+                    .findByUserIdAndProjectIdAndIsUsedFalse(userToInvite.getUserId(), projectId)
+                    .orElseGet(() -> {
+                        // Create new token (expires in 7 days)
+                        InvitationToken newToken = InvitationToken.create(userToInvite.getUserId(), userId, projectId,
+                                7);
+                        return invitationTokenRepository.save(newToken);
+                    });
+
+            // 7. Send invitation email via UserService
+            userServiceClient.sendInvitationEmail(userToInvite.getUserId(), projectId, project.getName(),
+                    token.getToken());
+
+            // 8. Send Notification via Kafka
+            ProjectInvitationEvent event = ProjectInvitationEvent.builder()
+                    .recipientId(userToInvite.getUserId())
+                    .senderId(userId)
+                    .projectId(projectId)
+                    .projectName(project.getName())
+                    .token(token.getToken())
+                    .timestamp(LocalDateTime.now())
+                    .isAccepted(null) // Sent
+                    .build();
+
+            try {
+                kafkaTemplate.send(KafkaConfig.TOPIC_PROJECT_INVITATION, event);
+                log.info("Sent invitation Kafka event for user {} project {}", userToInvite.getUserId(), project.getName());
+            } catch (Exception e) {
+                log.error("Failed to send Kafka notification: {}", e.getMessage());
+                // Don't fail the request just because notification failed
+            }
 
             // 7. Build response
             MemberResponse response = MemberResponse.builder()
@@ -160,8 +201,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
         return new BaseResponse<>(
                 Constant.SUCCESS_STATUS,
                 Constant.FINDING_USERS_SUCCESS,
-                nonMembers
-        );
+                nonMembers);
     }
 
     @Override
@@ -185,16 +225,16 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
             projectMemberRepository.save(member);
 
             // 5. Get user details for response
-//            UserBatchDTO user = userServiceClient.findUsersByIds(List.of(targetUserId))
-//                    .stream()
-//                    .findFirst()
-//                    .orElse(null);
+            // UserBatchDTO user = userServiceClient.findUsersByIds(List.of(targetUserId))
+            // .stream()
+            // .findFirst()
+            // .orElse(null);
 
             MemberResponse response = MemberResponse.builder()
                     .userId(member.getUserId())
-//                    .name(user != null ? user.getName() : "Unknown")
-//                    .avatarUrl(user != null ? user.getAvatarUrl() : null)
-//                    .email(user != null ? user.getEmail() : "unknown@example.com")
+                    // .name(user != null ? user.getName() : "Unknown")
+                    // .avatarUrl(user != null ? user.getAvatarUrl() : null)
+                    // .email(user != null ? user.getEmail() : "unknown@example.com")
                     .role(member.getRole())
                     .customRoleName(member.getCustomRoleName())
                     .build();
@@ -243,16 +283,21 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     @Transactional
     public BaseResponse<?> acceptInvitation(Long projectId, AcceptInvitationRequest request) {
         try {
-            // 1. Validate token with UserService and get userId/projectId
-            Map<String, Long> tokenData = userServiceClient.validateInvitationToken(request.getToken());
+            // 1. Validate token locally
+            InvitationToken token = invitationTokenRepository.findByTokenAndIsUsedFalse(request.getToken())
+                    .orElse(null);
 
-            if (tokenData == null) {
+            if (token == null) {
                 return new BaseResponse<>(0, "Invalid or expired invitation token",
                         Map.of("error_code", "INVALID_TOKEN"));
             }
 
-            Long userId = tokenData.get("userId");
-            Long tokenProjectId = tokenData.get("projectId");
+            if (token.isExpired()) {
+                return new BaseResponse<>(0, "Token has expired", Map.of("error_code", "TOKEN_EXPIRED"));
+            }
+
+            Long userId = token.getUserId();
+            Long tokenProjectId = token.getProjectId();
 
             // 2. Verify projectId matches
             if (!tokenProjectId.equals(projectId)) {
@@ -279,6 +324,27 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
             projectMemberRepository.save(member);
 
             log.info("User {} accepted invitation to project {}", userId, projectId);
+
+            //take project name from projectId
+            PM_Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Mark token as used
+            token.markAsUsed();
+            invitationTokenRepository.save(token);
+
+            // Send Kafka Event (Accepted)
+            ProjectInvitationEvent event = ProjectInvitationEvent.builder()
+                    .recipientId(userId)
+                    .senderId(token.getSenderId()) // Need senderId to notify them
+                    .projectId(projectId)
+                    .projectName(project.getName()) // Optional or fetch project name
+                    .token(token.getToken())
+                    .timestamp(LocalDateTime.now())
+                    .isAccepted(true)
+                    .build();
+            kafkaTemplate.send(KafkaConfig.TOPIC_PROJECT_INVITATION, event);
+
             return new BaseResponse<>(1, "Invitation accepted successfully", Map.of());
 
         } catch (Exception e) {
@@ -291,16 +357,17 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     @Transactional
     public BaseResponse<?> declineInvitation(Long projectId, DeclineInvitationRequest request) {
         try {
-            // 1. Validate token with UserService and get userId/projectId
-            Map<String, Long> tokenData = userServiceClient.validateInvitationToken(request.getToken());
+            // 1. Validate token locally
+            InvitationToken token = invitationTokenRepository.findByTokenAndIsUsedFalse(request.getToken())
+                    .orElse(null);
 
-            if (tokenData == null) {
+            if (token == null) {
                 return new BaseResponse<>(0, "Invalid or expired invitation token",
                         Map.of("error_code", "INVALID_TOKEN"));
             }
 
-            Long userId = tokenData.get("userId");
-            Long tokenProjectId = tokenData.get("projectId");
+            Long userId = token.getUserId();
+            Long tokenProjectId = token.getProjectId();
 
             // 2. Verify projectId matches
             if (!tokenProjectId.equals(projectId)) {
@@ -321,6 +388,30 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
             projectMemberRepository.deleteByProjectIdAndUserId(projectId, userId);
 
             log.info("User {} declined invitation to project {}", userId, projectId);
+
+            // Mark token as used? Or just leave it?
+            // Usually decline means "I don't want to join". If they change mind, they need
+            // new invite?
+            // Let's mark it as used to invalidate it.
+            token.markAsUsed();
+            invitationTokenRepository.save(token);
+
+            //take project name from projectId
+            PM_Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Send Kafka Event (Declined)
+            ProjectInvitationEvent event = ProjectInvitationEvent.builder()
+                    .recipientId(userId)
+                    .senderId(token.getSenderId())
+                    .projectId(projectId)
+                    .projectName(project.getName())
+                    .token(token.getToken())
+                    .timestamp(LocalDateTime.now())
+                    .isAccepted(false)
+                    .build();
+            kafkaTemplate.send(KafkaConfig.TOPIC_PROJECT_INVITATION, event);
+
             return new BaseResponse<>(1, "Invitation declined successfully", Map.of());
 
         } catch (Exception e) {

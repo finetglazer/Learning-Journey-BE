@@ -24,125 +24,134 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class InternalUserServiceImpl implements InternalUserService {
 
-    private final ApplicationEventPublisher eventPublisher;
-    private final UserRepository userRepository;
-    private final InvitationTokenRepository invitationTokenRepository;
-    private final EmailService emailService;
+        private final ApplicationEventPublisher eventPublisher;
+        private final UserRepository userRepository;
+        private final InvitationTokenRepository invitationTokenRepository;
+        private final EmailService emailService;
 
-    @Override
-    public Optional<UserBatchDTO> findUserByEmail(String email) {
-        return userRepository.findByEmail(email)
-                .map(user -> new UserBatchDTO(
-                        user.getId(),
-                        user.getDisplayName(),
-                        user.getEmail(),
-                        user.getAvatarUrl()
-                ));
-    }
-
-    @Override
-    public List<UserBatchDTO> findUsersByEmail(String email) {
-        List<User> usersList = userRepository.findByEmailContaining(email);
-        return usersList.stream().map(user -> new UserBatchDTO(
-                user.getId(),
-                user.getDisplayName(),
-                user.getEmail(),
-                user.getAvatarUrl()
-        )).toList();
-    }
-
-    @Override
-    public List<UserBatchDTO> findUsersByIds(List<Long> userIds) {
-        List<User> users = userRepository.findAllById(userIds);
-        return users.stream()
-                .map(user -> new UserBatchDTO(
-                        user.getId(),
-                        user.getDisplayName(),
-                        user.getEmail(),
-                        user.getAvatarUrl()
-                ))
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional
-    public String createInvitationToken(Long userId, Long projectId, String projectName) {
-        // Check if there's an existing unused token
-        Optional<InvitationToken> existingToken =
-                invitationTokenRepository.findByUserIdAndProjectIdAndIsUsedFalse(userId, projectId);
-
-        InvitationToken token;
-        if (existingToken.isPresent() && !existingToken.get().isExpired()) {
-            // Reuse existing token if not expired
-            token = existingToken.get();
-            log.info("Reusing existing invitation token for user {} to project {}", userId, projectId);
-        } else {
-            // Create new token (expires in 7 days)
-            token = InvitationToken.create(userId, projectId, 7);
-            token = invitationTokenRepository.save(token);
-            log.info("Created new invitation token for user {} to project {}", userId, projectId);
+        @Override
+        public Optional<UserBatchDTO> findUserByEmail(String email) {
+                return userRepository.findByEmail(email)
+                                .map(user -> new UserBatchDTO(
+                                                user.getId(),
+                                                user.getDisplayName(),
+                                                user.getEmail(),
+                                                user.getAvatarUrl()));
         }
 
-        // Get user email
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // Publish event for async email sending
-        eventPublisher.publishEvent(new InvitationSentEvent(
-                this,
-                user.getEmail(),
-                user.getDisplayName(),
-                projectName,
-                token.getToken(),
-                projectId
-        ));
-
-        log.info("Invitation event published for user {} to project {}", userId, projectId);
-
-        return token.getToken();
-    }
-
-    @Override
-    @Transactional
-    public Optional<Map<String, Long>> validateInvitationToken(String token) {
-        // Find token
-        Optional<InvitationToken> tokenOpt = invitationTokenRepository.findByTokenAndIsUsedFalse(token);
-
-        if (tokenOpt.isEmpty()) {
-            log.warn("Token not found or already used: {}", token);
-            return Optional.empty();
+        @Override
+        public List<UserBatchDTO> findUsersByEmail(String email) {
+                List<User> usersList = userRepository.findByEmailContaining(email);
+                return usersList.stream().map(user -> new UserBatchDTO(
+                                user.getId(),
+                                user.getDisplayName(),
+                                user.getEmail(),
+                                user.getAvatarUrl())).toList();
         }
 
-        InvitationToken invitationToken = tokenOpt.get();
-
-        // Check if expired
-        if (invitationToken.isExpired()) {
-            log.warn("Token expired: {}", token);
-            return Optional.empty();
+        @Override
+        public List<UserBatchDTO> findUsersByIds(List<Long> userIds) {
+                List<User> users = userRepository.findAllById(userIds);
+                return users.stream()
+                                .map(user -> new UserBatchDTO(
+                                                user.getId(),
+                                                user.getDisplayName(),
+                                                user.getEmail(),
+                                                user.getAvatarUrl()))
+                                .collect(Collectors.toList());
         }
 
-        // Mark token as used
-        invitationToken.markAsUsed();
-        invitationTokenRepository.save(invitationToken);
+        @Override
+        public void sendInvitationEmail(Long userId, Long projectId, String projectName, String token) {
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        log.info("Token validated and marked as used for user {} project {}",
-                invitationToken.getUserId(), invitationToken.getProjectId());
+                eventPublisher.publishEvent(new InvitationSentEvent(
+                                this,
+                                user.getEmail(),
+                                user.getDisplayName(),
+                                projectName,
+                                token,
+                                projectId));
+        }
 
-        return Optional.of(Map.of(
-                "userId", invitationToken.getUserId(),
-                "projectId", invitationToken.getProjectId()
-        ));
-    }
+        @Override
+        @Transactional
+        public String createInvitationToken(Long userId, Long projectId, String projectName) {
 
-    @Override
-    public Optional<UserBatchDTO> findById(Long userId) {
-        // - Using similar mapping style as findUserByEmail
-        return userRepository.findById(userId)
-                .map(user -> new UserBatchDTO(
-                        user.getId(),
-                        user.getDisplayName(),
-                        user.getEmail(),
-                        user.getAvatarUrl()
-                ));
-    }
+                // Check if there's an existing unused token
+                Optional<InvitationToken> existingToken = invitationTokenRepository
+                                .findByUserIdAndProjectIdAndIsUsedFalse(userId, projectId);
+
+                InvitationToken token;
+                if (existingToken.isPresent() && !existingToken.get().isExpired()) {
+                        // Reuse existing token if not expired
+                        token = existingToken.get();
+                        log.info("Reusing existing invitation token for user {} to project {}", userId, projectId);
+                } else {
+                        // Create new token (expires in 7 days)
+                        token = InvitationToken.create(userId, projectId, 7);
+                        token = invitationTokenRepository.save(token);
+                        log.info("Created new invitation token for user {} to project {}", userId, projectId);
+                }
+
+                // Get user email
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new RuntimeException("User not found"));
+
+                // Publish event for async email sending
+                eventPublisher.publishEvent(new InvitationSentEvent(
+                                this,
+                                user.getEmail(),
+                                user.getDisplayName(),
+                                projectName,
+                                token.getToken(),
+                                projectId));
+
+                log.info("Invitation event published for user {} to project {}", userId, projectId);
+
+                return token.getToken();
+        }
+
+        @Override
+        @Transactional
+        public Optional<Map<String, Long>> validateInvitationToken(String token) {
+                // Find token
+                Optional<InvitationToken> tokenOpt = invitationTokenRepository.findByTokenAndIsUsedFalse(token);
+
+                if (tokenOpt.isEmpty()) {
+                        log.warn("Token not found or already used: {}", token);
+                        return Optional.empty();
+                }
+
+                InvitationToken invitationToken = tokenOpt.get();
+
+                // Check if expired
+                if (invitationToken.isExpired()) {
+                        log.warn("Token expired: {}", token);
+                        return Optional.empty();
+                }
+
+                // Mark token as used
+                invitationToken.markAsUsed();
+                invitationTokenRepository.save(invitationToken);
+
+                log.info("Token validated and marked as used for user {} project {}",
+                                invitationToken.getUserId(), invitationToken.getProjectId());
+
+                return Optional.of(Map.of(
+                                "userId", invitationToken.getUserId(),
+                                "projectId", invitationToken.getProjectId()));
+        }
+
+        @Override
+        public Optional<UserBatchDTO> findById(Long userId) {
+                // - Using similar mapping style as findUserByEmail
+                return userRepository.findById(userId)
+                                .map(user -> new UserBatchDTO(
+                                                user.getId(),
+                                                user.getDisplayName(),
+                                                user.getEmail(),
+                                                user.getAvatarUrl()));
+        }
 }

@@ -68,6 +68,12 @@ public class Notification {
     private Long referenceId;
 
     /**
+     * Invitation token (for ACTION_INVITATION type).
+     */
+    @Column(name = "token")
+    private String token;
+
+    /**
      * Status of the invitation.
      * Only applicable for ACTION_INVITATION type.
      */
