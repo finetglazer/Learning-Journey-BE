@@ -14,10 +14,13 @@ public interface InternalUserService {
 
     List<UserBatchDTO> findUsersByIds(List<Long> userIds);
 
+    void sendInvitationEmail(Long userId, Long projectId, String projectName, String token);
+
     String createInvitationToken(Long userId, Long projectId, String projectName);
 
     /**
      * Validate invitation token and return user/project info
+     * 
      * @param token the invitation token
      * @return Map with userId and projectId if valid, empty if invalid
      */

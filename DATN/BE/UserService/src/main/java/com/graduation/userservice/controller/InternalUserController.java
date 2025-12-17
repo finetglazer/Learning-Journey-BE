@@ -62,8 +62,22 @@ public class InternalUserController {
         log.info("Internal API: Sending invitation to user {} for project {}", userId, projectId);
 
         String token = internalUserService.createInvitationToken(userId, projectId, projectName);
-        
+
         return ResponseEntity.ok(Map.of("token", token));
+    }
+
+    @PostMapping("/send-invitation-email")
+    public ResponseEntity<?> sendInvitationEmail(@RequestBody Map<String, Object> request) {
+        Long userId = ((Number) request.get("userId")).longValue();
+        Long projectId = ((Number) request.get("projectId")).longValue();
+        String projectName = (String) request.get("projectName");
+        String token = (String) request.get("token");
+
+        log.info("Internal API: Sending invitation email to user {} for project {}", userId, projectId);
+
+        internalUserService.sendInvitationEmail(userId, projectId, projectName, token);
+
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/validate-invitation-token")
