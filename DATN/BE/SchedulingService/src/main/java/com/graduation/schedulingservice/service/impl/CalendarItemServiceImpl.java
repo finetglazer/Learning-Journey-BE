@@ -69,8 +69,16 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 }
             }
 
+            //find calendar by UserId
+            List<com.graduation.schedulingservice.model.Calendar> userCalendars = calendarRepository.findByUserId(userId);
+            if (userCalendars.isEmpty()) {
+                log.warn("No calendars found for user: userId={}", userId);
+                return new BaseResponse<>(0, "No calendar found for this user. Cannot create tasks.", null);
+            }
+            Calendar defaultCalendar = userCalendars.get(0);
+
             // 3. Validate calendar ownership
-            if (!calendarRepository.existsByIdAndUserId(request.getCalendarId(), userId)) {
+            if (!calendarRepository.existsByIdAndUserId(defaultCalendar.getId(), userId)) {
                 log.warn(Constant.LOG_CALENDAR_UNAUTHORIZED,
                         request.getCalendarId(), userId);
                 return new BaseResponse<>(0, Constant.MSG_CALENDAR_NOT_FOUND, null);
