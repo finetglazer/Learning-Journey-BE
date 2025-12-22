@@ -30,8 +30,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     private final TokenBlacklistService blacklistService;
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
-    @Value("${app.public-endpoints}")
-    private String publicEndpointsConfig;
+    @Value("#{'${app.public-endpoints}'.split(',')}")
+    private List<String> publicEndpoints;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -84,19 +84,14 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                     log.debug("JWT validated for user: {} (ID: {})", email, userId);
 
                     return chain.filter(exchange.mutate().request(modifiedRequest).build());
-                })
-                .onErrorResume(error -> {
-                    log.error("Error during JWT validation: {}", error.getMessage());
-                    return unauthorized(exchange.getResponse(), "Authentication failed");
                 });
+
     }
 
     /**
      * Check if path is public (no JWT required)
      */
     private boolean isPublicEndpoint(String path) {
-        List<String> publicEndpoints = Arrays.asList(publicEndpointsConfig.split(","));
-
         return publicEndpoints.stream()
                 .anyMatch(pattern -> pathMatcher.match(pattern.trim(), path));
     }
@@ -122,12 +117,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
 
         String body = String.format("""
-            {
-              "error": "Unauthorized",
-              "message": "%s",
-              "status": 401
-            }
-            """, message);
+                {
+                  "error": "Unauthorized",
+                  "message": "%s",
+                  "status": 401
+                }
+                """, message);
 
         DataBuffer buffer = response.bufferFactory()
                 .wrap(body.getBytes(StandardCharsets.UTF_8));

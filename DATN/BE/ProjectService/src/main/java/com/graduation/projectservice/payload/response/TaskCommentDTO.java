@@ -24,6 +24,8 @@ public class TaskCommentDTO {
 
     private String content;
 
+    private Boolean isEdited;
+
     private LocalDateTime createdAt;
 
     private ReplyInfoDTO replyInfo;

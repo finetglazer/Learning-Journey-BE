@@ -50,7 +50,8 @@ public class TaskCommentServiceImpl implements TaskCommentService {
 
         if (comments.isEmpty()) {
             log.info(Constant.LOG_COMMENTS_RETRIEVED, taskId, 0);
-            return new BaseResponse<>(Constant.SUCCESS_STATUS, Constant.COMMENTS_RETRIEVED_SUCCESS, Collections.emptyList());
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, Constant.COMMENTS_RETRIEVED_SUCCESS,
+                    Collections.emptyList());
         }
 
         // 4. Collect user IDs for batch fetching
@@ -85,6 +86,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
                     .userName(user != null ? user.getName() : "Unknown User")
                     .userAvatar(user != null ? user.getAvatarUrl() : null)
                     .content(comment.getContent())
+                    .isEdited(comment.getUpdatedAt().isAfter(comment.getCreatedAt().plusSeconds(1)))
                     .createdAt(comment.getCreatedAt())
                     .replyInfo(replyInfo)
                     .build();
@@ -119,7 +121,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
             Optional<PM_TaskComment> parentOpt = taskCommentRepository.findById(request.getParentCommentId());
             if (parentOpt.isPresent()) {
                 PM_TaskComment parent = parentOpt.get();
-                
+
                 // Validate parent belongs to same task
                 if (!parent.getTaskId().equals(taskId)) {
                     return new BaseResponse<>(Constant.ERROR_STATUS, Constant.ERROR_PARENT_COMMENT_INVALID, null);
@@ -128,7 +130,8 @@ public class TaskCommentServiceImpl implements TaskCommentService {
                 replyToUserId = parent.getUserId();
                 replyPreview = truncateForPreview(parent.getContent());
             }
-            // If parent not found, we still create comment but without reply info (parent was deleted)
+            // If parent not found, we still create comment but without reply info (parent
+            // was deleted)
         }
 
         // 5. Create comment
@@ -139,8 +142,10 @@ public class TaskCommentServiceImpl implements TaskCommentService {
         comment.setParentCommentId(request.getParentCommentId());
         comment.setReplyPreview(replyPreview);
         comment.setReplyToUserId(replyToUserId);
-        comment.setCreatedAt(LocalDateTime.now());
-        comment.setUpdatedAt(LocalDateTime.now());
+
+        LocalDateTime now = LocalDateTime.now();
+        comment.setCreatedAt(now);
+        comment.setUpdatedAt(now);
 
         PM_TaskComment savedComment = taskCommentRepository.save(comment);
 

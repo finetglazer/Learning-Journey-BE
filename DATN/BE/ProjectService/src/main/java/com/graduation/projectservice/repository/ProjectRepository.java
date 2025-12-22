@@ -15,4 +15,9 @@ public interface ProjectRepository extends JpaRepository<PM_Project, Long> {
             "INNER JOIN PM_ProjectMember pm ON p.projectId = pm.projectId " +
             "WHERE pm.userId = :userId")
     List<PM_Project> findAllByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT p FROM PM_Project p " +
+            "INNER JOIN PM_ProjectMember pm ON p.projectId = pm.projectId " +
+            "WHERE pm.userId = :userId AND pm.role <> 'INVITED'")
+    List<PM_Project> findActiveProjectsByUserId(@Param("userId") Long userId);
 }

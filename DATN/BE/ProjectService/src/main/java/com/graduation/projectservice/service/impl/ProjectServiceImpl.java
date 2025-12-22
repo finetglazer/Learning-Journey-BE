@@ -44,7 +44,7 @@ public class ProjectServiceImpl implements ProjectService {
     public BaseResponse<?> getUserProjects(Long userId) {
         log.info(Constant.LOG_RETRIEVING_PROJECTS, userId);
 
-        List<PM_Project> projects = projectRepository.findAllByUserId(userId);
+        List<PM_Project> projects = projectRepository.findActiveProjectsByUserId(userId);
 
         log.info(Constant.LOG_PROJECTS_FOUND, projects.size(), userId);
 
@@ -57,8 +57,7 @@ public class ProjectServiceImpl implements ProjectService {
         return new BaseResponse<>(
                 Constant.SUCCESS_STATUS,
                 Constant.PROJECTS_RETRIEVED_SUCCESS,
-                data
-        );
+                data);
     }
 
     @Override
@@ -93,16 +92,14 @@ public class ProjectServiceImpl implements ProjectService {
             return new BaseResponse<>(
                     Constant.SUCCESS_STATUS,
                     Constant.PROJECT_CREATED_SUCCESS,
-                    savedProject.getProjectId()
-            );
+                    savedProject.getProjectId());
 
         } catch (Exception e) {
             log.error("Failed to create project for user {}", userId, e);
             return new BaseResponse<>(
                     Constant.ERROR_STATUS,
                     e.getMessage(),
-                    null
-            );
+                    null);
         }
     }
 
@@ -134,17 +131,14 @@ public class ProjectServiceImpl implements ProjectService {
             return new BaseResponse<>(
                     Constant.SUCCESS_STATUS,
                     Constant.PROJECT_UPDATED_SUCCESS,
-                    null
-            );
+                    null);
         } catch (Exception e) {
             log.error("Failed to update project {} for user {}", projectId, userId, e);
             return new BaseResponse<>(
                     Constant.ERROR_STATUS,
                     e.getMessage(),
-                    null
-            );
+                    null);
         }
-
 
     }
 
@@ -152,7 +146,6 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional
     public BaseResponse<?> deleteProject(Long userId, Long projectId) {
         try {
-
 
             log.info(Constant.LOG_DELETING_PROJECT, projectId, userId);
 
@@ -177,18 +170,17 @@ public class ProjectServiceImpl implements ProjectService {
             return new BaseResponse<>(
                     Constant.SUCCESS_STATUS,
                     Constant.PROJECT_DELETED_SUCCESS,
-                    null
-            );
+                    null);
         } catch (Exception e) {
             log.error("Failed to delete project {} for user {}", projectId, userId, e);
             return new BaseResponse<>(
                     Constant.ERROR_STATUS,
                     e.getMessage(),
-                    null
-            );
+                    null);
         }
 
     }
+
     @Override
     @Transactional
     public BaseResponse<?> reorderList(Long userId, Long projectId, ReorderRequest request) {
@@ -222,8 +214,7 @@ public class ProjectServiceImpl implements ProjectService {
             return new BaseResponse<>(
                     Constant.SUCCESS_STATUS,
                     "Order updated",
-                    null
-            );
+                    null);
 
         } catch (Exception e) {
             log.error("Failed to reorder list for project {}: {}", projectId, e.getMessage(), e);
@@ -231,8 +222,7 @@ public class ProjectServiceImpl implements ProjectService {
             return new BaseResponse<>(
                     Constant.ERROR_STATUS,
                     e.getMessage(),
-                    null
-            );
+                    null);
         }
     }
 
@@ -321,7 +311,8 @@ public class ProjectServiceImpl implements ProjectService {
         if (deliverables.size() != orderedIds.size()) {
             throw new IllegalArgumentException(
                     "Reorder failed: The number of IDs sent (" + orderedIds.size() +
-                            ") does not match the number of deliverables in this project (" + deliverables.size() + ").");
+                            ") does not match the number of deliverables in this project (" + deliverables.size()
+                            + ").");
         }
 
         // 3. Create map
