@@ -1,0 +1,16 @@
+ ____            _           _   ____                  _          
+|  _ \ _ __ ___ (_) ___  ___| |_/ ___|  ___ _ ____   _(_) ___ ___ 
+| |_) | '__/ _ \| |/ _ \/ __| __\___ \ / _ \ '__\ \ / / |/ __/ _ \
+|  __/| | | (_) | |  __/ (__| |_ ___) |  __/ |   \ V /| | (_|  __/
+|_|   |_|  \___// |\___|\___|\__|____/ \___|_|    \_/ |_|\___\___|
+              |__/                                                 
+
+${AnsiColor.BRIGHT_BLUE}:: Graduation Project ::${AnsiColor.DEFAULT}
+${AnsiColor.BRIGHT_GREEN}Service: ${spring.application.name}${AnsiColor.DEFAULT}
+${AnsiColor.BRIGHT_YELLOW}Version: ${application.version:1.0.0}${AnsiColor.DEFAULT}
+${AnsiColor.BRIGHT_MAGENTA}Spring Boot: ${spring-boot.version}${AnsiColor.DEFAULT}
+${AnsiColor.BRIGHT_CYAN}Profile: ${spring.profiles.active:default}${AnsiColor.DEFAULT}
+${AnsiColor.BRIGHT_RED}Port: ${server.port:8080}${AnsiColor.DEFAULT}
+
+${AnsiColor.BRIGHT_WHITE}Student: Tran Manh Hung | Vietnam ❤️${AnsiColor.DEFAULT}
+${AnsiColor.BRIGHT_WHITE}Student: Nguyen Vinh Hiep | Vietnam ❤️${AnsiColor.DEFAULT}

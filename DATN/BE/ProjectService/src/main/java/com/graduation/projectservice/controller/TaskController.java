@@ -13,12 +13,13 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
+@RequestMapping("/api/pm/projects")
 @RequiredArgsConstructor
 public class TaskController {
 
     private final TaskService taskService;
 
-    @PostMapping("/api/pm/projects/{projectId}/tasks")
+    @PostMapping("/{projectId}/tasks")
     public ResponseEntity<BaseResponse<?>> getTask(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long projectId,
@@ -31,7 +32,7 @@ public class TaskController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
-    @PostMapping("/api/pm/projects/{projectId}/phases/{phaseId}/tasks")
+    @PostMapping("/{projectId}/phases/{phaseId}/tasks")
     public ResponseEntity<BaseResponse<?>> createTask(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long projectId,
@@ -45,7 +46,7 @@ public class TaskController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PutMapping("/api/pm/projects/{projectId}/tasks/{taskId}")
+    @PutMapping("/{projectId}/tasks/{taskId}")
     public ResponseEntity<BaseResponse<?>> updateTask(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long projectId,
@@ -59,7 +60,7 @@ public class TaskController {
         return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping("/api/pm/projects/{projectId}/tasks/{taskId}")
+    @DeleteMapping("/{projectId}/tasks/{taskId}")
     public ResponseEntity<BaseResponse<?>> deleteTask(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long projectId,
@@ -72,7 +73,7 @@ public class TaskController {
         return ResponseEntity.ok(response);
     }
 
-    @PutMapping("/api/pm/projects/{projectId}/tasks/{taskId}/status")
+    @PutMapping("/{projectId}/tasks/{taskId}/status")
     public ResponseEntity<BaseResponse<?>> updateTaskStatus(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long projectId,
@@ -86,7 +87,7 @@ public class TaskController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/api/pm/projects/user/tasks")
+    @GetMapping("/user/tasks")
     public ResponseEntity<BaseResponse<?>> getUserProjectTasks(
             @RequestHeader("X-User-Id") Long userId) {
 
@@ -97,7 +98,7 @@ public class TaskController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/api/pm/projects/{projectId}/tasks/{taskId}/detail")
+    @GetMapping("/{projectId}/tasks/{taskId}/detail")
     public ResponseEntity<BaseResponse<?>> getTaskDetail(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long projectId,
@@ -113,9 +114,9 @@ public class TaskController {
 
     /**
      * Attach a file node to a task
-     * POST /api/pm/projects/{projectId}/tasks/{taskId}/attachments
+     * POST /{projectId}/tasks/{taskId}/attachments
      */
-    @PostMapping("/api/pm/projects/{projectId}/tasks/{taskId}/attachments")
+    @PostMapping("/{projectId}/tasks/{taskId}/attachments")
     public ResponseEntity<BaseResponse<?>> attachFileToTask(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long projectId,
@@ -133,9 +134,9 @@ public class TaskController {
 
     /**
      * Detach a file node from a task
-     * DELETE /api/pm/projects/{projectId}/tasks/{taskId}/attachments/{nodeId}
+     * DELETE /{projectId}/tasks/{taskId}/attachments/{nodeId}
      */
-    @DeleteMapping("/api/pm/projects/{projectId}/tasks/{taskId}/attachments/{nodeId}")
+    @DeleteMapping("/{projectId}/tasks/{taskId}/attachments/{nodeId}")
     public ResponseEntity<BaseResponse<?>> detachFileFromTask(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long projectId,
@@ -151,7 +152,7 @@ public class TaskController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
-    @GetMapping("/api/pm/projects/{projectId}/tasks/{taskId}/attachments")
+    @GetMapping("/{projectId}/tasks/{taskId}/attachments")
     public ResponseEntity<BaseResponse<?>> getTaskAttachments(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long projectId,

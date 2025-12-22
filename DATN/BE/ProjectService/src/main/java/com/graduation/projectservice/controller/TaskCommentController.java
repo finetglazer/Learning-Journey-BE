@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@RequestMapping("/api/pm")
 @RequiredArgsConstructor
 public class TaskCommentController {
 
@@ -17,7 +18,7 @@ public class TaskCommentController {
      * GET /api/pm/tasks/{taskId}/comments
      * Retrieve all comments for a task
      */
-    @GetMapping("/api/pm/tasks/{taskId}/comments")
+    @GetMapping("/tasks/{taskId}/comments")
     public BaseResponse<?> getComments(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long taskId
@@ -29,7 +30,7 @@ public class TaskCommentController {
      * POST /api/pm/tasks/{taskId}/comments
      * Add a new comment to a task
      */
-    @PostMapping("/api/pm/tasks/{taskId}/comments")
+    @PostMapping("/tasks/{taskId}/comments")
     public BaseResponse<?> createComment(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long taskId,
@@ -42,7 +43,7 @@ public class TaskCommentController {
      * PUT /api/pm/comments/{commentId}
      * Edit an existing comment (creator only)
      */
-    @PutMapping("/api/pm/comments/{commentId}")
+    @PutMapping("/comments/{commentId}")
     public BaseResponse<?> updateComment(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long commentId,
@@ -55,7 +56,7 @@ public class TaskCommentController {
      * DELETE /api/pm/comments/{commentId}
      * Delete a comment (creator or project owner)
      */
-    @DeleteMapping("/api/pm/comments/{commentId}")
+    @DeleteMapping("/comments/{commentId}")
     public BaseResponse<?> deleteComment(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long commentId
