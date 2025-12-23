@@ -88,9 +88,9 @@ public class InvitationKafkaListener {
         notification.setIsRead(false);
         notification.setCreatedAt(LocalDateTime.now());
 
-        sseService.sendToUser(event.getRecipientId(), notification);
+        Notification savedNotification = notificationRepository.save(notification);
 
-        notificationRepository.save(notification);
+        sseService.sendToUser(savedNotification.getRecipientId(), savedNotification);
     }
 
     private void createAcceptedNotification(ProjectInvitationEvent event) {
@@ -102,16 +102,17 @@ public class InvitationKafkaListener {
         notification.setRecipientId(event.getSenderId());
         notification.setSenderId(event.getRecipientId()); // The accepter is the sender of this notif
         notification.setContentMessage(
-                userName + " accepted your invitation to project: " + event.getProjectName() + " (ID: " + event.getProjectId() + ")");
+                userName + " accepted your invitation to project: " + event.getProjectName() + " (ID: "
+                        + event.getProjectId() + ")");
         notification.setType(NotificationType.INFO_ONLY);
         notification.setReferenceId(event.getProjectId());
         notification.setIsRead(false);
         notification.setInvitationStatus(InvitationStatus.ACCEPTED); // Just for info
         notification.setCreatedAt(LocalDateTime.now());
 
-        sseService.sendToUser(event.getRecipientId(), notification);
+        Notification savedNotification = notificationRepository.save(notification);
 
-        notificationRepository.save(notification);
+        sseService.sendToUser(savedNotification.getRecipientId(), savedNotification);
     }
 
     private void createDeclinedNotification(ProjectInvitationEvent event) {
@@ -123,16 +124,17 @@ public class InvitationKafkaListener {
         notification.setRecipientId(event.getSenderId());
         notification.setSenderId(event.getRecipientId());
         notification.setContentMessage(
-                userName + " declined your invitation to project: " + event.getProjectName() + " (ID: " + event.getProjectId() + ")");
+                userName + " declined your invitation to project: " + event.getProjectName() + " (ID: "
+                        + event.getProjectId() + ")");
         notification.setType(NotificationType.INFO_ONLY);
         notification.setReferenceId(event.getProjectId());
         notification.setIsRead(false);
         notification.setInvitationStatus(InvitationStatus.DECLINED);
         notification.setCreatedAt(LocalDateTime.now());
 
-        sseService.sendToUser(event.getRecipientId(), notification);
+        Notification savedNotification = notificationRepository.save(notification);
 
-        notificationRepository.save(notification);
+        sseService.sendToUser(savedNotification.getRecipientId(), savedNotification);
     }
 
     private String generateMessageId(ConsumerRecord<String, ?> record) {
