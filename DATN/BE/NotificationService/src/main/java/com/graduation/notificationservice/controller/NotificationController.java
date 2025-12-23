@@ -3,11 +3,14 @@ package com.graduation.notificationservice.controller;
 import com.graduation.notificationservice.payload.request.UpdateReadStatusRequest;
 import com.graduation.notificationservice.payload.response.BaseResponse;
 import com.graduation.notificationservice.service.NotificationService;
+import com.graduation.notificationservice.service.SseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * Controller for notification-related endpoints.
@@ -19,6 +22,15 @@ import org.springframework.web.bind.annotation.*;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final SseService sseService;
+
+    /**
+     * Create SSE connection
+     */
+    @GetMapping(path = "/stream/{userId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamNotifications(@PathVariable Long userId) {
+        return sseService.createConnection(userId);
+    }
 
     /**
      * Retrieve notifications for the authenticated user.

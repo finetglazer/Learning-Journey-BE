@@ -10,6 +10,7 @@ import com.graduation.notificationservice.model.enums.NotificationType;
 import com.graduation.notificationservice.repository.NotificationRepository;
 import com.graduation.notificationservice.repository.ProcessedMessageRepository;
 import com.graduation.notificationservice.repository.UserInfoCacheRepository;
+import com.graduation.notificationservice.service.SseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,6 +30,7 @@ public class InvitationKafkaListener {
     private final NotificationRepository notificationRepository;
     private final ProcessedMessageRepository processedMessageRepository;
     private final UserInfoCacheRepository userInfoCacheRepository;
+    private final SseService sseService;
 
     @KafkaListener(topics = KafkaConfig.TOPIC_PROJECT_INVITATION, groupId = "${spring.kafka.consumer.group-id}", containerFactory = "invitationKafkaListenerContainerFactory")
     public void handleInvitationEvent(ConsumerRecord<String, ProjectInvitationEvent> record, Acknowledgment ack) {
@@ -86,6 +88,8 @@ public class InvitationKafkaListener {
         notification.setIsRead(false);
         notification.setCreatedAt(LocalDateTime.now());
 
+        sseService.sendToUser(event.getRecipientId(), notification);
+
         notificationRepository.save(notification);
     }
 
@@ -105,6 +109,8 @@ public class InvitationKafkaListener {
         notification.setInvitationStatus(InvitationStatus.ACCEPTED); // Just for info
         notification.setCreatedAt(LocalDateTime.now());
 
+        sseService.sendToUser(event.getRecipientId(), notification);
+
         notificationRepository.save(notification);
     }
 
@@ -123,6 +129,8 @@ public class InvitationKafkaListener {
         notification.setIsRead(false);
         notification.setInvitationStatus(InvitationStatus.DECLINED);
         notification.setCreatedAt(LocalDateTime.now());
+
+        sseService.sendToUser(event.getRecipientId(), notification);
 
         notificationRepository.save(notification);
     }

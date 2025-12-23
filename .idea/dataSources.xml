@@ -26,11 +26,11 @@
       </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="project_management_db@documentservice.ze4qo9d.mongodb.net" uuid="168f0f2c-177d-49fb-8d03-aa31c49c2d1a">
+    <data-source source="LOCAL" name="project_management_db@documentservice.ze4qo9d.mongodb.net" uuid="637b3f60-d415-4a97-80c1-fa6a5a7d8f0d">
       <driver-ref>mongo.4</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>com.dbschema.MongoJdbcDriver</jdbc-driver>
-      <jdbc-url>mongodb+srv://documentservice.ze4qo9d.mongodb.net/project_management_db</jdbc-url>
+      <jdbc-url>mongodb+srv://documentservice.ze4qo9d.mongodb.net/project_management_db?appName=DocumentService</jdbc-url>
       <jdbc-additional-properties>
         <property name="com.intellij.clouds.kubernetes.db.host.port" />
         <property name="com.intellij.clouds.kubernetes.db.enabled" value="false" />
@@ -38,7 +38,7 @@
       </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="neondb@ep-bold-credit-a1uzb84b-pooler.ap-southeast-1.aws.neon.tech" uuid="17b0f8a2-441f-47d4-b662-76878bb7a088">
+    <data-source source="LOCAL" name="neondb@ep-bold-credit-a1uzb84b-pooler.ap-southeast-1.aws.neon.tech" uuid="02d95ff2-9c67-45ef-a6c6-d55534a90ee9">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
@@ -50,7 +50,19 @@
       </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="neondb@ep-jolly-river-a1q2nfzv-pooler.ap-southeast-1.aws.neon.tech" uuid="e0b332c2-1c78-454d-9bc3-ccffcf49efaa">
+    <data-source source="LOCAL" name="neondb@ep-rapid-cloud-a14yht36-pooler.ap-southeast-1.aws.neon.tech" uuid="56d646da-25e2-4166-b0a7-b4907e63e11e">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://ep-rapid-cloud-a14yht36-pooler.ap-southeast-1.aws.neon.tech:5432/neondb</jdbc-url>
+      <jdbc-additional-properties>
+        <property name="com.intellij.clouds.kubernetes.db.host.port" />
+        <property name="com.intellij.clouds.kubernetes.db.enabled" value="false" />
+        <property name="com.intellij.clouds.kubernetes.db.container.port" />
+      </jdbc-additional-properties>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
+    <data-source source="LOCAL" name="neondb@ep-jolly-river-a1q2nfzv-pooler.ap-southeast-1.aws.neon.tech" uuid="be03749e-97d2-44d0-9cd8-b171f758b0f4">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
