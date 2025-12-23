@@ -33,6 +33,15 @@ public class NotificationController {
     }
 
     /**
+     * Lightweight health check for the frontend probe.
+     * Used when the SSE stream is broken to decide when to reconnect.
+     */
+    @GetMapping("/health-check")
+    public ResponseEntity<String> healthCheck() {
+        return ResponseEntity.ok("OK");
+    }
+
+    /**
      * Retrieve notifications for the authenticated user.
      * Supports filtering by read status and pagination.
      *

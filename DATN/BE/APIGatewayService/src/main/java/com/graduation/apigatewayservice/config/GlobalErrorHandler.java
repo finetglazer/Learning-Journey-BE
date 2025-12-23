@@ -33,8 +33,7 @@ public class GlobalErrorHandler implements ErrorWebExceptionHandler {
                 ex.getMessage(),
                 exchange.getRequest().getPath().value(),
                 errorResponse.getSafeHashCode(),
-                ex
-        );
+                ex);
 
         exchange.getResponse().setStatusCode(errorResponse.getStatus());
         exchange.getResponse().getHeaders().add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
@@ -50,32 +49,29 @@ public class GlobalErrorHandler implements ErrorWebExceptionHandler {
             return new ErrorResponse(
                     HttpStatus.GATEWAY_TIMEOUT,
                     "Gateway Timeout",
-                    Constant.msg.get("TIMEOUT_ERROR")
-            );
+                    Constant.msg.get("TIMEOUT_ERROR"));
         }
 
         if (ex instanceof ResponseStatusException rse) {
             return new ErrorResponse(
                     (HttpStatus) rse.getStatusCode(),
                     "Service Error",
-                    rse.getReason() != null ? rse.getReason() : Constant.msg.get("GENERIC_ERROR")
-            );
+                    rse.getReason() != null ? rse.getReason() : Constant.msg.get("GENERIC_ERROR"));
         }
 
-        if (ex instanceof org.springframework.web.reactive.function.client.WebClientException) {
+        if (ex instanceof org.springframework.web.reactive.function.client.WebClientException ||
+                ex.getCause() instanceof java.net.ConnectException) {
             return new ErrorResponse(
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "Service Unavailable",
-                    "The requested service is currently unavailable. Please try again later."
-            );
+                    "The requested service is currently unavailable. Please try again later.");
         }
 
         // Default case
         return new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "Internal Server Error",
-                Constant.msg.get("GENERIC_ERROR")
-        );
+                Constant.msg.get("GENERIC_ERROR"));
     }
 
     private String buildErrorResponseBody(ErrorResponse errorResponse, ServerWebExchange exchange) {
@@ -83,20 +79,19 @@ public class GlobalErrorHandler implements ErrorWebExceptionHandler {
         String path = exchange.getRequest().getPath().value();
 
         return String.format("""
-            {
-              "timestamp": "%s",
-              "status": %d,
-              "error": "%s",
-              "message": "%s",
-              "path": "%s"
-            }
-            """,
+                {
+                  "timestamp": "%s",
+                  "status": %d,
+                  "error": "%s",
+                  "message": "%s",
+                  "path": "%s"
+                }
+                """,
                 timestamp,
                 errorResponse.getStatus().value(),
                 errorResponse.getError(),
                 errorResponse.getMessage(),
-                path
-        );
+                path);
     }
 
     private static class ErrorResponse {
@@ -127,7 +122,8 @@ public class GlobalErrorHandler implements ErrorWebExceptionHandler {
          */
         @Override
         public int hashCode() {
-            // Only include status and error in hashcode, exclude message which might contain sensitive data
+            // Only include status and error in hashcode, exclude message which might
+            // contain sensitive data
             return Objects.hash(status, error);
         }
 
@@ -141,8 +137,10 @@ public class GlobalErrorHandler implements ErrorWebExceptionHandler {
 
         @Override
         public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (obj == null || getClass() != obj.getClass()) return false;
+            if (this == obj)
+                return true;
+            if (obj == null || getClass() != obj.getClass())
+                return false;
             ErrorResponse that = (ErrorResponse) obj;
             return Objects.equals(status, that.status) &&
                     Objects.equals(error, that.error);
