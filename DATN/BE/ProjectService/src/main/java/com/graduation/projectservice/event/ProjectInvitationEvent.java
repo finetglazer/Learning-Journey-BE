@@ -18,5 +18,6 @@ public class ProjectInvitationEvent {
     private String projectName;
     private String token;
     private Boolean isAccepted; // True=Accepted, False=Declined, Null=Sent
+    private Boolean isExpired;
     private LocalDateTime timestamp;
 }

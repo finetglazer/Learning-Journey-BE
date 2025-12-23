@@ -104,6 +104,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                     .token(token.getToken())
                     .timestamp(LocalDateTime.now())
                     .isAccepted(null) // Sent
+                    .isExpired(false)
                     .build();
 
             try {
@@ -292,7 +293,21 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                         Map.of("error_code", "INVALID_TOKEN"));
             }
 
+            //take project name from projectId
+            PM_Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
             if (token.isExpired()) {
+                kafkaTemplate.send(KafkaConfig.TOPIC_PROJECT_INVITATION, ProjectInvitationEvent.builder()
+                        .recipientId(token.getUserId())
+                        .senderId(token.getSenderId()) // Need senderId to notify them
+                        .projectId(projectId)
+                        .token(token.getToken())
+                        .projectName(project.getName())
+                        .timestamp(LocalDateTime.now())
+                        .isExpired(true)
+                        .isAccepted(null)
+                        .build());
                 return new BaseResponse<>(0, "Token has expired", Map.of("error_code", "TOKEN_EXPIRED"));
             }
 
@@ -325,10 +340,6 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
 
             log.info("User {} accepted invitation to project {}", userId, projectId);
 
-            //take project name from projectId
-            PM_Project project = projectRepository.findById(projectId)
-                    .orElseThrow(() -> new RuntimeException("Project not found"));
-
             // Mark token as used
             token.markAsUsed();
             invitationTokenRepository.save(token);
@@ -341,6 +352,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                     .projectName(project.getName()) // Optional or fetch project name
                     .token(token.getToken())
                     .timestamp(LocalDateTime.now())
+                    .isExpired(false)
                     .isAccepted(true)
                     .build();
             kafkaTemplate.send(KafkaConfig.TOPIC_PROJECT_INVITATION, event);
@@ -366,8 +378,26 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                         Map.of("error_code", "INVALID_TOKEN"));
             }
 
+            //take project name from projectId
+            PM_Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
             Long userId = token.getUserId();
             Long tokenProjectId = token.getProjectId();
+
+            if (token.isExpired()) {
+                kafkaTemplate.send(KafkaConfig.TOPIC_PROJECT_INVITATION, ProjectInvitationEvent.builder()
+                        .recipientId(token.getUserId())
+                        .senderId(token.getSenderId()) // Need senderId to notify them
+                        .projectId(projectId)
+                        .token(token.getToken())
+                        .projectName(project.getName())
+                        .timestamp(LocalDateTime.now())
+                        .isExpired(true)
+                        .isAccepted(null)
+                        .build());
+                return new BaseResponse<>(0, "Token has expired", Map.of("error_code", "TOKEN_EXPIRED"));
+            }
 
             // 2. Verify projectId matches
             if (!tokenProjectId.equals(projectId)) {
@@ -396,10 +426,6 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
             token.markAsUsed();
             invitationTokenRepository.save(token);
 
-            //take project name from projectId
-            PM_Project project = projectRepository.findById(projectId)
-                    .orElseThrow(() -> new RuntimeException("Project not found"));
-
             // Send Kafka Event (Declined)
             ProjectInvitationEvent event = ProjectInvitationEvent.builder()
                     .recipientId(userId)
@@ -409,6 +435,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                     .token(token.getToken())
                     .timestamp(LocalDateTime.now())
                     .isAccepted(false)
+                    .isExpired(false)
                     .build();
             kafkaTemplate.send(KafkaConfig.TOPIC_PROJECT_INVITATION, event);
 

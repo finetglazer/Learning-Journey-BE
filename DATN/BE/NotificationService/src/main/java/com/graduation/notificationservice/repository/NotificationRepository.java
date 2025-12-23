@@ -58,4 +58,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying
     @Query("DELETE FROM Notification n WHERE n.recipientId = :recipientId AND n.isRead = true")
     int deleteReadByRecipientId(@Param("recipientId") Long recipientId);
+
+    Notification getNotificationByToken(String token);
 }

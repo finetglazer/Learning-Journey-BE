@@ -20,4 +20,6 @@ public class NotificationDTO {
     private String invitationStatus;
     private Boolean isRead;
     private String createdAt;
+    private String token;
+    private Long referenceId;
 }

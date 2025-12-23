@@ -135,6 +135,8 @@ public class NotificationServiceImpl implements NotificationService {
         }
 
         dto.setIsRead(notification.getIsRead());
+        dto.setToken(notification.getToken());
+        dto.setReferenceId(notification.getReferenceId());
 
         // Format createdAt to ISO 8601 string
         dto.setCreatedAt(notification.getCreatedAt().format(ISO_FORMATTER));
