@@ -50,7 +50,19 @@
       </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="neondb@ep-rapid-cloud-a14yht36-pooler.ap-southeast-1.aws.neon.tech" uuid="56d646da-25e2-4166-b0a7-b4907e63e11e">
+    <data-source source="LOCAL" name="neondb@ep-jolly-river-a1q2nfzv-pooler.ap-southeast-1.aws.neon.tech" uuid="be03749e-97d2-44d0-9cd8-b171f758b0f4">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://ep-jolly-river-a1q2nfzv-pooler.ap-southeast-1.aws.neon.tech:5432/neondb</jdbc-url>
+      <jdbc-additional-properties>
+        <property name="com.intellij.clouds.kubernetes.db.host.port" />
+        <property name="com.intellij.clouds.kubernetes.db.enabled" value="false" />
+        <property name="com.intellij.clouds.kubernetes.db.container.port" />
+      </jdbc-additional-properties>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
+    <data-source source="LOCAL" name="neondb@ep-rapid-cloud-a14yht36-pooler.ap-southeast-1.aws.neon.tech [2]" uuid="d35a00ff-61fe-4483-b755-cd98ebb4eb8d">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
@@ -62,11 +74,11 @@
       </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="neondb@ep-jolly-river-a1q2nfzv-pooler.ap-southeast-1.aws.neon.tech" uuid="be03749e-97d2-44d0-9cd8-b171f758b0f4">
-      <driver-ref>postgresql</driver-ref>
+    <data-source source="LOCAL" name="@forumservice.ydrgx8q.mongodb.net" uuid="6ab57c6a-dc23-47e7-8d01-37292d6935dd">
+      <driver-ref>mongo.4</driver-ref>
       <synchronize>true</synchronize>
-      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
-      <jdbc-url>jdbc:postgresql://ep-jolly-river-a1q2nfzv-pooler.ap-southeast-1.aws.neon.tech:5432/neondb</jdbc-url>
+      <jdbc-driver>com.dbschema.MongoJdbcDriver</jdbc-driver>
+      <jdbc-url>mongodb+srv://forumservice.ydrgx8q.mongodb.net/?appName=ForumService</jdbc-url>
       <jdbc-additional-properties>
         <property name="com.intellij.clouds.kubernetes.db.host.port" />
         <property name="com.intellij.clouds.kubernetes.db.enabled" value="false" />
