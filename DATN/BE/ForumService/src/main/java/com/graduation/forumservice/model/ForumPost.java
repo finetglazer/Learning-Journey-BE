@@ -25,7 +25,7 @@ public class ForumPost {
     private Long postId;
 
     @Column(name = "user_id", nullable = false)
-    private Integer userId;
+    private Long userId;
 
     @Column(length = 1000)
     private String title;
