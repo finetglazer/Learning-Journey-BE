@@ -44,9 +44,9 @@ public class GatewayConfig {
         private Bucket createNewBucket() {
             // PROOF OF STRATEGY:
             // Refill: 10 tokens per second (sustained rate)
-            // Capacity: 30 tokens (allows a "BURST" of 30 requests at once)
+            // Capacity: 100 tokens (allows a "BURST" of 100 requests at once)
             Refill refill = Refill.intervally(10, Duration.ofSeconds(1));
-            Bandwidth limit = Bandwidth.classic(30, refill);
+            Bandwidth limit = Bandwidth.classic(100, refill);
             return Bucket.builder().addLimit(limit).build();
         }
 

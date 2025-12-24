@@ -198,12 +198,7 @@ public class InvitationKafkaListener {
         dto.setType(notification.getType().name());
         dto.setTargetUrl(notification.getTargetUrl());
 
-        // Only include invitationStatus for ACTION_INVITATION type
-        if (notification.getType() == NotificationType.ACTION_INVITATION) {
-            dto.setInvitationStatus(notification.getInvitationStatus().name());
-        } else {
-            dto.setInvitationStatus(null);
-        }
+        dto.setInvitationStatus(notification.getInvitationStatus().name());
 
         dto.setIsRead(notification.getIsRead());
         dto.setToken(notification.getToken());
