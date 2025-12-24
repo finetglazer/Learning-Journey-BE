@@ -55,7 +55,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         userSessionRepository.save(session);
         log.info("Created new session for user {} via OAuth2", user.getId());
 
-        String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/login-success")
+        String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/login-success")
                 .queryParam("token", token)
                 .queryParam("refreshToken", refreshToken)
                 .queryParam("userId", user.getId())

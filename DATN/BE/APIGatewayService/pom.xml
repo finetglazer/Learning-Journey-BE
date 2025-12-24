@@ -50,6 +50,12 @@
             </exclusions>
         </dependency>
 
+        <dependency>
+            <groupId>com.github.vladimir-bukhtoyarov</groupId>
+            <artifactId>bucket4j-core</artifactId>
+            <version>7.6.0</version>
+        </dependency>
+
         <!-- Spring Boot Actuator with WebFlux -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
