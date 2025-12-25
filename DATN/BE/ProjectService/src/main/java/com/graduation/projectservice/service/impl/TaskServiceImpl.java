@@ -15,6 +15,9 @@ import com.graduation.projectservice.payload.request.UpdateTaskStatusRequest;
 import com.graduation.projectservice.payload.response.*;
 import com.graduation.projectservice.repository.*;
 import com.graduation.projectservice.service.TaskService;
+import com.graduation.projectservice.config.KafkaConfig;
+import com.graduation.projectservice.event.TaskUpdateEvent;
+import org.springframework.kafka.core.KafkaTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,6 +45,7 @@ public class TaskServiceImpl implements TaskService {
         private final TaskAttachmentRepository taskAttachmentRepository;
         private final FileNodeRepository fileNodeRepository;
         private final TaskCommentRepository taskCommentRepository;
+        private final KafkaTemplate<String, Object> kafkaTemplate;
 
         @Override
         public BaseResponse<?> getTasks(Long userId, Long projectId, GetTaskRequest request) {
@@ -370,6 +374,31 @@ public class TaskServiceImpl implements TaskService {
                         }
 
                         log.info(Constant.LOG_TASK_UPDATED, taskId, projectId);
+
+                        try {
+                                Set<Long> assigneeIdsForEvent;
+                                if (request.getAssigneeIds() != null) {
+                                        // Case 1: Assignees updated -> Notify new assignees
+                                        assigneeIdsForEvent = new HashSet<>(request.getAssigneeIds());
+                                } else {
+                                        // Case 2: Assignees not changed -> Notify current assignees from DB entity
+                                        assigneeIdsForEvent = task.getAssignees().stream()
+                                                        .map(PM_TaskAssignee::getUserId)
+                                                        .collect(Collectors.toSet());
+                                }
+
+                                TaskUpdateEvent event = new TaskUpdateEvent(
+                                                taskId,
+                                                projectId,
+                                                userId,
+                                                assigneeIdsForEvent,
+                                                TaskUpdateEvent.ACTION_UPDATE);
+
+                                kafkaTemplate.send(KafkaConfig.TOPIC_PROJECT_TASK_UPDATE, event);
+                                log.info("Published TaskUpdateEvent for task {}", taskId);
+                        } catch (Exception ex) {
+                                log.error("Failed to publish TaskUpdateEvent for task {}", taskId, ex);
+                        }
 
                         Map<String, Object> data = new HashMap<>();
                         data.put("taskId", taskId);

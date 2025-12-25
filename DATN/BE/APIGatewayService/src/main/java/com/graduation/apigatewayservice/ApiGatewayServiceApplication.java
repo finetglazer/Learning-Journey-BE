@@ -6,7 +6,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.context.ConfigurableApplicationContext;
 
+import org.springframework.scheduling.annotation.EnableScheduling;
+
 @Slf4j
+@EnableScheduling
 @SpringBootApplication
 public class ApiGatewayServiceApplication {
 
@@ -15,9 +18,7 @@ public class ApiGatewayServiceApplication {
 
         // Log the routes on startup for debugging
         RouteLocator routeLocator = context.getBean(RouteLocator.class);
-        routeLocator.getRoutes().subscribe(route ->
-                log.info("Loaded route: {} -> {}", route.getId(), route.getUri())
-        );
+        routeLocator.getRoutes().subscribe(route -> log.info("Loaded route: {} -> {}", route.getId(), route.getUri()));
 
         log.info("API Gateway Service started successfully on port 8080");
         log.info("Available endpoints:");

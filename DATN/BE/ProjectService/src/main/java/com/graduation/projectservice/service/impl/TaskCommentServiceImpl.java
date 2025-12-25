@@ -12,6 +12,11 @@ import com.graduation.projectservice.payload.response.*;
 import com.graduation.projectservice.repository.TaskCommentRepository;
 import com.graduation.projectservice.repository.TaskRepository;
 import com.graduation.projectservice.service.TaskCommentService;
+import org.springframework.kafka.core.KafkaTemplate;
+import com.graduation.projectservice.config.KafkaConfig;
+import com.graduation.projectservice.event.TaskUpdateEvent;
+import com.graduation.projectservice.model.PM_Task;
+import com.graduation.projectservice.model.PM_TaskAssignee;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +35,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
     private final TaskRepository taskRepository;
     private final ProjectAuthorizationHelper authHelper;
     private final UserServiceClient userServiceClient;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     private static final int REPLY_PREVIEW_MAX_LENGTH = 50;
 
@@ -151,6 +157,9 @@ public class TaskCommentServiceImpl implements TaskCommentService {
 
         log.info(Constant.LOG_COMMENT_CREATED, savedComment.getCommentId(), taskId);
 
+        // Publish Event
+        publishTaskUpdateEvent(taskId, projectId, userId, TaskUpdateEvent.ACTION_COMMENT_ADD);
+
         // 6. Build response
         Map<String, Object> data = new HashMap<>();
         data.put("comment_id", savedComment.getCommentId());
@@ -192,6 +201,13 @@ public class TaskCommentServiceImpl implements TaskCommentService {
 
         log.info(Constant.LOG_COMMENT_UPDATED, commentId);
 
+        // Publish Event
+        // Need to fetch projectId since updateComment doesn't have it explicitly yet
+        Long projectId = taskCommentRepository.findProjectIdByTaskId(comment.getTaskId()).orElse(null);
+        if (projectId != null) {
+            publishTaskUpdateEvent(comment.getTaskId(), projectId, userId, TaskUpdateEvent.ACTION_COMMENT_UPDATE);
+        }
+
         return new BaseResponse<>(Constant.SUCCESS_STATUS, Constant.COMMENT_UPDATED_SUCCESS, null);
     }
 
@@ -223,6 +239,9 @@ public class TaskCommentServiceImpl implements TaskCommentService {
         taskCommentRepository.delete(comment);
         log.info(Constant.LOG_COMMENT_DELETED, commentId);
 
+        // Publish Event
+        publishTaskUpdateEvent(comment.getTaskId(), projectId, userId, TaskUpdateEvent.ACTION_COMMENT_DELETE);
+
         return new BaseResponse<>(Constant.SUCCESS_STATUS, Constant.COMMENT_DELETED_SUCCESS, null);
     }
 
@@ -238,5 +257,28 @@ public class TaskCommentServiceImpl implements TaskCommentService {
             return content;
         }
         return content.substring(0, REPLY_PREVIEW_MAX_LENGTH) + "...";
+    }
+
+    private void publishTaskUpdateEvent(Long taskId, Long projectId, Long userId, String action) {
+        try {
+            PM_Task task = taskRepository.findById(taskId)
+                    .orElseThrow(() -> new NotFoundException(Constant.ERROR_TASK_NOT_FOUND));
+
+            Set<Long> assigneeIds = task.getAssignees().stream()
+                    .map(PM_TaskAssignee::getUserId)
+                    .collect(Collectors.toSet());
+
+            TaskUpdateEvent event = new TaskUpdateEvent(
+                    taskId,
+                    projectId,
+                    userId,
+                    assigneeIds,
+                    action);
+
+            kafkaTemplate.send(KafkaConfig.TOPIC_PROJECT_TASK_UPDATE, event);
+            log.info("Published TaskUpdateEvent for task {} with action {}", taskId, action);
+        } catch (Exception ex) {
+            log.error("Failed to publish TaskUpdateEvent for task {}", taskId, ex);
+        }
     }
 }
