@@ -32,6 +32,7 @@ public class KafkaConfig {
     private String bootstrapServers;
 
     public static final String TOPIC_PROJECT_INVITATION = "pm.project-service.invitation.v1";
+    public static final String TOPIC_PROJECT_TASK_UPDATE = "pm.project-service.task-update.v1";
 
     @Bean
     public ProducerFactory<String, Object> producerFactory() throws IOException {
@@ -97,6 +98,14 @@ public class KafkaConfig {
     public NewTopic projectInvitationTopic() {
 
         return TopicBuilder.name(TOPIC_PROJECT_INVITATION)
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic projectTaskUpdateTopic() {
+        return TopicBuilder.name(TOPIC_PROJECT_TASK_UPDATE)
                 .partitions(1)
                 .replicas(1)
                 .build();
