@@ -71,6 +71,7 @@ public interface ForumService {
      */
     BaseResponse<?> deleteAnswer(Long userId, Long answerId);
 
+    BaseResponse<?> voteAnswer(Long userId, Long answerId, Integer voteType);
 
     // --- 4. COMMENTS MANAGEMENT ---
 

@@ -34,4 +34,24 @@ public interface PostStatsRepository extends JpaRepository<PostStats, Long> {
     @Transactional
     @Query("UPDATE PostStats s SET s.score = s.score + :change WHERE s.postId = :postId")
     void updateScore(@Param("postId") Long postId, @Param("change") int change);
+
+    /**
+     * Atomically increments the answer count for a specific post.
+     * Prevents race conditions by performing the increment at the DB level.
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE PostStats s SET s.answerCount = s.answerCount + 1 WHERE s.postId = :postId")
+    void incrementAnswerCount(@Param("postId") Long postId);
+
+    /**
+     * Atomically decrements the answer count for a specific post.
+     * Includes a safety condition to ensure the count never becomes negative.
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE PostStats s " +
+            "SET s.answerCount = s.answerCount - 1 " +
+            "WHERE s.postId = :postId AND s.answerCount > 0")
+    void decrementAnswerCount(@Param("postId") Long postId);
 }

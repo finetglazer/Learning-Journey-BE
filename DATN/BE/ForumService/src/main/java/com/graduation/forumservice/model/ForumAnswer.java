@@ -34,7 +34,7 @@ public class ForumAnswer {
     private String mongoContentId;
 
     @Column(name = "is_accepted")
-    private Boolean isAccepted = false; // Matches default value in image_615de1.png
+    private Boolean isAccepted = false;
 
     @Column(name = "upvote_count")
     private Integer upvoteCount = 0;
@@ -46,11 +46,22 @@ public class ForumAnswer {
     @Column(name = "search_vector", columnDefinition = "tsvector", insertable = false, updatable = false)
     private String searchVector;
 
-    @CreationTimestamp // Matches CURRENT_TIMESTAMP in image_615de1.png
+    @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /**
+     * Calculates the net score of the answer.
+     * net score = upvotes - downvotes
+     */
+    @Transient
+    public Integer getScore() {
+        int up = (upvoteCount == null) ? 0 : upvoteCount;
+        int down = (downvoteCount == null) ? 0 : downvoteCount;
+        return up - down;
+    }
 }

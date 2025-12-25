@@ -1,6 +1,5 @@
-package com.graduation.forumservice.model;
+package com.graduation.forumservice.payload.response;
 
-import com.graduation.forumservice.payload.response.PostAuthorDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
