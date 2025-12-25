@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.kafka.annotation.EnableKafka;
 import com.graduation.notificationservice.event.ProjectInvitationEvent;
+import com.graduation.notificationservice.event.TaskUpdateEvent;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 
@@ -59,6 +60,7 @@ public class KafkaConfig {
      * Topic name for project invitation events.
      */
     public static final String TOPIC_PROJECT_INVITATION = "pm.project-service.invitation.v1";
+    public static final String TOPIC_PROJECT_TASK_UPDATE = "pm.project-service.task-update.v1";
 
     @Bean
     public ConsumerFactory<String, Object> consumerFactory() throws IOException {
@@ -168,6 +170,59 @@ public class KafkaConfig {
             throws IOException {
         ConcurrentKafkaListenerContainerFactory<String, ProjectInvitationEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(invitationConsumerFactory());
+        factory.setConcurrency(1);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        return factory;
+    }
+
+    // --- Dedicated Factory for TaskUpdateEvent ---
+
+    @Bean
+    public ConsumerFactory<String, TaskUpdateEvent> taskUpdateConsumerFactory() throws IOException {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+
+        // SSL/mTLS Configuration for Aiven
+        props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
+
+        ClassPathResource keyResource = new ClassPathResource("service.key");
+        String serviceKey = new String(keyResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        props.put(SslConfigs.SSL_KEYSTORE_KEY_CONFIG, serviceKey);
+
+        ClassPathResource certResource = new ClassPathResource("service.cert");
+        String serviceCert = new String(certResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        props.put(SslConfigs.SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, serviceCert);
+
+        props.put(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, "PEM");
+
+        ClassPathResource resource = new ClassPathResource("ca.pem");
+        String caCertificate = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        props.put(SslConfigs.SSL_TRUSTSTORE_CERTIFICATES_CONFIG, caCertificate);
+        props.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, "PEM");
+
+        props.put(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, "");
+
+        // Specific Deserializer for TaskUpdateEvent
+        JsonDeserializer<TaskUpdateEvent> deserializer = new JsonDeserializer<>(TaskUpdateEvent.class);
+        deserializer.setRemoveTypeHeaders(false);
+        deserializer.addTrustedPackages("com.graduation.*");
+        deserializer.setUseTypeMapperForKey(true);
+
+        // Create ErrorHandlingDeserializer wrapping the specific JsonDeserializer
+        ErrorHandlingDeserializer<TaskUpdateEvent> errorDeserializer = new ErrorHandlingDeserializer<>(
+                deserializer);
+
+        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), errorDeserializer);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, TaskUpdateEvent> taskUpdateKafkaListenerContainerFactory()
+            throws IOException {
+        ConcurrentKafkaListenerContainerFactory<String, TaskUpdateEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(taskUpdateConsumerFactory());
         factory.setConcurrency(1);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         return factory;
