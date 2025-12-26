@@ -72,11 +72,8 @@ public class PhaseController {
 
         log.info(Constant.LOG_GET_PHASE_TASKS_REQUEST, projectId, phaseId, userId);
 
-
-        return ResponseEntity.ok(new BaseResponse<>(
-                Constant.SUCCESS_STATUS,
-                String.format(Constant.PHASE_TASKS_RETRIEVED_SUCCESS, phaseId),
-                taskService.getTasksByPhase(projectId, phaseId, userId)
-        ));
+        // Service already returns BaseResponse, don't wrap it again
+        BaseResponse<?> response = taskService.getTasksByPhase(projectId, phaseId, userId);
+        return ResponseEntity.ok(response);
     }
 }
