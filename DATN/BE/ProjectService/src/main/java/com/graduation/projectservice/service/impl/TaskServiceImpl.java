@@ -573,21 +573,33 @@ public class TaskServiceImpl implements TaskService {
         }
 
         private String formatStatus(TaskStatus status) {
-                return switch (status) {
-                        case TO_DO -> "To do";
-                        case IN_PROGRESS -> "In progress";
-                        case IN_REVIEW -> "In review";
-                        case DONE -> "Done";
-                };
+                switch (status) {
+                        case TO_DO:
+                                return "To do";
+                        case IN_PROGRESS:
+                                return "In progress";
+                        case IN_REVIEW:
+                                return "In review";
+                        case DONE:
+                                return "Done";
+                        default:
+                                return status.name();
+                }
         }
 
         private String formatPriority(TaskPriority priority) {
-                return switch (priority) {
-                        case MINOR -> "Minor";
-                        case MEDIUM -> "Medium";
-                        case MAJOR -> "Major";
-                        case CRITICAL -> "Critical";
-                };
+                switch (priority) {
+                        case MINOR:
+                                return "Minor";
+                        case MEDIUM:
+                                return "Medium";
+                        case MAJOR:
+                                return "Major";
+                        case CRITICAL:
+                                return "Critical";
+                        default:
+                                return priority.name();
+                }
         }
 
         @Override

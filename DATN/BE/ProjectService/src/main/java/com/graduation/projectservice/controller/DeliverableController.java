@@ -68,10 +68,22 @@ public class DeliverableController {
 
         log.info(Constant.LOG_GET_PROJECT_STRUCTURE_REQUEST, projectId, userId, search);
 
-        return ResponseEntity.ok(new BaseResponse<>(
-                Constant.SUCCESS_STATUS,
-                Constant.PROJECT_STRUCTURE_RETRIEVED_SUCCESS,
-                deliverableService.getProjectStructure(projectId, userId, search)
-        ));
+        return ResponseEntity.ok(deliverableService.getProjectStructure(projectId, userId, search));
+    }
+
+    /**
+     * Get lightweight skeleton structure (deliverables + phases only, no tasks).
+     * For initial page load before lazy-loading tasks.
+     */
+    @GetMapping("/structure/skeleton")
+    public ResponseEntity<BaseResponse<?>> getProjectSkeleton(
+            @PathVariable Long projectId,
+            @RequestHeader("X-User-Id") Long userId) {
+
+        log.info("GET /projects/{}/deliverables/structure/skeleton - User: {}", projectId, userId);
+
+        BaseResponse<?> response = deliverableService.getProjectSkeleton(projectId, userId);
+
+        return ResponseEntity.ok(response);
     }
 }

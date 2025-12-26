@@ -74,22 +74,21 @@ public class DeliverableServiceImpl implements DeliverableService {
             return new BaseResponse<>(
                     Constant.SUCCESS_STATUS,
                     Constant.DELIVERABLE_CREATED_SUCCESS,
-                    data
-            );
+                    data);
 
         } catch (Exception e) {
             log.error("Failed to create deliverable for project {} by user {}", projectId, userId, e);
             return new BaseResponse<>(
                     Constant.ERROR_STATUS,
                     e.getMessage(),
-                    null
-            );
+                    null);
         }
     }
 
     @Override
     @Transactional
-    public BaseResponse<?> updateDeliverable(Long userId, Long projectId, Long deliverableId, UpdateDeliverableRequest request) {
+    public BaseResponse<?> updateDeliverable(Long userId, Long projectId, Long deliverableId,
+            UpdateDeliverableRequest request) {
         try {
             log.info(Constant.LOG_UPDATING_DELIVERABLE, deliverableId, projectId, userId);
 
@@ -111,16 +110,14 @@ public class DeliverableServiceImpl implements DeliverableService {
             return new BaseResponse<>(
                     Constant.SUCCESS_STATUS,
                     Constant.DELIVERABLE_UPDATED_SUCCESS,
-                    null
-            );
+                    null);
 
         } catch (Exception e) {
             log.error("Failed to update deliverable {} for project {} by user {}", deliverableId, projectId, userId, e);
             return new BaseResponse<>(
                     Constant.ERROR_STATUS,
                     e.getMessage(),
-                    null
-            );
+                    null);
         }
     }
 
@@ -148,16 +145,14 @@ public class DeliverableServiceImpl implements DeliverableService {
             return new BaseResponse<>(
                     Constant.SUCCESS_STATUS,
                     Constant.DELIVERABLE_DELETED_SUCCESS,
-                    null
-            );
+                    null);
 
         } catch (Exception e) {
             log.error("Failed to delete deliverable {} for project {} by user {}", deliverableId, projectId, userId, e);
             return new BaseResponse<>(
                     Constant.ERROR_STATUS,
                     e.getMessage(),
-                    null
-            );
+                    null);
         }
     }
 
@@ -172,8 +167,10 @@ public class DeliverableServiceImpl implements DeliverableService {
         final String searchKeyword = (search != null && !search.trim().isEmpty()) ? search.trim() : null;
         final boolean isSearching = searchKeyword != null;
 
-        // 3. Fetch all deliverables for the project (We fetch everything to search nested items)
-        // NOTE: If performance is an issue with very large projects, the repository query should be expanded to join and filter nested items in SQL/JPQL.
+        // 3. Fetch all deliverables for the project (We fetch everything to search
+        // nested items)
+        // NOTE: If performance is an issue with very large projects, the repository
+        // query should be expanded to join and filter nested items in SQL/JPQL.
         List<PM_Deliverable> allDeliverables = deliverableRepository.findByProjectIdOrderByOrderAsc(projectId);
 
         List<DeliverableStructureDTO> resultDeliverableDTOs = new ArrayList<>();
@@ -184,8 +181,10 @@ public class DeliverableServiceImpl implements DeliverableService {
             DeliverableStructureDTO dto = convertToStructureDTO(deliverable, isSearching, searchKeyword);
 
             // 5. Apply the final filtering criteria:
-            //    a) Deliverable name contains keyword (handled by helper methods: `isNameMatch`)
-            //    b) Or any nested phase/task contained the keyword (handled by the flag: `hasChildContainKeyword`)
+            // a) Deliverable name contains keyword (handled by helper methods:
+            // `isNameMatch`)
+            // b) Or any nested phase/task contained the keyword (handled by the flag:
+            // `hasChildContainKeyword`)
             if (!isSearching || dto.isHasChildContainKeyword() || isNameMatch(deliverable.getName(), searchKeyword)) {
                 resultDeliverableDTOs.add(dto);
             }
@@ -196,8 +195,10 @@ public class DeliverableServiceImpl implements DeliverableService {
         return new BaseResponse<>(1, Constant.PROJECT_STRUCTURE_RETRIEVED_SUCCESS, resultDeliverableDTOs);
     }
 
-    // Helper method for case-insensitive and accent-insensitive matching (using a simple lowercase check here)
-    // For true accent/case insensitivity matching the database function, you'd need a more advanced utility.
+    // Helper method for case-insensitive and accent-insensitive matching (using a
+    // simple lowercase check here)
+    // For true accent/case insensitivity matching the database function, you'd need
+    // a more advanced utility.
     private boolean isNameMatch(String name, String searchKeyword) {
         if (searchKeyword == null || name == null) {
             return false;
@@ -206,7 +207,8 @@ public class DeliverableServiceImpl implements DeliverableService {
         return name.toLowerCase().contains(searchKeyword.toLowerCase());
     }
 
-    private DeliverableStructureDTO convertToStructureDTO(PM_Deliverable deliverable, boolean isSearching, String searchKeyword) {
+    private DeliverableStructureDTO convertToStructureDTO(PM_Deliverable deliverable, boolean isSearching,
+            String searchKeyword) {
         List<PhaseDTO> phaseDTOs = deliverable.getPhases().stream()
                 .map(phase -> convertToPhaseDTO(phase, isSearching, searchKeyword))
                 .filter(Objects::nonNull)
@@ -219,14 +221,15 @@ public class DeliverableServiceImpl implements DeliverableService {
                 deliverable.getKey(),
                 deliverable.getOrder(),
                 false,
-                phaseDTOs
-        );
+                phaseDTOs);
 
         if (isSearching) {
-            // Check 1: Does the deliverable name itself match? (This is also checked in the main service method)
+            // Check 1: Does the deliverable name itself match? (This is also checked in the
+            // main service method)
             boolean selfMatch = isNameMatch(deliverable.getName(), searchKeyword);
 
-            // Check 2: Did any child phase match? (This handles both phase-level and task-level matches due to propagation)
+            // Check 2: Did any child phase match? (This handles both phase-level and
+            // task-level matches due to propagation)
             boolean childMatch = phaseDTOs.stream()
                     .anyMatch(PhaseDTO::isHasChildContainKeyword);
 
@@ -252,8 +255,7 @@ public class DeliverableServiceImpl implements DeliverableService {
                 phase.getKey(),
                 phase.getOrder(),
                 false, // Initial value
-                taskDTOs
-        );
+                taskDTOs);
 
         if (isSearching) {
             // Check 1: Does the phase name itself match?
@@ -270,8 +272,7 @@ public class DeliverableServiceImpl implements DeliverableService {
 
             if (selfMatch || childMatch) {
                 return dto;
-            }
-            else {
+            } else {
                 return null;
             }
         }
@@ -291,14 +292,12 @@ public class DeliverableServiceImpl implements DeliverableService {
                 formatStatus(task.getStatus()),
                 formatPriority(task.getPriority()),
                 task.getOrder(),
-                assigneeDTOs
-        );
+                assigneeDTOs);
 
         if (isSearching) {
             if (isNameMatch(task.getName(), searchKeyword)) {
                 return dto;
-            }
-            else {
+            } else {
                 return null;
             }
         }
@@ -327,20 +326,87 @@ public class DeliverableServiceImpl implements DeliverableService {
     }
 
     private String formatStatus(TaskStatus status) {
-        return switch (status) {
-            case TO_DO -> "To do";
-            case IN_PROGRESS -> "In progress";
-            case IN_REVIEW -> "In review";
-            case DONE -> "Done";
-        };
+        switch (status) {
+            case TO_DO:
+                return "To do";
+            case IN_PROGRESS:
+                return "In progress";
+            case IN_REVIEW:
+                return "In review";
+            case DONE:
+                return "Done";
+            default:
+                return status.name();
+        }
     }
 
     private String formatPriority(TaskPriority priority) {
-        return switch (priority) {
-            case MINOR -> "Minor";
-            case MEDIUM -> "Medium";
-            case MAJOR -> "Major";
-            case CRITICAL -> "Critical";
-        };
+        switch (priority) {
+            case MINOR:
+                return "Minor";
+            case MEDIUM:
+                return "Medium";
+            case MAJOR:
+                return "Major";
+            case CRITICAL:
+                return "Critical";
+            default:
+                return priority.name();
+        }
+    }
+
+    @Override
+    public BaseResponse<?> getProjectSkeleton(Long projectId, Long userId) {
+        log.info("Retrieving lightweight project skeleton for project {} by user {}", projectId, userId);
+
+        // 1. Authorization check
+        authHelper.requireActiveMember(projectId, userId);
+
+        // 2. Fetch all deliverables for the project
+        List<PM_Deliverable> allDeliverables = deliverableRepository.findByProjectIdOrderByOrderAsc(projectId);
+
+        // 3. Convert to skeleton DTOs (no task details, only counts)
+        List<SkeletonDeliverableDTO> skeletonDTOs = allDeliverables.stream()
+                .map(this::convertToSkeletonDTO)
+                .toList();
+
+        log.info("Project skeleton retrieved for project {}: {} deliverables", projectId, skeletonDTOs.size());
+
+        return new BaseResponse<>(1, "Project skeleton retrieved successfully", skeletonDTOs);
+    }
+
+    /**
+     * Convert Deliverable entity to Skeleton DTO
+     * Includes phases with task counts but NO task details
+     */
+    private SkeletonDeliverableDTO convertToSkeletonDTO(PM_Deliverable deliverable) {
+        List<SkeletonPhaseDTO> skeletonPhases = deliverable.getPhases().stream()
+                .map(this::convertToSkeletonPhaseDTO)
+                .sorted(Comparator.comparing(SkeletonPhaseDTO::getOrder))
+                .toList();
+
+        return new SkeletonDeliverableDTO(
+                deliverable.getDeliverableId(),
+                deliverable.getName(),
+                deliverable.getKey(),
+                deliverable.getOrder(),
+                skeletonPhases);
+    }
+
+    /**
+     * Convert Phase entity to Skeleton DTO
+     * Includes task count but NO task details
+     */
+    private SkeletonPhaseDTO convertToSkeletonPhaseDTO(PM_Phase phase) {
+        // Count tasks instead of loading full details
+        Integer taskCount = phase.getTasks() != null ? phase.getTasks().size() : 0;
+
+        return new SkeletonPhaseDTO(
+                phase.getPhaseId(),
+                phase.getName(),
+                phase.getKey(),
+                phase.getOrder(),
+                phase.getDeliverableId(),
+                taskCount);
     }
 }
