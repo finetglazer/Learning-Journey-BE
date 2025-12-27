@@ -30,8 +30,8 @@ public class ForumAnswer {
     @Column(name = "plain_text_preview", length = 700)
     private String plainTextPreview;
 
-    @Column(name = "mongo_content_id", length = 255)
-    private String mongoContentId;
+    @Column(name = "mongo_content_id")
+    private Integer mongoContentId;
 
     @Column(name = "is_accepted")
     private Boolean isAccepted = false;

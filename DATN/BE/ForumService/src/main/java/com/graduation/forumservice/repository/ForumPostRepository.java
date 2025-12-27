@@ -13,32 +13,30 @@ import java.util.Optional;
 @Repository
 public interface ForumPostRepository extends JpaRepository<ForumPost, Long> {
 
-    /**
-     * Fetches the forum feed by joining content with statistics.
-     * Uses the limit + 1 strategy (handled by the passed Pageable).
-     */
     @Query(value = """
-        SELECT p.*, s.score, s.view_count, s.answer_count
-        FROM forum_posts p
-        JOIN post_stats s ON p.post_id = s.post_id
-        WHERE (
-            :filter = 'ALL'\s
-            OR (:filter = 'MY_POSTS' AND p.user_id = :userId)
-            OR (:filter = 'SAVED_POSTS' AND p.post_id IN (
-                SELECT sp.post_id FROM saved_posts sp WHERE sp.user_id = :userId
-            ))
-        )
-        AND (:search IS NULL OR p.search_vector @@ plainto_tsquery('english', :search))
-        ORDER BY\s
-            CASE WHEN :sort = 'NEWEST' THEN p.created_at END DESC,
-            CASE WHEN :sort = 'HELPFUL' THEN s.score END DESC,
-            CASE WHEN :sort = 'RELEVANT' THEN ts_rank(p.search_vector, plainto_tsquery('english', :search)) END DESC
-       \s""",
+    SELECT\s
+        p.post_id, p.user_id, p.title, p.plain_text_preview, p.mongo_content_id,\s
+        p.is_solved, p.status,\s
+        array_to_string(p.tags, ',') as tags_str,\s
+        p.created_at,\s
+        s.score, s.view_count, s.answer_count
+    FROM forum_posts p
+    JOIN post_stats s ON p.post_id = s.post_id
+    WHERE (
+        (:filter = 'ALL')
+        OR (:filter = 'MY_POSTS' AND p.user_id = :userId)
+        OR (:filter = 'SAVED_POSTS' AND p.post_id IN (
+            SELECT sp.post_id FROM saved_posts sp WHERE sp.user_id = :userId
+        ))
+        OR (:filter = 'MOST_HELPFUL' AND s.score > 0)
+    )
+    AND (:search IS NULL OR :search = '' OR p.search_vector @@ plainto_tsquery('english', :search))
+    ORDER BY p.created_at DESC
+   \s""",
             nativeQuery = true)
     List<Object[]> findFeedPostsNative(
             @Param("userId") Long userId,
             @Param("filter") String filter,
-            @Param("sort") String sort,
             @Param("search") String search,
             Pageable pageable);
 
@@ -48,10 +46,15 @@ public interface ForumPostRepository extends JpaRepository<ForumPost, Long> {
      * Index 1: Integer (score)
      * Index 2: Long (viewCount)
      */
-    @Query("SELECT p, s.score, s.viewCount " +
-            "FROM ForumPost p " +
-            "JOIN PostStats s ON p.postId = s.postId " +
-            "WHERE p.postId = :postId")
-    Optional<Object[]> findPostDetailById(@Param("postId") Long postId);
-
+    @Query(value = """
+    SELECT 
+        p.post_id, p.user_id, p.title, p.plain_text_preview, p.mongo_content_id, 
+        p.is_solved, p.created_at, p.updated_at, 
+        array_to_string(p.tags, ',') as tags_str,
+        s.score, s.view_count, s.answer_count
+    FROM forum_posts p
+    JOIN post_stats s ON p.post_id = s.post_id
+    WHERE p.post_id = :postId
+    """, nativeQuery = true)
+    Optional<Object[]> findPostDetailByIdNative(@Param("postId") Long postId);
 }

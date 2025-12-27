@@ -15,6 +15,7 @@ import java.util.List;
 @AllArgsConstructor
 public class PostFeedDTO {
     private Long postId;
+    private Long userId;
     private String title;
     private String preview;
 

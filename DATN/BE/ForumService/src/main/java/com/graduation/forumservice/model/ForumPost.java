@@ -34,7 +34,7 @@ public class ForumPost {
     private String plainTextPreview;
 
     @Column(name = "mongo_content_id")
-    private String mongoContentId;
+    private Integer mongoContentId;
 
     @Column(name = "is_solved")
     private Boolean isSolved = false;

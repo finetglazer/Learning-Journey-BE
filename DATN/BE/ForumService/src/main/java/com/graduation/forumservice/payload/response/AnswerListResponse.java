@@ -10,6 +10,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AnswerListResponse {
-    private List<AnswerDTO> posts;
+    private List<AnswerDTO> answers;
     private PaginationDTO pagination;
 }

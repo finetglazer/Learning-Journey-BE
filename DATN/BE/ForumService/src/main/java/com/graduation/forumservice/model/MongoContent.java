@@ -17,14 +17,13 @@ import java.util.Map;
 @AllArgsConstructor
 @Document(collection = "mongo_contents")
 public class MongoContent {
-
     @Id
-    private ObjectId mongoContentId;
+    private ObjectId mongoContentObjId;
+
+    @Field("id")
+    private Integer id;
 
     @Field("content")
     private Map<String, Object> content;
 
-    public String getIdAsString() {
-        return mongoContentId != null ? mongoContentId.toHexString() : null;
-    }
 }

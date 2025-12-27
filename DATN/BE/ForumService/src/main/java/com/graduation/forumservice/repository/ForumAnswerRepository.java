@@ -20,13 +20,17 @@ public interface ForumAnswerRepository extends JpaRepository<ForumAnswer, Long> 
      * Index 1: Integer (calculated score)
      */
     @Query(value = """
-        SELECT a.*, (a.upvote_count - a.downvote_count) as calculated_score
-        FROM forum_answers a
-        WHERE a.post_id = :postId
-        ORDER BY\s
-            CASE WHEN :sort = 'MOST_HELPFUL' THEN (a.upvote_count - a.downvote_count) END DESC,
-            CASE WHEN :sort = 'NEWEST' THEN a.created_at END DESC
-       \s""", nativeQuery = true)
+    SELECT\s
+        a.answer_id, a.user_id, a.post_id, a.mongo_content_id,\s
+        a.upvote_count, a.downvote_count, a.is_accepted,\s
+        a.created_at, a.updated_at,
+        (a.upvote_count - a.downvote_count) as calculated_score
+    FROM forum_answers a
+    WHERE a.post_id = :postId
+    ORDER BY\s
+        CASE WHEN :sort = 'MOST_HELPFUL' THEN (a.upvote_count - a.downvote_count) END DESC,
+        CASE WHEN :sort = 'NEWEST' THEN a.created_at END DESC
+   \s""", nativeQuery = true)
     List<Object[]> findAnswersByPostIdNative(
             @Param("postId") Long postId,
             @Param("sort") String sort,

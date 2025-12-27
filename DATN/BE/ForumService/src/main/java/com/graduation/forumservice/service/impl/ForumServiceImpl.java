@@ -19,10 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -41,19 +38,16 @@ public class ForumServiceImpl implements ForumService {
     private final UserServiceClient userServiceClient;
     private final AnswerVoteRepository answerVoteRepository;
     private final ForumCommentRepository forumCommentRepository;
+    private final UserInfoCacheRepository userInfoCacheRepository;
 
     @Override
     public BaseResponse<?> getPostFeed(Long userId, int page, int limit, String filter, String sort, String search) {
-        log.info("Fetching forum feed for userId={}, filter={}, sort={}, page={}, limit={}",
-                userId, filter, sort, page, limit);
+        log.info("Fetching forum feed for userId={}, filter={}, sort={}, page={}, limit={}", userId, filter, sort, page, limit);
 
         // 1. Validate filter and sort parameters
-        if (!isValidFilter(filter) || !isValidSort(sort)) {
+        if (!isValidFilter(filter)) {
             log.warn("Invalid filter ({}) or sort ({}) parameter", filter, sort);
-            return new BaseResponse<>(
-                    Constant.ERROR_STATUS,
-                    Constant.INVALID_PARAM,
-                    null);
+            return new BaseResponse<>(Constant.ERROR_STATUS, Constant.INVALID_PARAM, null);
         }
 
         // 2. Create Pageable with limit + 1 strategy
@@ -62,7 +56,7 @@ public class ForumServiceImpl implements ForumService {
 
         // 3. Query posts using Native Query
         // This query joins forum_posts and post_stats
-        List<Object[]> rawResults = forumPostRepository.findFeedPostsNative(userId, filter, sort, search, pageable);
+        List<Object[]> rawResults = forumPostRepository.findFeedPostsNative(userId, filter.toUpperCase(), search, pageable);
         log.debug("Retrieved {} raw records from database", rawResults.size());
 
         // 4. Calculate hasMore using limit+1 strategy
@@ -82,10 +76,7 @@ public class ForumServiceImpl implements ForumService {
         PostListResponse data = new PostListResponse(postDTOs, pagination);
 
         log.info("Successfully retrieved {} posts for feed", postDTOs.size());
-        return new BaseResponse<>(
-                Constant.SUCCESS_STATUS,
-                Constant.FEED_RETRIEVED,
-                data);
+        return new BaseResponse<>(Constant.SUCCESS_STATUS, Constant.FEED_RETRIEVED, data);
     }
 
     @Override
@@ -101,7 +92,6 @@ public class ForumServiceImpl implements ForumService {
             MongoContent mongoContent = new MongoContent();
             mongoContent.setContent(request.getContent());
             mongoContent = mongoContentRepository.save(mongoContent);
-            String mongoId = mongoContent.getIdAsString();
 
             // 3. Handle Tags: Sync incoming tags with the master dictionary
             List<String> synchronizedTags = syncTags(request.getTags());
@@ -111,7 +101,7 @@ public class ForumServiceImpl implements ForumService {
                     .userId(userId)
                     .title(request.getTitle())
                     .plainTextPreview(plainTextPreview)
-                    .mongoContentId(mongoId)
+                    .mongoContentId(mongoContent.getId())
                     .tags(synchronizedTags)
                     .status(PostStatus.ACTIVE)
                     .isSolved(false)
@@ -120,20 +110,9 @@ public class ForumServiceImpl implements ForumService {
             post = forumPostRepository.save(post);
             Long postId = post.getPostId();
 
-            // 5. Initialize Post Statistics (Score: 0, Views: 0, Answers: 0)
-            PostStats stats = PostStats.builder()
-                    .postId(postId)
-                    .score(0)
-                    .viewCount(0L)
-                    .answerCount(0)
-                    .build();
-            postStatsRepository.save(stats);
-
             log.info("Successfully created post with ID: {}", postId);
-            return new BaseResponse<>(
-                    Constant.SUCCESS_STATUS,
-                    "Post created successfully",
-                    Map.of("postId", postId));
+            PostAuthorDTO author = fetchAuthorInfo(userId);
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Post created successfully", Map.of("post", toPostFeedDTO(post, author, 0, 0L, 0)));
 
         } catch (Exception e) {
             log.error("Failed to create post: {}", e.getMessage());
@@ -145,56 +124,62 @@ public class ForumServiceImpl implements ForumService {
     public BaseResponse<?> getPostDetail(Long userId, Long postId) {
         log.info("Fetching post details: postId={}, requestedBy={}", postId, userId);
 
-        // 1. Fetch Post and Stats from PostgresSQL using a custom projection/DTO row
-        Optional<Object[]> optionalRow = forumPostRepository.findPostDetailById(postId);
-        if (optionalRow.isEmpty()) {
-            log.warn("Post not found with id: {}", postId);
-            return new BaseResponse<>(
-                    Constant.ERROR_STATUS,
-                    "Post not found!",
-                    null
-            );
+        Optional<Object[]> optionalResult = forumPostRepository.findPostDetailByIdNative(postId);
+        if (optionalResult.isEmpty()) {
+            return new BaseResponse<>(Constant.ERROR_STATUS, "Post not found!", null);
         }
-        Object[] row = optionalRow.get();
-        ForumPost post = (ForumPost) row[0];
-        Integer score = (Integer) row[1];
-        Long viewCount = (Long) row[2];
 
-        // 2. Fetch Rich Content from MongoDB
-        MongoContent mongoContent = mongoContentRepository.findById(post.getMongoContentId())
-                .orElse(new MongoContent()); // Fallback to empty content if missing
+        // FIX: Extract the inner data array from the nested structure
+        Object[] outerRow = optionalResult.get();
+        Object[] data = (Object[]) outerRow[0];
 
-        // 3. Check current user's interaction (Vote and Saved status)
-        Integer userVote = postVoteRepository.findPostVoteByPostIdAndUserId(postId, userId).orElse(new PostVote()).getType();
+        // Mapping based on your Debugger screenshot (image_d9442a.png):
+        // 0: postId (42), 1: userId (31), 2: title, 3: preview, 4: mongoId ("1")
+        // 5: isSolved (false), 6: createdAt, 7: updatedAt, 8: tagsStr,
+        // 9: score (3), 10: viewCount (212), 11: answerCount (2)
+
+        Long authorUserId = ((Number) data[1]).longValue();
+        int mongoContentId = Integer.parseInt(String.valueOf(data[4])); // "1" in your screenshot
+
+        // Handle Tags (Index 8 in your debugger)
+        String tagsStr = (String) data[8];
+        List<String> tags = (tagsStr != null && !tagsStr.isEmpty())
+                ? Arrays.asList(tagsStr.split(","))
+                : Collections.emptyList();
+
+        // 2. Fetch Metadata and Author
+        MongoContent mongoContent = mongoContentRepository.findByIntId(mongoContentId)
+                .orElse(new MongoContent());
+        PostAuthorDTO author = fetchAuthorInfo(authorUserId);
+
+        // 3. Interaction checks
+        Integer userVote = postVoteRepository.findPostVoteByPostIdAndUserId(postId, userId)
+                .map(PostVote::getType).orElse(0);
         boolean isSaved = savedPostRepository.existsByPostIdAndUserId(userId, postId);
 
-        // 4. Update View Count (Asynchronous or direct increment)
-        // Note: In a production app, use Redis to buffer these updates
+        // 4. Update View Count
         postStatsRepository.incrementViewCount(postId);
 
-        // 5. Build the detailed DTO
+        // 5. Build Final Response
         PostDetailDTO detailDTO = PostDetailDTO.builder()
-                .postId(post.getPostId())
-                .title(post.getTitle())
-                .content(mongoContent.getContent()) // The rich JSON map
-                .author(fetchAuthorInfo(post.getUserId()))
-                .tags(post.getTags())
-                .stats(PostStatsDTO.builder()
-                        .score(score)
-                        .viewCount(viewCount + 1) // +1 to reflect current view
-                        .isSolved(post.getIsSolved())
-                        .build())
-                .userVote(userVote) // 1, -1, or 0
+                .postId(postId)
+                .title((String) data[2])
+                .content(mongoContent.getContent())
+                .author(author)
+                .tags(tags)
+                .userVote(userVote)
                 .isSaved(isSaved)
-                .createdAt(post.getCreatedAt())
-                .updatedAt(post.getUpdatedAt())
+                .createdAt(((java.sql.Timestamp) data[6]).toLocalDateTime())
+                .updatedAt(data[7] != null ? ((java.sql.Timestamp) data[7]).toLocalDateTime() : null)
+                .stats(PostStatsDTO.builder()
+                        .score(((Number) data[9]).intValue())
+                        .viewCount(((Number) data[10]).longValue() + 1)
+                        .isSolved((Boolean) data[5])
+                        .answerCount(((Number) data[11]).intValue())
+                        .build())
                 .build();
 
-        log.info("Successfully retrieved details for post: {}", postId);
-        return new BaseResponse<>(
-                Constant.SUCCESS_STATUS,
-                "Post details retrieved successfully",
-                Map.of("post", detailDTO));
+        return new BaseResponse<>(Constant.SUCCESS_STATUS, "Success", detailDTO);
     }
 
     @Override
@@ -222,11 +207,7 @@ public class ForumServiceImpl implements ForumService {
         } else {
             // Case C: New vote
             scoreChange = voteType;
-            PostVote newVote = PostVote.builder()
-                    .postId(postId)
-                    .userId(userId)
-                    .type(voteType)
-                    .build();
+            PostVote newVote = PostVote.builder().postId(postId).userId(userId).type(voteType).build();
             postVoteRepository.save(newVote);
         }
 
@@ -238,11 +219,7 @@ public class ForumServiceImpl implements ForumService {
         // 3. Fetch the updated score to return to the frontend
         Integer newTotalScore = postStatsRepository.findByPostId(postId).getScore();
 
-        return new BaseResponse<>(
-                Constant.SUCCESS_STATUS,
-                "Your vote has been recorded",
-                Map.of("newScore", newTotalScore, "userVote", voteType)
-        );
+        return new BaseResponse<>(Constant.SUCCESS_STATUS, "Your vote has been recorded", Map.of("newScore", newTotalScore, "userVote", voteType));
     }
 
     @Override
@@ -251,8 +228,7 @@ public class ForumServiceImpl implements ForumService {
         log.info("Updating solve status: postId={}, userId={}, isSolved={}", postId, userId, isSolved);
 
         // 1. Fetch post and verify existence
-        ForumPost post = forumPostRepository.findById(postId)
-                .orElseThrow(() -> new NotFoundException("Post not found!"));
+        ForumPost post = forumPostRepository.findById(postId).orElseThrow(() -> new NotFoundException("Post not found!"));
 
         // 2. Security Check: Only the post owner can mark it as solved
         if (!post.getUserId().equals(userId)) {
@@ -274,8 +250,7 @@ public class ForumServiceImpl implements ForumService {
         log.info("Attempting strict delete for post: postId={}, requestedBy={}", postId, userId);
 
         // 1. Fetch the post and its statistics
-        ForumPost post = forumPostRepository.findById(postId)
-                .orElseThrow(() -> new NotFoundException("Post not found!"));
+        ForumPost post = forumPostRepository.findById(postId).orElseThrow(() -> new NotFoundException("Post not found!"));
 
         // 2. Security Check: Only the owner (or an admin) can delete
         if (!post.getUserId().equals(userId)) {
@@ -288,11 +263,7 @@ public class ForumServiceImpl implements ForumService {
 
         if (answerCount != null && answerCount > 0) {
             log.warn("Delete blocked: Post {} has {} answers", postId, answerCount);
-            return new BaseResponse<>(
-                    Constant.ERROR_STATUS,
-                    "Cannot delete a question that has answers.",
-                    null
-            );
+            return new BaseResponse<>(Constant.ERROR_STATUS, "Cannot delete a question that has answers.", null);
         }
 
         try {
@@ -329,8 +300,7 @@ public class ForumServiceImpl implements ForumService {
     @Override
     @Transactional
     public BaseResponse<?> updateSavePostStatus(Long userId, Long postId, UpdateSavePostStatusRequest request) {
-        log.info("Processing save/unsave request: userId={}, postId={}, wannaSave={}",
-                userId, postId, request.isWannaSave());
+        log.info("Processing save/unsave request: userId={}, postId={}, wannaSave={}", userId, postId, request.isWannaSave());
 
         // 1. Verify the post exists before attempting to bookmark it
         if (!forumPostRepository.existsById(postId)) {
@@ -354,11 +324,7 @@ public class ForumServiceImpl implements ForumService {
             }
 
             log.info("Post {} {} successfully for user {}", postId, wannaSave ? "saved" : "unsaved", userId);
-            return new BaseResponse<>(
-                    Constant.SUCCESS_STATUS,
-                    wannaSave ? "Post saved successfully" : "Post removed from saved",
-                    null
-            );
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, wannaSave ? "Post saved successfully" : "Post removed from saved", null);
 
         } catch (Exception e) {
             log.error("Error toggling save status: {}", e.getMessage());
@@ -371,11 +337,7 @@ public class ForumServiceImpl implements ForumService {
         if (existing.isPresent() && !wannaSave) {
             savedPostRepository.delete(existing.get());
         } else if (existing.isEmpty() && wannaSave) {
-            SavedPost newSave = SavedPost.builder()
-                    .userId(userId)
-                    .postId(postId)
-                    .createdAt(LocalDateTime.now())
-                    .build();
+            SavedPost newSave = SavedPost.builder().userId(userId).postId(postId).createdAt(LocalDateTime.now()).build();
             savedPostRepository.save(newSave);
         }
     }
@@ -386,11 +348,7 @@ public class ForumServiceImpl implements ForumService {
         if (existing.isPresent() && !wannaSave) {
             projectSavedPostRepository.delete(existing.get());
         } else if (existing.isEmpty() && wannaSave) {
-            ProjectSavedPost projectSave = ProjectSavedPost.builder()
-                    .id(new ProjectSavedPostId(projectId, postId))
-                    .savedByUserId(userId)
-                    .savedAt(LocalDateTime.now())
-                    .build();
+            ProjectSavedPost projectSave = ProjectSavedPost.builder().id(new ProjectSavedPostId(projectId, postId)).savedByUserId(userId).savedAt(LocalDateTime.now()).build();
             projectSavedPostRepository.save(projectSave);
         }
     }
@@ -427,10 +385,7 @@ public class ForumServiceImpl implements ForumService {
         AnswerListResponse data = new AnswerListResponse(answerDTOs, pagination);
 
         log.info("Retrieved {} answers for post {}", answerDTOs.size(), postId);
-        return new BaseResponse<>(
-                Constant.SUCCESS_STATUS,
-                "Answers retrieved successfully",
-                data);
+        return new BaseResponse<>(Constant.SUCCESS_STATUS, "Answers retrieved successfully", data);
     }
 
     @Override
@@ -452,14 +407,14 @@ public class ForumServiceImpl implements ForumService {
             MongoContent mongoContent = new MongoContent();
             mongoContent.setContent(request.getContent());
             mongoContent = mongoContentRepository.save(mongoContent);
-            String mongoId = mongoContent.getIdAsString();
 
             // 4. Create and save the ForumAnswer entity using your updated model
-            ForumAnswer answer = ForumAnswer.builder()
+            ForumAnswer answer = ForumAnswer
+                    .builder()
                     .postId(postId)
                     .userId(userId)
                     .plainTextPreview(plainTextPreview)
-                    .mongoContentId(mongoId)
+                    .mongoContentId(mongoContent.getId())
                     .isAccepted(false)
                     .upvoteCount(0)
                     .downvoteCount(0)
@@ -472,11 +427,7 @@ public class ForumServiceImpl implements ForumService {
             postStatsRepository.incrementAnswerCount(postId);
 
             log.info("Successfully submitted answer {} for post {}", answerId, postId);
-            return new BaseResponse<>(
-                    Constant.SUCCESS_STATUS,
-                    "Answer submitted successfully",
-                    Map.of("answerId", answerId)
-            );
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Answer submitted successfully", Map.of("answerId", answerId));
 
         } catch (Exception e) {
             log.error("Failed to submit answer: {}", e.getMessage());
@@ -490,20 +441,14 @@ public class ForumServiceImpl implements ForumService {
         log.info("Attempting to accept answer: answerId={}, by userId={}", answerId, userId);
 
         // 1. Fetch the answer and its parent post
-        ForumAnswer answer = forumAnswerRepository.findById(answerId)
-                .orElseThrow(() -> new NotFoundException("Answer not found!"));
+        ForumAnswer answer = forumAnswerRepository.findById(answerId).orElseThrow(() -> new NotFoundException("Answer not found!"));
 
-        ForumPost post = forumPostRepository.findById(answer.getPostId())
-                .orElseThrow(() -> new NotFoundException("Post not found!"));
+        ForumPost post = forumPostRepository.findById(answer.getPostId()).orElseThrow(() -> new NotFoundException("Post not found!"));
 
         // 2. Security Check: Only the post author can accept an answer
         if (!post.getUserId().equals(userId)) {
             log.warn("Unauthorized accept attempt: userId {} is not the author of post {}", userId, post.getPostId());
-            return new BaseResponse<>(
-                    Constant.ERROR_STATUS,
-                    "Only the author of the post can accept an answer.",
-                    null
-            );
+            return new BaseResponse<>(Constant.ERROR_STATUS, "Only the author of the post can accept an answer.", null);
         }
 
         try {
@@ -519,11 +464,7 @@ public class ForumServiceImpl implements ForumService {
             forumPostRepository.save(post);
 
             log.info("Answer {} successfully accepted for post {}", answerId, post.getPostId());
-            return new BaseResponse<>(
-                    Constant.SUCCESS_STATUS,
-                    "Answer accepted successfully",
-                    Map.of("postId", post.getPostId(), "answerId", answerId)
-            );
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Answer accepted successfully", Map.of("postId", post.getPostId(), "answerId", answerId));
 
         } catch (Exception e) {
             log.error("Failed to accept answer: {}", e.getMessage());
@@ -537,8 +478,7 @@ public class ForumServiceImpl implements ForumService {
         log.info("Executing deep delete for answer: answerId={}, requestedBy={}", answerId, userId);
 
         // 1. Fetch the answer to verify existence and ownership
-        ForumAnswer answer = forumAnswerRepository.findById(answerId)
-                .orElseThrow(() -> new NotFoundException("Answer not found!"));
+        ForumAnswer answer = forumAnswerRepository.findById(answerId).orElseThrow(() -> new NotFoundException("Answer not found!"));
 
         // 2. Security Check
         if (!answer.getUserId().equals(userId)) {
@@ -613,11 +553,7 @@ public class ForumServiceImpl implements ForumService {
             if (voteType == 1) upvoteChange = 1;
             else downvoteChange = 1;
 
-            AnswerVote newVote = AnswerVote.builder()
-                    .answerId(answerId)
-                    .userId(userId)
-                    .type(voteType)
-                    .build();
+            AnswerVote newVote = AnswerVote.builder().answerId(answerId).userId(userId).type(voteType).build();
             answerVoteRepository.save(newVote);
         }
 
@@ -631,16 +567,7 @@ public class ForumServiceImpl implements ForumService {
             throw new NotFoundException("Answer not found!");
         }
         ForumAnswer updatedAnswer = optionalUpdatedAnswer.get();
-        return new BaseResponse<>(
-                Constant.SUCCESS_STATUS,
-                "Vote recorded",
-                Map.of(
-                        "newScore", updatedAnswer.getScore(),
-                        "upvoteCount", updatedAnswer.getUpvoteCount(),
-                        "downvoteCount", updatedAnswer.getDownvoteCount(),
-                        "userVote", voteType
-                )
-        );
+        return new BaseResponse<>(Constant.SUCCESS_STATUS, "Vote recorded", Map.of("newScore", updatedAnswer.getScore(), "upvoteCount", updatedAnswer.getUpvoteCount(), "downvoteCount", updatedAnswer.getDownvoteCount(), "userVote", voteType));
     }
 
     @Override
@@ -667,23 +594,16 @@ public class ForumServiceImpl implements ForumService {
         }
 
         // 4. Map to DTO
-        List<CommentDTO> commentDTOs = rawComments.stream()
-                .map(this::toCommentDTO)
-                .toList();
+        List<CommentDTO> commentDTOs = rawComments.stream().map(this::toCommentDTO).toList();
 
         PaginationDTO pagination = new PaginationDTO(page, hasMore);
-        return new BaseResponse<>(
-                Constant.SUCCESS_STATUS,
-                "Comments retrieved successfully",
-                Map.of("comments", commentDTOs, "pagination", pagination)
-        );
+        return new BaseResponse<>(Constant.SUCCESS_STATUS, "Comments retrieved successfully", Map.of("comments", commentDTOs, "pagination", pagination));
     }
 
     @Override
     @Transactional
     public BaseResponse<?> addComment(Long userId, CreateCommentRequest request) {
-        log.info("Adding new comment: userId={}, targetType={}, parentId={}",
-                userId, request.getTargetType(), request.getReplyToCommentId());
+        log.info("Adding new comment: userId={}, targetType={}, parentId={}", userId, request.getTargetType(), request.getReplyToCommentId());
 
         try {
             // 1. Initialize foreign key variables
@@ -707,34 +627,21 @@ public class ForumServiceImpl implements ForumService {
                 // 3. Handle Reply Context (Snapshot for replyToCommentId)
                 String previewSnapshot = null;
                 if (request.getReplyToCommentId() != null) {
-                    previewSnapshot = forumCommentRepository.findById(request.getReplyToCommentId())
-                            .map(parent -> {
-                                String text = parent.getContentText();
-                                return (text != null && text.length() > 50)
-                                        ? text.substring(0, 47) + "..."
-                                        : text;
-                            })
-                            .orElse(null);
+                    previewSnapshot = forumCommentRepository.findById(request.getReplyToCommentId()).map(parent -> {
+                        String text = parent.getContentText();
+                        return (text != null && text.length() > 50) ? text.substring(0, 47) + "..." : text;
+                    }).orElse(null);
                 }
 
                 // 4. Build and Save Entity matching your ForumComment schema
-                ForumComment comment = ForumComment.builder()
-                        .userId(userId)
-                        .postId(postId)             // Only one of these will be non-null
+                ForumComment comment = ForumComment.builder().userId(userId).postId(postId)             // Only one of these will be non-null
                         .answerId(answerId)         // depending on TargetType
-                        .parentCommentId(request.getReplyToCommentId())
-                        .contentText(request.getContent())
-                        .replyPreviewSnapshot(previewSnapshot)
-                        .build();
+                        .parentCommentId(request.getReplyToCommentId()).contentText(request.getContent()).replyPreviewSnapshot(previewSnapshot).build();
 
                 comment = forumCommentRepository.save(comment);
 
                 log.info("Successfully saved comment with ID: {}", comment.getCommentId());
-                return new BaseResponse<>(
-                        Constant.SUCCESS_STATUS,
-                        "Comment added successfully",
-                        Map.of("commentId", comment.getCommentId())
-                );
+                return new BaseResponse<>(Constant.SUCCESS_STATUS, "Comment added successfully", Map.of("commentId", comment.getCommentId()));
 
             } catch (Exception e) {
                 log.error("Failed to add comment: {}", e.getMessage());
@@ -752,8 +659,7 @@ public class ForumServiceImpl implements ForumService {
         log.info("Attempting to delete comment: commentId={}, requestedBy={}", commentId, userId);
 
         // 1. Fetch the comment and verify existence
-        ForumComment comment = forumCommentRepository.findById(commentId)
-                .orElseThrow(() -> new NotFoundException("Comment not found!"));
+        ForumComment comment = forumCommentRepository.findById(commentId).orElseThrow(() -> new NotFoundException("Comment not found!"));
 
         // 2. Security Check: Only the author can delete their comment
         if (!comment.getUserId().equals(userId)) {
@@ -771,11 +677,7 @@ public class ForumServiceImpl implements ForumService {
             forumCommentRepository.delete(comment);
 
             log.info("Successfully deleted comment {}", commentId);
-            return new BaseResponse<>(
-                    Constant.SUCCESS_STATUS,
-                    "Comment and its replies deleted successfully",
-                    null
-            );
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Comment and its replies deleted successfully", null);
 
         } catch (Exception e) {
             log.error("Failed to delete comment {}: {}", commentId, e.getMessage());
@@ -789,114 +691,163 @@ public class ForumServiceImpl implements ForumService {
 
         // 1. Handle empty or too short queries to prevent heavy scans
         if (query == null || query.trim().isEmpty()) {
-            return new BaseResponse<>(
-                    Constant.SUCCESS_STATUS,
-                    "Search query too short",
-                    new ArrayList<>()
-            );
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Search query too short", new ArrayList<>());
         }
 
         // 2. Fetch matching tags from repository
         // We limit to top 10 results for better UX in dropdowns
-        List<String> matchingTags = forumTagRepository.findByNameContainingIgnoreCase(query.trim())
-                .stream()
-                .map(obj -> ((ForumTag) obj).getName())
-                .limit(10)
-                .toList();
+        List<String> matchingTags = forumTagRepository.findByNameContainingIgnoreCase(query.trim()).stream().map(obj -> ((ForumTag) obj).getName()).limit(10).toList();
 
-        log.debug("Found {} tags matching '{}'", matchingTags.size(), query);
+        log.info("Found {} tags matching '{}'", matchingTags.size(), query);
 
-        return new BaseResponse<>(
-                Constant.SUCCESS_STATUS,
-                "Tags retrieved successfully",
-                Map.of("tags", matchingTags)
-        );
+        return new BaseResponse<>(Constant.SUCCESS_STATUS, "Tags retrieved successfully", Map.of("tags", matchingTags));
     }
 
     private CommentDTO toCommentDTO(ForumComment comment) {
         log.debug("Mapping ForumComment entity to DTO: commentId={}", comment.getCommentId());
 
-        return CommentDTO.builder()
-                .commentId(comment.getCommentId())
-                .content(comment.getContentText()) // Maps to the 'text' column in PostgresSQL
+        return CommentDTO.builder().commentId(comment.getCommentId()).content(comment.getContentText()) // Maps to the 'text' column in PostgresSQL
                 .author(fetchAuthorInfo(comment.getUserId())) // Calls your User Service resolver
                 .parentCommentId(comment.getParentCommentId()) // Null for top-level, Long for replies
                 .replyPreview(comment.getReplyPreviewSnapshot()) // Context snippet for the reply
-                .postId(comment.getPostId())
-                .answerId(comment.getAnswerId())
-                .createdAt(comment.getCreatedAt())
-                .updatedAt(comment.getUpdatedAt())
-                .build();
+                .postId(comment.getPostId()).answerId(comment.getAnswerId()).createdAt(comment.getCreatedAt()).updatedAt(comment.getUpdatedAt()).build();
     }
 
     private PostFeedDTO toPostFeedDTO(Object[] row) {
-        // Mapping logic matching your database schema
-        ForumPost post = (ForumPost) row[0];
+        // 1. Handle Tags String to List conversion (Index 7)
+        String tagsStr = (String) row[7];
+        List<String> tags = (tagsStr != null && !tagsStr.isEmpty())
+                ? Arrays.asList(tagsStr.split(","))
+                : Collections.emptyList();
+
+        // 2. Fix: Handle Numeric Ordinal for PostStatus (Index 6)
+        PostStatus status;
+        Object statusRaw = row[6];
+
+        if (statusRaw instanceof Number) {
+            // Standard numeric ordinal from DB
+            status = PostStatus.values()[((Number) statusRaw).intValue()];
+        } else if (statusRaw instanceof String statusStr) {
+            // Check if the string is actually a numeric index (like "0")
+            if (statusStr.matches("\\d+")) {
+                int index = Integer.parseInt(statusStr);
+                status = PostStatus.values()[index];
+            } else {
+                // Standard string name (like "ACTIVE")
+                status = PostStatus.valueOf(statusStr);
+            }
+        } else {
+            status = PostStatus.ACTIVE;
+        }
+
+        // 3. Resolve Author Information using Cache-Aside
+        Long userId = ((Number) row[1]).longValue();
+        PostAuthorDTO author = fetchAuthorInfo(userId);
+
+        // 4. Construct DTO with safe casting
         return PostFeedDTO.builder()
-                .postId(post.getPostId())
-                .title(post.getTitle())
-                .preview(post.getPlainTextPreview())
-                .tags(post.getTags()) // text[] mapped via Hibernate 6
-                .score((Integer) row[1])
-                .viewCount((Long) row[2])
-                .answerCount((Integer) row[3])
-                .isSolved(post.getIsSolved())
-                .createdAt(post.getCreatedAt())
-                .build();
-    }
-
-    private boolean isValidFilter(String filter) {
-        return List.of("ALL", "MY_POSTS", "SAVED_POSTS").contains(filter);
-    }
-
-    private boolean isValidSort(String sort) {
-        return List.of("NEWEST", "HELPFUL", "RELEVANT").contains(sort);
-    }
-
-    private AnswerDTO toAnswerDTO(Object[] row) {
-        ForumAnswer answer = (ForumAnswer) row[0];
-        Integer score = (Integer) row[1];
-
-        // Fetch rich text from MongoDB
-        MongoContent mongoContent = mongoContentRepository.findById(answer.getMongoContentId())
-                .orElse(new MongoContent());
-
-        return AnswerDTO.builder()
-                .answerId(answer.getAnswerId())
-                .content(mongoContent.getContent())
-                .author(fetchAuthorInfo(answer.getUserId()))
-                .score(score)
-                .isAccepted(answer.getIsAccepted())
-                .createdAt(answer.getCreatedAt())
-                .updatedAt(answer.getUpdatedAt())
+                .postId(((Number) row[0]).longValue())
+                .userId(userId)
+                .title((String) row[2])
+                .preview((String) row[3])
+                // mongoContentId is at Index 4, ensure it's in your DTO if needed
+                .isSolved((Boolean) row[5])
+                .status(status)
+                .tags(tags)
+                .authorId(author.getUserId())
+                .authorName(author.getName())
+                .authorAvatar(author.getAvatar())
+                .createdAt(((java.sql.Timestamp) row[8]).toLocalDateTime())
+                .score(((Number) row[9]).intValue())
+                .viewCount(((Number) row[10]).longValue())
+                .answerCount(((Number) row[11]).intValue())
                 .build();
     }
 
     /**
-     * Resolves a userId into a PostAuthorDTO by calling the User Service.
-     * Includes a fallback mechanism for deleted or missing users.
+     * Maps a ForumPost entity and its related metadata into a PostFeedDTO.
+     * Used to return a consistent structure after post creation.
+     */
+    private PostFeedDTO toPostFeedDTO(ForumPost post, PostAuthorDTO author, Integer score, Long views, Integer answers) {
+        return PostFeedDTO.builder()
+                .postId(post.getPostId())
+                .userId(post.getUserId())
+                .authorId(author.getUserId())
+                .authorName(author.getName())
+                .authorAvatar(author.getAvatar())
+                .title(post.getTitle())
+                .preview(post.getPlainTextPreview())
+                .isSolved(post.getIsSolved())
+                .status(post.getStatus())
+                .tags(post.getTags())
+                .createdAt(post.getCreatedAt())
+                .score(score)
+                .viewCount(views)
+                .answerCount(answers)
+                .build();
+    }
+
+    private boolean isValidFilter(String filter) {
+        return List.of("ALL", "MY_POSTS", "SAVED_POSTS", "MOST_HELPFUL").contains(filter.toUpperCase());
+    }
+
+    private AnswerDTO toAnswerDTO(Object[] row) {
+        // Index Mapping based on the SELECT above:
+        // 0: answer_id, 1: user_id, 2: post_id, 3: mongo_content_id,
+        // 4: upvote_count, 5: downvote_count, 6: is_accepted,
+        // 7: created_at, 8: updated_at, 9: calculated_score
+
+        Long answerId = ((Number) row[0]).longValue();
+        Long userId = ((Number) row[1]).longValue();
+        int mongoContentId = Integer.parseInt(String.valueOf(row[3]));
+        Boolean isAccepted = (Boolean) row[6];
+
+        // Fetch rich text from MongoDB using the ID string
+        MongoContent mongoContent = mongoContentRepository.findByIntId(mongoContentId)
+                .orElse(new MongoContent());
+
+        // Construct DTO
+        return AnswerDTO.builder()
+                .answerId(answerId)
+                .content(mongoContent.getContent())
+                .author(fetchAuthorInfo(userId)) // Uses your UserInfoCache
+                .score(((Number) row[9]).intValue())
+                .isAccepted(isAccepted)
+                .createdAt(((java.sql.Timestamp) row[7]).toLocalDateTime())
+                .updatedAt(row[8] != null ? ((java.sql.Timestamp) row[8]).toLocalDateTime() : null)
+                .build();
+    }
+
+    /**
+     * Resolves a userId into a PostAuthorDTO using a tiered approach:
+     * 1. Check local UserInfoCache (PostgresSQL).
+     * 2. If missing, call User Service and update the local cache.
+     * 3. Fallback to placeholder if User Service also fails.
      */
     private PostAuthorDTO fetchAuthorInfo(Long userId) {
         log.debug("Resolving author info for userId: {}", userId);
 
-        // 1. Call the internal User Service client
-        return userServiceClient.getUserById(userId)
-                .map(user -> {
-                    log.debug("Found user profile for ID {}: {}", userId, user.getName());
-                    return PostAuthorDTO.builder()
-                            .userId(user.getUserId())
-                            .name(user.getName())
-                            .avatar(user.getAvatarUrl())
-                            .build();
+        // 1. Try to find in local cache first
+        return userInfoCacheRepository.findById(userId).map(cache -> {
+                    log.debug("Cache hit for userId: {}", userId);
+                    return PostAuthorDTO.builder().userId(cache.getUserId()).name(cache.getDisplayName()).avatar(cache.getAvatarUrl()).build();
                 })
-                // 2. Fallback logic: If user is not found, provide a placeholder
+                // 2. Cache miss: Call Remote User Service
                 .orElseGet(() -> {
-                    log.warn("User profile not found for ID: {}. Using placeholder.", userId);
-                    return PostAuthorDTO.builder()
-                            .userId(userId)
-                            .name("Unknown User")
-                            .avatar(null)
-                            .build();
+                    log.info("Cache miss for userId: {}. Fetching from User Service.", userId);
+
+                    return userServiceClient.getUserById(userId).map(user -> {
+                                // Update local cache for next time
+                                UserInfoCache newCache = new UserInfoCache(user.getUserId(), user.getName(), user.getAvatarUrl());
+                                userInfoCacheRepository.save(newCache);
+
+                                return PostAuthorDTO.builder().userId(user.getUserId()).name(user.getName()).avatar(user.getAvatarUrl()).build();
+                            })
+                            // 3. Ultimate Fallback: User doesn't exist in system
+                            .orElseGet(() -> {
+                                log.warn("User ID {} not found in User Service. Returning placeholder.", userId);
+                                return PostAuthorDTO.builder().userId(userId).name("Unknown User").avatar(null).build();
+                            });
                 });
     }
 
