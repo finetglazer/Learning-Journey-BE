@@ -11,6 +11,7 @@ import com.graduation.forumservice.payload.request.UpdateSavePostStatusRequest;
 import com.graduation.forumservice.payload.response.*;
 import com.graduation.forumservice.repository.*;
 import com.graduation.forumservice.service.ForumService;
+import com.graduation.forumservice.service.SequenceGeneratorService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,7 @@ public class ForumServiceImpl implements ForumService {
     private final AnswerVoteRepository answerVoteRepository;
     private final ForumCommentRepository forumCommentRepository;
     private final UserInfoCacheRepository userInfoCacheRepository;
+    private final SequenceGeneratorService sequenceGeneratorService;
 
     @Override
     public BaseResponse<?> getPostFeed(Long userId, int page, int limit, String filter, String sort, String search) {
@@ -91,6 +93,7 @@ public class ForumServiceImpl implements ForumService {
             // 2. Save rich content to MongoDB first to get the Document ID
             MongoContent mongoContent = new MongoContent();
             mongoContent.setContent(request.getContent());
+            mongoContent.setId(sequenceGeneratorService.generateSequence("mongo_content_sequence"));
             mongoContent = mongoContentRepository.save(mongoContent);
 
             // 3. Handle Tags: Sync incoming tags with the master dictionary
@@ -455,6 +458,7 @@ public class ForumServiceImpl implements ForumService {
             // 3. Save rich content to MongoDB
             MongoContent mongoContent = new MongoContent();
             mongoContent.setContent(request.getContent());
+            mongoContent.setId(sequenceGeneratorService.generateSequence("mongo_content_sequence"));
             mongoContent = mongoContentRepository.save(mongoContent);
 
             // 4. Create and save the ForumAnswer entity using your updated model
@@ -639,7 +643,7 @@ public class ForumServiceImpl implements ForumService {
         log.info("Fetching SQL-based comments: type={}, id={}, page={}, limit={}", targetType, targetId, page, limit);
 
         // 1. Setup Pageable (limit + 1 strategy)
-        Pageable pageable = PageRequest.of(page - 1, limit + 1);
+        Pageable pageable = PageRequest.of(page - 1, limit);
         List<ForumComment> rawComments;
 
         // 2. Fetch directly from SQL repositories

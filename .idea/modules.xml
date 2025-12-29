@@ -3,6 +3,8 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/DATN.TEAM.BE.iml" filepath="$PROJECT_DIR$/.idea/DATN.TEAM.BE.iml" />
+      <module fileurl="file://$PROJECT_DIR$/DATN/BE/ForumService/ForumService.iml" filepath="$PROJECT_DIR$/DATN/BE/ForumService/ForumService.iml" />
+      <module fileurl="file://$PROJECT_DIR$/DATN/BE/SchedulingService/SchedulingService.iml" filepath="$PROJECT_DIR$/DATN/BE/SchedulingService/SchedulingService.iml" />
     </modules>
   </component>
 </project>
