@@ -47,14 +47,14 @@ public interface ForumPostRepository extends JpaRepository<ForumPost, Long> {
      * Index 2: Long (viewCount)
      */
     @Query(value = """
-    SELECT 
-        p.post_id, p.user_id, p.title, p.plain_text_preview, p.mongo_content_id, 
-        p.is_solved, p.created_at, p.updated_at, 
+    SELECT\s
+        p.post_id, p.user_id, p.title, p.plain_text_preview, p.mongo_content_id,\s
+        p.is_solved, p.created_at, p.updated_at,\s
         array_to_string(p.tags, ',') as tags_str,
         s.score, s.view_count, s.answer_count
     FROM forum_posts p
     JOIN post_stats s ON p.post_id = s.post_id
     WHERE p.post_id = :postId
-    """, nativeQuery = true)
+   \s""", nativeQuery = true)
     Optional<Object[]> findPostDetailByIdNative(@Param("postId") Long postId);
 }

@@ -40,6 +40,7 @@ public class ForumPost {
     private Boolean isSolved = false;
 
     @Column(columnDefinition = "varchar default 'ACTIVE'")
+    @Enumerated(EnumType.STRING)
     private PostStatus status = PostStatus.ACTIVE; // Matches 'ACTIVE'::character varying
 
     // TSVector requires a custom mapping or can be handled as a String for JPA

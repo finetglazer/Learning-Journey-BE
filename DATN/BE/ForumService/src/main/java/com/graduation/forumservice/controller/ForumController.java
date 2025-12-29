@@ -102,11 +102,11 @@ public class ForumController {
         return ResponseEntity.ok(forumService.submitAnswer(userId, postId, request));
     }
 
-    @PutMapping("/answers/{answerId}/accept")
-    public ResponseEntity<?> acceptAnswer(
+    @PutMapping("/answers/{answerId}/switch-accept-status")
+    public ResponseEntity<?> switchAnswerAcceptStatus(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long answerId) {
-        return ResponseEntity.ok(forumService.acceptAnswer(userId, answerId));
+        return ResponseEntity.ok(forumService.switchAnswerAcceptStatus(userId, answerId));
     }
 
     @PostMapping("/answers/{answerId}/vote")

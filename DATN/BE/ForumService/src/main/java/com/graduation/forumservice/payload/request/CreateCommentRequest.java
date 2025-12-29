@@ -9,7 +9,7 @@ import lombok.Data;
 public class CreateCommentRequest {
 
     @NotBlank(message = "Target type is required")
-    @Pattern(regexp = "POST|ANSWER", message = "Target type must be POST or ANSWER")
+    @Pattern(regexp = "POST|ANSWER|COMMENT", message = "Target type must be POST or ANSWER or COMMENT")
     private String targetType;
 
     @NotNull(message = "Target ID is required")

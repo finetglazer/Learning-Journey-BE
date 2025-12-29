@@ -23,4 +23,8 @@ public interface ForumCommentRepository extends JpaRepository<ForumComment, Long
     List<ForumComment> findAllByAnswerIdOrderByCreatedAtAsc(Long answerId, Pageable pageable);
 
     Long deleteAllByParentCommentId(Long parentCommentId);
+
+    List<ForumComment> findByPostIdOrderByCreatedAtAsc(Long answerId, Pageable limits);
+
+    List<ForumComment> findByAnswerIdOrderByCreatedAtAsc(Long answerId, Pageable pageable);
 }

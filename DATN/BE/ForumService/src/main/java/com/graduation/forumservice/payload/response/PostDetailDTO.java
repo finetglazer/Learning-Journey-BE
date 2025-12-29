@@ -16,6 +16,8 @@ public class PostDetailDTO {
     private PostAuthorDTO author;
     private List<String> tags; // PostgresSQL text[]
     private PostStatsDTO stats;
+    private List<AnswerDTO> answers;
+    private List<CommentDTO> comments;
     private Integer userVote; // Specific to current user
     private Boolean isSaved; // Specific to current user
     private LocalDateTime createdAt;

@@ -64,7 +64,7 @@ public interface ForumService {
     /**
      * Marks a specific answer as the 'Accepted Solution'.
      */
-    BaseResponse<?> acceptAnswer(Long userId, Long answerId);
+    BaseResponse<?> switchAnswerAcceptStatus(Long userId, Long answerId);
 
     /**
      * Deletes an answer and its associated comments.

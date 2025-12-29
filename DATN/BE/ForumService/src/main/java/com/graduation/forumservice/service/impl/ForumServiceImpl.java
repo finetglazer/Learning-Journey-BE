@@ -122,64 +122,111 @@ public class ForumServiceImpl implements ForumService {
 
     @Override
     public BaseResponse<?> getPostDetail(Long userId, Long postId) {
-        log.info("Fetching post details: postId={}, requestedBy={}", postId, userId);
+        log.info("Fetching post detail with flat structure: postId={}", postId);
 
+        // 1. Fetch Post Detail (Native Mapping)
         Optional<Object[]> optionalResult = forumPostRepository.findPostDetailByIdNative(postId);
         if (optionalResult.isEmpty()) {
             return new BaseResponse<>(Constant.ERROR_STATUS, "Post not found!", null);
         }
 
-        // FIX: Extract the inner data array from the nested structure
-        Object[] outerRow = optionalResult.get();
-        Object[] data = (Object[]) outerRow[0];
-
-        // Mapping based on your Debugger screenshot (image_d9442a.png):
-        // 0: postId (42), 1: userId (31), 2: title, 3: preview, 4: mongoId ("1")
-        // 5: isSolved (false), 6: createdAt, 7: updatedAt, 8: tagsStr,
-        // 9: score (3), 10: viewCount (212), 11: answerCount (2)
-
+        Object[] data = (Object[]) optionalResult.get()[0];
         Long authorUserId = ((Number) data[1]).longValue();
-        int mongoContentId = Integer.parseInt(String.valueOf(data[4])); // "1" in your screenshot
-
-        // Handle Tags (Index 8 in your debugger)
+        int mongoContentId = Integer.parseInt(String.valueOf(data[4]));
         String tagsStr = (String) data[8];
         List<String> tags = (tagsStr != null && !tagsStr.isEmpty())
                 ? Arrays.asList(tagsStr.split(","))
                 : Collections.emptyList();
 
-        // 2. Fetch Metadata and Author
-        MongoContent mongoContent = mongoContentRepository.findByIntId(mongoContentId)
-                .orElse(new MongoContent());
-        PostAuthorDTO author = fetchAuthorInfo(authorUserId);
+        // 2. Fetch Top 5 Answers (Flattened - no nested comments here)
+        List<AnswerDTO> answers = fetchTopAnswers(postId);
 
-        // 3. Interaction checks
+        // 3. Fetch Comments for all these answers (at the root level)
+        List<Long> answerIds = answers.stream().map(AnswerDTO::getAnswerId).toList();
+        List<CommentDTO> rootComments = fetchRootComments(postId, answerIds);
+
+        // 4. Resolve Post Metadata
+        MongoContent postContent = mongoContentRepository.findByIntId(mongoContentId).orElse(new MongoContent());
+        PostAuthorDTO postAuthor = fetchAuthorInfo(authorUserId);
+
+        // 5. Interaction checks
         Integer userVote = postVoteRepository.findPostVoteByPostIdAndUserId(postId, userId)
                 .map(PostVote::getType).orElse(0);
         boolean isSaved = savedPostRepository.existsByPostIdAndUserId(userId, postId);
 
-        // 4. Update View Count
-        postStatsRepository.incrementViewCount(postId);
-
-        // 5. Build Final Response
+        // 6. Build Final DTO
         PostDetailDTO detailDTO = PostDetailDTO.builder()
                 .postId(postId)
                 .title((String) data[2])
-                .content(mongoContent.getContent())
-                .author(author)
+                .content(postContent.getContent())
+                .author(postAuthor)
                 .tags(tags)
-                .userVote(userVote)
-                .isSaved(isSaved)
-                .createdAt(((java.sql.Timestamp) data[6]).toLocalDateTime())
-                .updatedAt(data[7] != null ? ((java.sql.Timestamp) data[7]).toLocalDateTime() : null)
                 .stats(PostStatsDTO.builder()
                         .score(((Number) data[9]).intValue())
                         .viewCount(((Number) data[10]).longValue() + 1)
                         .isSolved((Boolean) data[5])
                         .answerCount(((Number) data[11]).intValue())
                         .build())
+                .answers(answers)
+                .comments(rootComments) // Comments are now here at the root level
+                .userVote(userVote)
+                .isSaved(isSaved)
+                .createdAt(((java.sql.Timestamp) data[6]).toLocalDateTime())
+                .updatedAt(data[7] != null ? ((java.sql.Timestamp) data[7]).toLocalDateTime() : null)
                 .build();
 
+        postStatsRepository.incrementViewCount(postId);
         return new BaseResponse<>(Constant.SUCCESS_STATUS, "Success", detailDTO);
+    }
+
+    private List<AnswerDTO> fetchTopAnswers(Long postId) {
+        Pageable answerPageable = PageRequest.of(0, 5);
+        List<Object[]> answerRows = forumAnswerRepository.findAnswersByPostIdNative(postId, "MOST_HELPFUL", answerPageable);
+
+        return answerRows.stream().map(row -> {
+            Object[] a = (row[0] instanceof Object[]) ? (Object[]) row[0] : row;
+            Long answerId = ((Number) a[0]).longValue();
+
+            return AnswerDTO.builder()
+                    .answerId(answerId)
+                    .author(fetchAuthorInfo(((Number) a[1]).longValue()))
+                    .content(mongoContentRepository.findByIntId(Integer.parseInt(String.valueOf(a[3])))
+                            .map(MongoContent::getContent).orElse(null))
+                    .score(((Number) a[9]).intValue())
+                    .isAccepted((Boolean) a[6])
+                    .createdAt(((java.sql.Timestamp) a[7]).toLocalDateTime())
+                    .build();
+        }).toList();
+    }
+
+    private List<CommentDTO> fetchRootComments(Long postId, List<Long> answerIds) {
+        Pageable limit = PageRequest.of(0, 2);
+
+        // 1. Fetch comments belonging directly to the Post
+        List<CommentDTO> postComments = forumCommentRepository.findByPostIdOrderByCreatedAtAsc(postId, limit)
+                .stream().map(this::mapToCommentDTO).toList();
+        List<CommentDTO> allComments = new ArrayList<>(postComments);
+
+        // 2. Fetch comments for each Answer
+        for (Long answerId : answerIds) {
+            List<CommentDTO> answerComments = forumCommentRepository.findByAnswerIdOrderByCreatedAtAsc(answerId, limit)
+                    .stream().map(this::mapToCommentDTO).toList();
+            allComments.addAll(answerComments);
+        }
+
+        // 3. Optional: Sort the final flat list by creation date
+        return allComments.stream()
+                .sorted(Comparator.comparing(CommentDTO::getCreatedAt))
+                .toList();
+    }
+
+    private CommentDTO mapToCommentDTO(ForumComment comment) {
+        return CommentDTO.builder()
+                .commentId(comment.getCommentId())
+                .content(comment.getContentText())
+                .author(fetchAuthorInfo(comment.getUserId())) // Uses local cache
+                .createdAt(comment.getCreatedAt())
+                .build();
     }
 
     @Override
@@ -437,37 +484,52 @@ public class ForumServiceImpl implements ForumService {
 
     @Override
     @Transactional
-    public BaseResponse<?> acceptAnswer(Long userId, Long answerId) {
-        log.info("Attempting to accept answer: answerId={}, by userId={}", answerId, userId);
+    public BaseResponse<?> switchAnswerAcceptStatus(Long userId, Long answerId) {
+        log.info("Attempting to switch answer accept status: answerId={}, by userId={}", answerId, userId);
 
         // 1. Fetch the answer and its parent post
-        ForumAnswer answer = forumAnswerRepository.findById(answerId).orElseThrow(() -> new NotFoundException("Answer not found!"));
+        ForumAnswer answer = forumAnswerRepository.findById(answerId)
+                .orElseThrow(() -> new NotFoundException("Answer not found!"));
 
-        ForumPost post = forumPostRepository.findById(answer.getPostId()).orElseThrow(() -> new NotFoundException("Post not found!"));
+        // Fetch parent post directly using the answer's post relationship
+        ForumPost post = forumPostRepository.findById(answer.getPostId())
+                .orElseThrow(() -> new NotFoundException("Post not found!"));
 
         // 2. Security Check: Only the post author can accept an answer
         if (!post.getUserId().equals(userId)) {
-            log.warn("Unauthorized accept attempt: userId {} is not the author of post {}", userId, post.getPostId());
-            return new BaseResponse<>(Constant.ERROR_STATUS, "Only the author of the post can accept an answer.", null);
+            log.warn("Unauthorized switch: userId {} is not the author of post {}", userId, post.getPostId());
+            return new BaseResponse<>(Constant.ERROR_STATUS,
+                    "Only the author of the post can switch accept status of an answer.", null);
         }
 
         try {
-            // 3. Handle "Switching" logic: Unmark any previously accepted answer for this post
-            forumAnswerRepository.unmarkAcceptedAnswersForPost(post.getPostId());
+            // 3. Determine the new state (Toggle logic)
+            // If it was already accepted, we are unaccepting it.
+            // If it wasn't, we are accepting it and must clear others.
+            boolean currentlyAccepted = Boolean.TRUE.equals(answer.getIsAccepted());
+            boolean targetState = !currentlyAccepted;
 
-            // 4. Mark the current answer as accepted
-            answer.setIsAccepted(true);
+            if (targetState) {
+                // If we are accepting this answer, unmark all other answers for this post first
+                forumAnswerRepository.unmarkAcceptedAnswersForPost(post.getPostId());
+            }
+
+            // 4. Update the current answer status
+            answer.setIsAccepted(targetState);
             forumAnswerRepository.save(answer);
 
-            // 5. Update the parent post status to solved
-            post.setIsSolved(true);
+            // 5. Update the parent post status
+            // The post is "solved" if any answer is currently accepted.
+            post.setIsSolved(targetState);
             forumPostRepository.save(post);
 
-            log.info("Answer {} successfully accepted for post {}", answerId, post.getPostId());
-            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Answer accepted successfully", Map.of("postId", post.getPostId(), "answerId", answerId));
+            log.info("Answer {} is now isAccepted={} for post {}", answerId, targetState, post.getPostId());
+            return new BaseResponse<>(Constant.SUCCESS_STATUS,
+                    "Answer accepted status updated successfully",
+                    Map.of("postId", post.getPostId(), "answerId", answerId, "isAccepted", targetState));
 
         } catch (Exception e) {
-            log.error("Failed to accept answer: {}", e.getMessage());
+            log.error("Failed to update answer status: {}", e.getMessage());
             throw e; // Triggers @Transactional rollback
         }
     }
@@ -603,53 +665,65 @@ public class ForumServiceImpl implements ForumService {
     @Override
     @Transactional
     public BaseResponse<?> addComment(Long userId, CreateCommentRequest request) {
-        log.info("Adding new comment: userId={}, targetType={}, parentId={}", userId, request.getTargetType(), request.getReplyToCommentId());
+        log.info("Adding new comment: userId={}, targetType={}, targetId={}",
+                userId, request.getTargetType(), request.getTargetId());
 
         try {
-            // 1. Initialize foreign key variables
             Long postId = null;
             Long answerId = null;
+            Long parentCommentId = null;
 
-            // 2. Resolve Target and Validate Existence
+            // 1. Resolve Target and Validate Existence
             if ("POST".equalsIgnoreCase(request.getTargetType())) {
                 if (!forumPostRepository.existsById(request.getTargetId())) {
                     throw new NotFoundException("Target post not found!");
                 }
                 postId = request.getTargetId();
-            } else {
+            }
+            else if ("ANSWER".equalsIgnoreCase(request.getTargetType())) {
                 if (!forumAnswerRepository.existsById(request.getTargetId())) {
                     throw new NotFoundException("Target answer not found!");
                 }
                 answerId = request.getTargetId();
             }
+            else if ("COMMENT".equalsIgnoreCase(request.getTargetType())) {
+                // Case: User is replying to another comment
+                ForumComment targetComment = forumCommentRepository.findById(request.getTargetId())
+                        .orElseThrow(() -> new NotFoundException("Target comment not found!"));
 
-            try {
-                // 3. Handle Reply Context (Snapshot for replyToCommentId)
-                String previewSnapshot = null;
-                if (request.getReplyToCommentId() != null) {
-                    previewSnapshot = forumCommentRepository.findById(request.getReplyToCommentId()).map(parent -> {
-                        String text = parent.getContentText();
-                        return (text != null && text.length() > 50) ? text.substring(0, 47) + "..." : text;
-                    }).orElse(null);
-                }
-
-                // 4. Build and Save Entity matching your ForumComment schema
-                ForumComment comment = ForumComment.builder().userId(userId).postId(postId)             // Only one of these will be non-null
-                        .answerId(answerId)         // depending on TargetType
-                        .parentCommentId(request.getReplyToCommentId()).contentText(request.getContent()).replyPreviewSnapshot(previewSnapshot).build();
-
-                comment = forumCommentRepository.save(comment);
-
-                log.info("Successfully saved comment with ID: {}", comment.getCommentId());
-                return new BaseResponse<>(Constant.SUCCESS_STATUS, "Comment added successfully", Map.of("commentId", comment.getCommentId()));
-
-            } catch (Exception e) {
-                log.error("Failed to add comment: {}", e.getMessage());
-                throw e;
+                parentCommentId = targetComment.getCommentId();
+                // Inherit the root scope (Post or Answer) from the parent comment
+                postId = targetComment.getPostId();
+                answerId = targetComment.getAnswerId();
             }
+
+            // 2. Handle Reply Preview Snapshot
+            String previewSnapshot = null;
+            if (parentCommentId != null) {
+                previewSnapshot = forumCommentRepository.findById(parentCommentId).map(parent -> {
+                    String text = parent.getContentText();
+                    return (text != null && text.length() > 50) ? text.substring(0, 47) + "..." : text;
+                }).orElse(null);
+            }
+
+            // 3. Build and Save Entity
+            ForumComment comment = ForumComment.builder()
+                    .userId(userId)
+                    .postId(postId)
+                    .answerId(answerId)
+                    .parentCommentId(parentCommentId)
+                    .contentText(request.getContent())
+                    .replyPreviewSnapshot(previewSnapshot)
+                    .build();
+
+            comment = forumCommentRepository.save(comment);
+
+            log.info("Successfully saved comment with ID: {}", comment.getCommentId());
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Comment added successfully", toCommentDTO(comment));
+
         } catch (Exception e) {
-            log.error("Add comment failed: {}", e.getMessage());
-            throw e; // Triggers rollback for all SQL deletions
+            log.error("Failed to add comment: {}", e.getMessage());
+            throw e; // Triggers @Transactional rollback
         }
     }
 
