@@ -223,6 +223,8 @@ public class ForumServiceImpl implements ForumService {
     private CommentDTO mapToCommentDTO(ForumComment comment) {
         return CommentDTO.builder()
                 .commentId(comment.getCommentId())
+                .postId(comment.getPostId())
+                .answerId(comment.getAnswerId())
                 .content(comment.getContentText())
                 .author(fetchAuthorInfo(comment.getUserId())) // Uses local cache
                 .createdAt(comment.getCreatedAt())
