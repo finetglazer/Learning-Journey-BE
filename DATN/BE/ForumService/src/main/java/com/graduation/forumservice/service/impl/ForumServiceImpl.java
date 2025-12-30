@@ -4,10 +4,7 @@ import com.graduation.forumservice.client.UserServiceClient;
 import com.graduation.forumservice.constant.Constant;
 import com.graduation.forumservice.exception.NotFoundException;
 import com.graduation.forumservice.model.*;
-import com.graduation.forumservice.payload.request.CreateAnswerRequest;
-import com.graduation.forumservice.payload.request.CreateCommentRequest;
-import com.graduation.forumservice.payload.request.CreatePostRequest;
-import com.graduation.forumservice.payload.request.UpdateSavePostStatusRequest;
+import com.graduation.forumservice.payload.request.*;
 import com.graduation.forumservice.payload.response.*;
 import com.graduation.forumservice.repository.*;
 import com.graduation.forumservice.service.ForumService;
@@ -124,6 +121,54 @@ public class ForumServiceImpl implements ForumService {
     }
 
     @Override
+    @Transactional
+    public BaseResponse<?> updatePost(Long userId, Long postId, UpdatePostRequest request) {
+        log.info("Updating post: postId={}, userId={}", postId, userId);
+
+        try {
+            // 1. Fetch existing post & Verify ownership
+            ForumPost post = forumPostRepository.findById(postId)
+                    .orElseThrow(() -> new NotFoundException("Post not found!"));
+
+            if (!post.getUserId().equals(userId)) {
+                log.warn("Unauthorized update attempt: userId {} on postId {}", userId, postId);
+                return new BaseResponse<>(Constant.ERROR_STATUS, "You can only edit your own posts!", null);
+            }
+
+            // 2. Update Rich Content in MongoDB
+            if (request.getContent() != null) {
+                MongoContent mongoContent = mongoContentRepository.findByIntId(post.getMongoContentId())
+                        .orElseThrow(() -> new NotFoundException("Rich content not found!"));
+
+                mongoContent.setContent(request.getContent());
+                mongoContentRepository.save(mongoContent);
+
+                // Update the plain text preview for PostgresSQL
+                post.setPlainTextPreview(extractPlainText(request.getContent()));
+            }
+
+            // 3. Update Metadata in PostgresSQL
+            if (request.getTitle() != null) {
+                post.setTitle(request.getTitle());
+            }
+
+            if (request.getTags() != null) {
+                post.setTags(syncTags(request.getTags()));
+            }
+
+            post.setUpdatedAt(LocalDateTime.now());
+            forumPostRepository.save(post);
+
+            log.info("Successfully updated post ID: {}", postId);
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Post updated successfully", post);
+
+        } catch (Exception e) {
+            log.error("Failed to update post: {}", e.getMessage());
+            throw e; // Triggers @Transactional rollback
+        }
+    }
+
+    @Override
     public BaseResponse<?> getPostDetail(Long userId, Long postId) {
         log.info("Fetching post detail with flat structure: postId={}", postId);
 
@@ -155,7 +200,10 @@ public class ForumServiceImpl implements ForumService {
         // 5. Interaction checks
         Integer userVote = postVoteRepository.findPostVoteByPostIdAndUserId(postId, userId)
                 .map(PostVote::getType).orElse(0);
-        boolean isSaved = savedPostRepository.existsByPostIdAndUserId(userId, postId);
+        boolean isSaved = savedPostRepository.existsByPostIdAndUserId(postId, userId);
+        List<Long> savedToProjectIds = projectSavedPostRepository.findByPostId(postId)
+                .stream().map(item -> item.getId().getProjectId())
+                .collect(Collectors.toList());
 
         // 6. Build Final DTO
         PostDetailDTO detailDTO = PostDetailDTO.builder()
@@ -171,6 +219,7 @@ public class ForumServiceImpl implements ForumService {
                         .answerCount(((Number) data[11]).intValue())
                         .build())
                 .answers(answers)
+                .savedToProjectIds(savedToProjectIds)
                 .comments(rootComments) // Comments are now here at the root level
                 .userVote(userVote)
                 .isSaved(isSaved)
@@ -385,7 +434,7 @@ public class ForumServiceImpl implements ForumService {
     }
 
     private void handlePrivateSave(Long userId, Long postId, boolean wannaSave) {
-        Optional<SavedPost> existing = savedPostRepository.findByPostIdAndUserId(userId, postId);
+        Optional<SavedPost> existing = savedPostRepository.findByPostIdAndUserId(postId, userId);
         if (existing.isPresent() && !wannaSave) {
             savedPostRepository.delete(existing.get());
         } else if (existing.isEmpty() && wannaSave) {
@@ -485,6 +534,47 @@ public class ForumServiceImpl implements ForumService {
         } catch (Exception e) {
             log.error("Failed to submit answer: {}", e.getMessage());
             throw e; // Triggers @Transactional rollback
+        }
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> editAnswer(Long userId, Long answerId, EditAnswerRequest request) {
+        log.info("Editing answer: answerId={}, userId={}", answerId, userId);
+
+        // 1. Fetch and verify the answer exists and belongs to the user
+        ForumAnswer answer = forumAnswerRepository.findById(answerId)
+                .orElseThrow(() -> new NotFoundException("Answer not found!"));
+
+        if (!answer.getUserId().equals(userId)) {
+            log.warn("Unauthorized edit attempt: userId {} on answerId {}", userId, answerId);
+            return new BaseResponse<>(Constant.ERROR_STATUS, "You can only edit your own answers!", null);
+        }
+
+        try {
+            // 2. Update Rich Content in MongoDB
+            // We use the existing intId from the PostgresSQL record to find the Mongo document
+            int mongoId = answer.getMongoContentId();
+
+            MongoContent mongoContent = mongoContentRepository.findByIntId(mongoId)
+                    .orElseThrow(() -> new NotFoundException("Content not found in MongoDB!"));
+
+            mongoContent.setContent(request.getContent());
+            mongoContentRepository.save(mongoContent);
+
+            // 3. Update PostgresSQL Metadata
+            String plainTextPreview = extractPlainText(request.getContent());
+            answer.setPlainTextPreview(plainTextPreview);
+            answer.setUpdatedAt(LocalDateTime.now()); // Ensure your @Entity has this field
+
+            forumAnswerRepository.save(answer);
+
+            log.info("Successfully updated answer ID: {}", answerId);
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Answer updated successfully", null);
+
+        } catch (Exception e) {
+            log.error("Failed to edit answer: {}", e.getMessage());
+            throw e; // Triggers @Transactional rollback across SQL and Mongo (if configured)
         }
     }
 
@@ -685,14 +775,12 @@ public class ForumServiceImpl implements ForumService {
                     throw new NotFoundException("Target post not found!");
                 }
                 postId = request.getTargetId();
-            }
-            else if ("ANSWER".equalsIgnoreCase(request.getTargetType())) {
+            } else if ("ANSWER".equalsIgnoreCase(request.getTargetType())) {
                 if (!forumAnswerRepository.existsById(request.getTargetId())) {
                     throw new NotFoundException("Target answer not found!");
                 }
                 answerId = request.getTargetId();
-            }
-            else if ("COMMENT".equalsIgnoreCase(request.getTargetType())) {
+            } else if ("COMMENT".equalsIgnoreCase(request.getTargetType())) {
                 // Case: User is replying to another comment
                 ForumComment targetComment = forumCommentRepository.findById(request.getTargetId())
                         .orElseThrow(() -> new NotFoundException("Target comment not found!"));
@@ -730,6 +818,40 @@ public class ForumServiceImpl implements ForumService {
         } catch (Exception e) {
             log.error("Failed to add comment: {}", e.getMessage());
             throw e; // Triggers @Transactional rollback
+        }
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> editComment(Long userId, Long commentId, UpdateCommentRequest request) {
+        log.info("Editing comment: commentId={}, userId={}", commentId, userId);
+
+        try {
+            // 1. Find the comment
+            ForumComment comment = forumCommentRepository.findById(commentId)
+                    .orElseThrow(() -> new NotFoundException("Comment not found!"));
+
+            // 2. Check ownership (Security check)
+            if (!comment.getUserId().equals(userId)) {
+                return new BaseResponse<>(Constant.ERROR_STATUS, "You do not have permission to edit this comment", null);
+            }
+
+            // 3. Update the content
+            comment.setContentText(request.getContent());
+            comment.setUpdatedAt(LocalDateTime.now());
+
+            // 4. Save (Automatic via @Transactional, but explicit save is fine)
+            ForumComment updatedComment = forumCommentRepository.save(comment);
+
+            log.info("Successfully updated comment ID: {}", commentId);
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Comment updated successfully", toCommentDTO(updatedComment));
+
+        } catch (NotFoundException e) {
+            log.error("Edit failed: {}", e.getMessage());
+            return new BaseResponse<>(Constant.ERROR_STATUS, e.getMessage(), null);
+        } catch (Exception e) {
+            log.error("Unexpected error during comment edit: {}", e.getMessage());
+            throw e; // Triggers rollback
         }
     }
 
@@ -910,7 +1032,11 @@ public class ForumServiceImpl implements ForumService {
         // 1. Try to find in local cache first
         return userInfoCacheRepository.findById(userId).map(cache -> {
                     log.debug("Cache hit for userId: {}", userId);
-                    return PostAuthorDTO.builder().userId(cache.getUserId()).name(cache.getDisplayName()).avatar(cache.getAvatarUrl()).build();
+                    return PostAuthorDTO.builder()
+                            .userId(cache.getUserId())
+                            .name(cache.getDisplayName())
+                            .email(cache.getEmail())
+                            .avatar(cache.getAvatarUrl()).build();
                 })
                 // 2. Cache miss: Call Remote User Service
                 .orElseGet(() -> {
@@ -918,10 +1044,20 @@ public class ForumServiceImpl implements ForumService {
 
                     return userServiceClient.getUserById(userId).map(user -> {
                                 // Update local cache for next time
-                                UserInfoCache newCache = new UserInfoCache(user.getUserId(), user.getName(), user.getAvatarUrl());
+                                UserInfoCache newCache = new UserInfoCache(
+                                        user.getUserId(),
+                                        user.getName(),
+                                        user.getAvatarUrl(),
+                                        user.getEmail()
+                                );
                                 userInfoCacheRepository.save(newCache);
 
-                                return PostAuthorDTO.builder().userId(user.getUserId()).name(user.getName()).avatar(user.getAvatarUrl()).build();
+                                return PostAuthorDTO.builder()
+                                        .userId(user.getUserId())
+                                        .name(user.getName())
+                                        .avatar(user.getAvatarUrl())
+                                        .email(user.getEmail())
+                                        .build();
                             })
                             // 3. Ultimate Fallback: User doesn't exist in system
                             .orElseGet(() -> {

@@ -40,6 +40,15 @@ public class ForumController {
         return ResponseEntity.ok(forumService.createNewPost(userId, request));
     }
 
+    @PutMapping("/posts/{postId}")
+    public ResponseEntity<?> updatePost(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long postId,
+            @RequestBody @Valid UpdatePostRequest request) {
+        log.info("PUT /api/forum/posts - userId={}, title={}", userId, request.getTitle());
+        return ResponseEntity.ok(forumService.updatePost(userId, postId, request));
+    }
+
     // --- 2. POST DETAIL & ACTIONS ---
 
     @GetMapping("/posts/{postId}")
@@ -102,6 +111,14 @@ public class ForumController {
         return ResponseEntity.ok(forumService.submitAnswer(userId, postId, request));
     }
 
+    @PutMapping("/answers/{answerId}")
+    public ResponseEntity<?> editAnswer(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long answerId,
+            @RequestBody @Valid EditAnswerRequest request) {
+        return ResponseEntity.ok(forumService.editAnswer(userId, answerId, request));
+    }
+
     @PutMapping("/answers/{answerId}/switch-accept-status")
     public ResponseEntity<?> switchAnswerAcceptStatus(
             @RequestHeader("X-User-Id") Long userId,
@@ -151,6 +168,15 @@ public class ForumController {
             @PathVariable Long commentId) {
         log.info("DELETE /api/forum/comments/{} - userId={}", commentId, userId);
         return ResponseEntity.ok(forumService.deleteComment(userId, commentId));
+    }
+
+    @PutMapping("/comments/{commentId}")
+    public ResponseEntity<?> editComment(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long commentId,
+            @RequestBody @Valid UpdateCommentRequest request) {
+        log.info("PUT /api/forum/comments/{} - userId={}", commentId, userId);
+        return ResponseEntity.ok(forumService.editComment(userId, commentId, request));
     }
 
     // --- 5. UTILITIES ---

@@ -20,6 +20,7 @@ public class PostDetailDTO {
     private List<CommentDTO> comments;
     private Integer userVote; // Specific to current user
     private Boolean isSaved; // Specific to current user
+    private List<Long> savedToProjectIds;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

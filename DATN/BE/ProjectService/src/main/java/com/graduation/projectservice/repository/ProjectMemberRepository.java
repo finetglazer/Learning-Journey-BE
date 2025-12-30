@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,4 +27,6 @@ public interface ProjectMemberRepository extends JpaRepository<PM_ProjectMember,
 
     @Query("SELECT pm.userId FROM PM_ProjectMember pm WHERE pm.projectId = :projectId AND pm.userId IN :userIds")
     List<Long> findValidMemberIds(@Param("projectId") Long projectId, @Param("userIds") List<Long> userIds);
+
+    List<PM_ProjectMember> findAllByUserId(Long userId);
 }

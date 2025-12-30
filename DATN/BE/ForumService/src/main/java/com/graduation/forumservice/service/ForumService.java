@@ -1,9 +1,6 @@
 package com.graduation.forumservice.service;
 
-import com.graduation.forumservice.payload.request.CreateAnswerRequest;
-import com.graduation.forumservice.payload.request.CreateCommentRequest;
-import com.graduation.forumservice.payload.request.CreatePostRequest;
-import com.graduation.forumservice.payload.request.UpdateSavePostStatusRequest;
+import com.graduation.forumservice.payload.request.*;
 import com.graduation.forumservice.payload.response.BaseResponse;
 
 public interface ForumService {
@@ -20,7 +17,7 @@ public interface ForumService {
      */
     BaseResponse<?> createNewPost(Long userId, CreatePostRequest request);
 
-
+    BaseResponse<?> updatePost(Long userId, Long postId, UpdatePostRequest request);
     // --- 2. POST DETAIL & ACTIONS ---
 
     /**
@@ -61,6 +58,8 @@ public interface ForumService {
      */
     BaseResponse<?> submitAnswer(Long userId, Long postId, CreateAnswerRequest request);
 
+    BaseResponse<?> editAnswer(Long userId, Long postId, EditAnswerRequest request);
+
     /**
      * Marks a specific answer as the 'Accepted Solution'.
      */
@@ -85,6 +84,7 @@ public interface ForumService {
      */
     BaseResponse<?> addComment(Long userId, CreateCommentRequest request);
 
+    BaseResponse<?> editComment(Long userId, Long commentId, UpdateCommentRequest request);
     /**
      * Deletes a comment and updates any reply previews.
      */

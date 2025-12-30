@@ -27,4 +27,7 @@ public interface ProjectSavedPostRepository extends JpaRepository<ProjectSavedPo
      */
     @Query("SELECT p FROM ProjectSavedPost p WHERE p.id.projectId = :projectId AND p.id.postId = :postId")
     Optional<ProjectSavedPost> findByProjectIdAndPostId(@Param("projectId") Long projectId, @Param("postId") Long postId);
+
+    @Query("SELECT p FROM ProjectSavedPost p WHERE p.id.postId = :postId")
+    Optional<ProjectSavedPost> findByPostId(@Param("postId") Long postId);
 }
