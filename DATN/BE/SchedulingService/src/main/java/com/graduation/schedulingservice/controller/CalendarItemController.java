@@ -27,7 +27,8 @@ public class CalendarItemController {
     /**
      * Create a new calendar item (Task, Routine, or Event)
      *
-     * @param userId Extracted from X-User-Id header (set by API Gateway after authentication)
+     * @param userId  Extracted from X-User-Id header (set by API Gateway after
+     *                authentication)
      * @param request The calendar item creation request
      * @return Response containing the created item ID
      */
@@ -46,8 +47,7 @@ public class CalendarItemController {
         } catch (Exception e) {
             log.error(Constant.LOG_ITEM_CREATION_FAILED, userId, e);
             return ResponseEntity.ok(
-                    new BaseResponse<>(0, "Failed to create calendar item", null)
-            );
+                    new BaseResponse<>(0, "Failed to create calendar item", null));
         }
     }
 
@@ -72,16 +72,15 @@ public class CalendarItemController {
         } catch (Exception e) {
             log.error("Failed to get calendar item: userId={}, itemId={}", userId, itemId, e);
             return ResponseEntity.ok(
-                    new BaseResponse<>(0, "Failed to retrieve calendar item", null)
-            );
+                    new BaseResponse<>(0, "Failed to retrieve calendar item", null));
         }
     }
 
     /**
      * Update an existing calendar item
      *
-     * @param userId Extracted from X-User-Id header
-     * @param itemId The calendar item ID
+     * @param userId  Extracted from X-User-Id header
+     * @param itemId  The calendar item ID
      * @param request The update request
      * @return Response containing update result
      */
@@ -100,8 +99,7 @@ public class CalendarItemController {
         } catch (Exception e) {
             log.error("Failed to update calendar item: userId={}, itemId={}", userId, itemId, e);
             return ResponseEntity.ok(
-                    new BaseResponse<>(0, "Failed to update calendar item", null)
-            );
+                    new BaseResponse<>(0, "Failed to update calendar item", null));
         }
     }
 
@@ -126,13 +124,31 @@ public class CalendarItemController {
         } catch (Exception e) {
             log.error("Failed to delete calendar item: userId={}, itemId={}", userId, itemId, e);
             return ResponseEntity.ok(
-                    new BaseResponse<>(0, "Failed to delete calendar item", null)
-            );
+                    new BaseResponse<>(0, "Failed to delete calendar item", null));
+        }
+    }
+
+    /**
+     * Detach a routine instance (creating an exception and a new item)
+     */
+    @PostMapping("/{itemId}/detach")
+    public ResponseEntity<BaseResponse<?>> detachRoutineInstance(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long itemId,
+            @Valid @RequestBody com.graduation.schedulingservice.payload.request.DetachRoutineRequest request) {
+        try {
+            log.info("Detaching routine instance: userId={}, itemId={}", userId, itemId);
+            BaseResponse<?> response = calendarItemService.detachRoutineInstance(userId, itemId, request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Failed to detach routine instance", e);
+            return ResponseEntity.ok(new BaseResponse<>(0, "Failed to detach routine instance", null));
         }
     }
 
     /**
      * Get calendar items by date range and view type.
+     * 
      * @param userId      Extracted from X-User-Id header.
      * @param view        View type: DAY, WEEK, MONTH, or YEAR.
      * @param date        Reference date in YYYY-MM-DD format.
@@ -158,13 +174,13 @@ public class CalendarItemController {
         } catch (Exception e) {
             log.error(Constant.LOG_GET_ITEMS_BY_DATE_RANGE_FAILED, userId, e);
             return ResponseEntity.ok(
-                    new BaseResponse<>(0, Constant.MSG_ITEMS_RETRIEVAL_FAILED, null)
-            );
+                    new BaseResponse<>(0, Constant.MSG_ITEMS_RETRIEVAL_FAILED, null));
         }
     }
 
     /**
      * Schedule multiple unscheduled items at once.
+     * 
      * @param userId  Extracted from X-User-Id header.
      * @param request The batch schedule request.
      * @return Response containing the result of the batch operation.
@@ -182,8 +198,7 @@ public class CalendarItemController {
         } catch (Exception e) {
             log.error("Failed to batch schedule items for userId={}", userId, e);
             return ResponseEntity.ok(
-                    new BaseResponse<>(0, "Failed to batch schedule items", null)
-            );
+                    new BaseResponse<>(0, "Failed to batch schedule items", null));
         }
     }
 }

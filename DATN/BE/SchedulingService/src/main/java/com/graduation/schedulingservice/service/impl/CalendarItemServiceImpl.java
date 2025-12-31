@@ -69,8 +69,9 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 }
             }
 
-            //find calendar by UserId
-            List<com.graduation.schedulingservice.model.Calendar> userCalendars = calendarRepository.findByUserId(userId);
+            // find calendar by UserId
+            List<com.graduation.schedulingservice.model.Calendar> userCalendars = calendarRepository
+                    .findByUserId(userId);
             if (userCalendars.isEmpty()) {
                 log.warn("No calendars found for user: userId={}", userId);
                 return new BaseResponse<>(0, "No calendar found for this user. Cannot create tasks.", null);
@@ -109,7 +110,8 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             }
             // ===== END OF NEW VALIDATION STEP =====
 
-            // 4. Determine mode: Standalone (monthPlanId == null) or Month Plan Mode (monthPlanId != null)
+            // 4. Determine mode: Standalone (monthPlanId == null) or Month Plan Mode
+            // (monthPlanId != null)
             Long weekPlanId = null;
 
             if (request.getMonthPlanId() != null) {
@@ -149,16 +151,14 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                     MonthMismatchErrorDetails errorDetails = new MonthMismatchErrorDetails(
                             timeSlotMonthStr,
                             monthPlanMonthStr,
-                            monthPlan.getId()
-                    );
+                            monthPlan.getId());
 
                     MonthPlanErrorResponse errorResponse = new MonthPlanErrorResponse(
                             false,
                             "MONTH_MISMATCH",
                             String.format("Item's time slot (%s) does not match month plan (%s)",
                                     timeSlotMonthStr, monthPlanMonthStr),
-                            errorDetails
-                    );
+                            errorDetails);
 
                     log.warn("Month mismatch: timeSlot={}, monthPlan={}",
                             timeSlotMonthStr, monthPlanMonthStr);
@@ -176,16 +176,14 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                                 request.getName(),
                                 "ROUTINE",
                                 requestedMonth,
-                                monthPlan.getId()
-                        );
+                                monthPlan.getId());
 
                         MonthPlanErrorResponse errorResponse = new MonthPlanErrorResponse(
                                 false,
                                 "INVALID_MONTH_PLAN_REFERENCE",
                                 String.format("Routine '%s' is not approved in the %s month plan",
                                         request.getName(), requestedMonth),
-                                errorDetails
-                        );
+                                errorDetails);
 
                         log.warn("Routine not approved in month plan: name={}, monthPlanId={}",
                                 request.getName(), monthPlan.getId());
@@ -207,16 +205,14 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                         TaskErrorDetails errorDetails = new TaskErrorDetails(
                                 parentBigTaskId,
                                 requestedMonth,
-                                monthPlan.getId()
-                        );
+                                monthPlan.getId());
 
                         MonthPlanErrorResponse errorResponse = new MonthPlanErrorResponse(
                                 false,
                                 "INVALID_MONTH_PLAN_REFERENCE",
                                 String.format("Parent big task ID %d not found in %s month plan",
                                         parentBigTaskId, requestedMonth),
-                                errorDetails
-                        );
+                                errorDetails);
 
                         log.warn("Big task not found in month plan: bigTaskId={}, monthPlanId={}",
                                 parentBigTaskId, monthPlan.getId());
@@ -254,8 +250,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                         userId,
                         request.getTimeSlot().getStartTime(),
                         request.getTimeSlot().getEndTime(),
-                        itemType
-                );
+                        itemType);
 
                 if (!violations.isEmpty()) {
                     log.warn(Constant.LOG_CONSTRAINT_VIOLATIONS, userId, violations);
@@ -293,8 +288,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             CreateItemResponse response = new CreateItemResponse(
                     true,
                     savedItem.getId(),
-                    Constant.MSG_ITEM_CREATED_SUCCESS
-            );
+                    Constant.MSG_ITEM_CREATED_SUCCESS);
 
             log.info("Calendar item created successfully: userId={}, itemId={}, type={}, mode={}",
                     userId, savedItem.getId(), itemType,
@@ -309,13 +303,15 @@ public class CalendarItemServiceImpl implements CalendarItemService {
     }
 
     /**
-     * Checks if a new item request overlaps with any existing scheduled routines for CreateCalendarItemRequest.
+     * Checks if a new item request overlaps with any existing scheduled routines
+     * for CreateCalendarItemRequest.
      *
      * @param request           The new item being created.
      * @param scheduledRoutines A list of existing, scheduled routines for the user.
      * @return An Optional containing an error message if an overlap is found.
      */
-    private Optional<String> createRequestFindRoutineOverlap(CreateCalendarItemRequest request, List<Routine> scheduledRoutines) {
+    private Optional<String> createRequestFindRoutineOverlap(CreateCalendarItemRequest request,
+            List<Routine> scheduledRoutines) {
         ItemType newItemType = ItemType.valueOf(request.getType().toUpperCase());
         TimeSlotDTO newItemTimeSlot = request.getTimeSlot();
 
@@ -339,24 +335,26 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             LocalTime newItemTimeStart = newItemStartTime.toLocalTime();
             LocalTime newItemTimeEnd = newItemEndTime.toLocalTime();
 
-
             for (Routine existingRoutine : scheduledRoutines) {
-                // 1. Get existing routine's active date range
-                // FIX: Re-introduced date check
-                LocalDate routineActiveStartDate = existingRoutine.getTimeSlot().getStartTime().toLocalDate();
-                // Assuming routine is active for the whole month it was created in
-                LocalDate routineActiveEndDate = routineActiveStartDate.with(TemporalAdjusters.lastDayOfMonth());
-
-                // 2. Check if the new item's date is within the routine's active range
-                boolean dateRangeOverlaps = !newItemDate.isBefore(routineActiveStartDate) &&
-                        !newItemDate.isAfter(routineActiveEndDate);
-
-                if (!dateRangeOverlaps) {
-                    continue; // This routine isn't active on this day, skip
+                // 0. Skip routines that have already ended before the new item's date
+                if (existingRoutine.getEndDate() != null &&
+                        !existingRoutine.getEndDate().toLocalDate().isAfter(newItemDate)) {
+                    continue; // This routine ended on or before the target date, skip
                 }
-                // --- End of FIX ---
+
+                // 1. Check if routine has started (new item date must be on or after routine
+                // start)
+                LocalDate routineStartDate = existingRoutine.getTimeSlot().getStartTime().toLocalDate();
+                if (newItemDate.isBefore(routineStartDate)) {
+                    continue; // Routine hasn't started yet on this date, skip
+                }
 
                 // 3. Check if the routine runs on the same day of the week
+                // Skip standalone routines (no pattern - from "change only this occurrence")
+                if (existingRoutine.getPattern() == null || existingRoutine.getPattern().getDaysOfWeek() == null
+                        || existingRoutine.getPattern().getDaysOfWeek().isEmpty()) {
+                    continue; // Standalone routine, skip pattern-based check
+                }
                 List<DayOfWeek> existingDays = existingRoutine.getPattern().getDaysOfWeek();
                 boolean dayOfWeekOverlaps = existingDays.contains(newDayOfWeek);
 
@@ -370,7 +368,8 @@ public class CalendarItemServiceImpl implements CalendarItemService {
 
                 if (timesOverlap(newItemTimeStart, newItemTimeEnd, existingStartTime, existingEndTime)) {
                     // Capitalize day of week (e.g., "Monday")
-                    String friendlyDayOfWeek = newDayOfWeek.toString().charAt(0) + newDayOfWeek.toString().substring(1).toLowerCase();
+                    String friendlyDayOfWeek = newDayOfWeek.toString().charAt(0)
+                            + newDayOfWeek.toString().substring(1).toLowerCase();
 
                     return Optional.of(String.format(
                             "New %s overlaps with existing routine '%s' on %s (%s - %s)",
@@ -378,7 +377,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                             existingRoutine.getName(),
                             friendlyDayOfWeek,
                             existingStartTime.format(timeFormatter), // "6:30 PM"
-                            existingEndTime.format(timeFormatter)    // "7:30 PM"
+                            existingEndTime.format(timeFormatter) // "7:30 PM"
                     ));
                 }
             }
@@ -393,11 +392,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             }
 
             // 1. Get new routine's details
-            // FIX: Re-introduced date check
-            LocalDate newRoutineActiveStartDate = newItemTimeSlot.getStartTime().toLocalDate();
-            LocalDate newRoutineActiveEndDate = newRoutineActiveStartDate.with(TemporalAdjusters.lastDayOfMonth());
-            // --- End of FIX ---
-
+            LocalDate newRoutineStartDate = newItemTimeSlot.getStartTime().toLocalDate();
             LocalTime newRoutineTimeStart = newItemTimeSlot.getStartTime().toLocalTime();
             LocalTime newRoutineTimeEnd = newItemTimeSlot.getEndTime().toLocalTime();
             List<DayOfWeek> newDays = request.getRoutineDetails().getPattern().getDaysOfWeek().stream()
@@ -405,21 +400,21 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                     .collect(Collectors.toList());
 
             for (Routine existingRoutine : scheduledRoutines) {
-                // 1. Get existing routine's details
-                // FIX: Re-introduced date check
-                LocalDate existingActiveStartDate = existingRoutine.getTimeSlot().getStartTime().toLocalDate();
-                LocalDate existingActiveEndDate = existingActiveStartDate.with(TemporalAdjusters.lastDayOfMonth());
-
-                // 2. Check if the active *date ranges* overlap (e.g., both active in the same month)
-                boolean dateRangeOverlaps = (newRoutineActiveStartDate.isBefore(existingActiveEndDate) || newRoutineActiveStartDate.isEqual(existingActiveEndDate)) &&
-                        (existingActiveStartDate.isBefore(newRoutineActiveEndDate) || existingActiveStartDate.isEqual(newRoutineActiveEndDate));
-
-                if (!dateRangeOverlaps) {
-                    continue; // Routines are active in different months, skip
+                // 0. Skip routines that have already ended before the new routine's start date
+                if (existingRoutine.getEndDate() != null &&
+                        !existingRoutine.getEndDate().toLocalDate().isAfter(newRoutineStartDate)) {
+                    continue; // This routine ended on or before the new routine's start, skip
                 }
-                // --- End of FIX ---
+
+                // Note: Since routines are infinite (until endDate), we only need to check
+                // day-of-week and time overlap. No month-based date range check needed.
 
                 // 3. Check if they run on any of the same *days of the week*
+                // Skip standalone routines (no pattern - from "change only this occurrence")
+                if (existingRoutine.getPattern() == null || existingRoutine.getPattern().getDaysOfWeek() == null
+                        || existingRoutine.getPattern().getDaysOfWeek().isEmpty()) {
+                    continue; // Standalone routine, skip pattern-based check
+                }
                 List<DayOfWeek> existingDays = existingRoutine.getPattern().getDaysOfWeek();
                 boolean dayOfWeekOverlaps = newDays.stream().anyMatch(existingDays::contains);
 
@@ -444,8 +439,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                             existingRoutine.getName(),
                             overlappingDay,
                             existingStartTime.format(timeFormatter),
-                            existingEndTime.format(timeFormatter)
-                    ));
+                            existingEndTime.format(timeFormatter)));
                 }
             }
         }
@@ -454,13 +448,15 @@ public class CalendarItemServiceImpl implements CalendarItemService {
     }
 
     /**
-     * Checks if a new item request overlaps with any existing scheduled routines for UpdateCalendarItemRequest.
+     * Checks if a new item request overlaps with any existing scheduled routines
+     * for UpdateCalendarItemRequest.
      *
      * @param request           The item being updated.
      * @param scheduledRoutines A list of existing, scheduled routines for the user.
      * @return An Optional containing an error message if an overlap is found.
      */
-    private Optional<String> updateRequestFindRoutineOverlap(UpdateCalendarItemRequest request, Long updateItemId, List<Routine> scheduledRoutines) {
+    private Optional<String> updateRequestFindRoutineOverlap(UpdateCalendarItemRequest request, Long updateItemId,
+            List<Routine> scheduledRoutines) {
         List<Routine> routinesToCompare = scheduledRoutines.stream()
                 .filter(routine -> routine.isScheduled() && !routine.getId().equals(updateItemId))
                 .collect(Collectors.toList());
@@ -491,21 +487,26 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             LocalTime newItemTimeStart = newItemStartTime.toLocalTime();
             LocalTime newItemTimeEnd = newItemEndTime.toLocalTime();
 
-
             for (Routine existingRoutine : routinesToCompare) {
-                // 1. Get existing routine's active date range
-                LocalDate routineActiveStartDate = existingRoutine.getTimeSlot().getStartTime().toLocalDate();
-                LocalDate routineActiveEndDate = routineActiveStartDate.with(TemporalAdjusters.lastDayOfMonth());
+                // 0. Skip routines that have already ended before the item's date
+                if (existingRoutine.getEndDate() != null &&
+                        !existingRoutine.getEndDate().toLocalDate().isAfter(newItemDate)) {
+                    continue; // This routine ended on or before the target date, skip
+                }
 
-                // 2. Check if the new item's date is within the routine's active range
-                boolean dateRangeOverlaps = !newItemDate.isBefore(routineActiveStartDate) &&
-                        !newItemDate.isAfter(routineActiveEndDate);
-
-                if (!dateRangeOverlaps) {
-                    continue; // This routine isn't active on this day, skip
+                // 1. Check if routine has started (new item date must be on or after routine
+                // start)
+                LocalDate routineStartDate = existingRoutine.getTimeSlot().getStartTime().toLocalDate();
+                if (newItemDate.isBefore(routineStartDate)) {
+                    continue; // Routine hasn't started yet on this date, skip
                 }
 
                 // 3. Check if the routine runs on the same day of the week
+                // Skip standalone routines (no pattern - from "change only this occurrence")
+                if (existingRoutine.getPattern() == null || existingRoutine.getPattern().getDaysOfWeek() == null
+                        || existingRoutine.getPattern().getDaysOfWeek().isEmpty()) {
+                    continue; // Standalone routine, skip pattern-based check
+                }
                 List<DayOfWeek> existingDays = existingRoutine.getPattern().getDaysOfWeek();
                 boolean dayOfWeekOverlaps = existingDays.contains(newDayOfWeek);
 
@@ -524,24 +525,24 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                             existingRoutine.getName(),
                             newDayOfWeek,
                             existingStartTime,
-                            existingEndTime
-                    ));
+                            existingEndTime));
                 }
             }
 
         } else if (itemType == ItemType.ROUTINE) {
             // --- Case 2: Item is a ROUTINE ---
-            // Check if its pattern, time, and active date range overlap with any other routine.
+            // Check if its pattern, time, and active date range overlap with any other
+            // routine.
 
-            // Note: We use request.getRoutineDetails() because the user might be updating the pattern
+            // Note: We use request.getRoutineDetails() because the user might be updating
+            // the pattern
             if (request.getRoutineDetails() == null || request.getRoutineDetails().getPattern() == null ||
                     request.getRoutineDetails().getPattern().getDaysOfWeek() == null) {
                 return Optional.empty(); // Not a recurring routine, no overlap to check
             }
 
             // 1. Get new routine's details
-            LocalDate newRoutineActiveStartDate = newItemTimeSlot.getStartTime().toLocalDate();
-            LocalDate newRoutineActiveEndDate = newRoutineActiveStartDate.with(TemporalAdjusters.lastDayOfMonth());
+            LocalDate newRoutineStartDate = newItemTimeSlot.getStartTime().toLocalDate();
             LocalTime newRoutineTimeStart = newItemTimeSlot.getStartTime().toLocalTime();
             LocalTime newRoutineTimeEnd = newItemTimeSlot.getEndTime().toLocalTime();
             List<DayOfWeek> newDays = request.getRoutineDetails().getPattern().getDaysOfWeek().stream()
@@ -549,19 +550,21 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                     .collect(Collectors.toList());
 
             for (Routine existingRoutine : routinesToCompare) {
-                // 1. Get existing routine's details
-                LocalDate existingActiveStartDate = existingRoutine.getTimeSlot().getStartTime().toLocalDate();
-                LocalDate existingActiveEndDate = existingActiveStartDate.with(TemporalAdjusters.lastDayOfMonth());
-
-                // 2. Check if the active *date ranges* overlap (e.g., both active in the same month)
-                boolean dateRangeOverlaps = (newRoutineActiveStartDate.isBefore(existingActiveEndDate) || newRoutineActiveStartDate.isEqual(existingActiveEndDate)) &&
-                        (existingActiveStartDate.isBefore(newRoutineActiveEndDate) || existingActiveStartDate.isEqual(newRoutineActiveEndDate));
-
-                if (!dateRangeOverlaps) {
-                    continue; // Routines are active in different months, skip
+                // 0. Skip routines that have already ended before the new routine's start date
+                if (existingRoutine.getEndDate() != null &&
+                        !existingRoutine.getEndDate().toLocalDate().isAfter(newRoutineStartDate)) {
+                    continue; // This routine ended on or before the new routine's start, skip
                 }
 
+                // Note: Since routines are infinite (until endDate), we only need to check
+                // day-of-week and time overlap. No month-based date range check needed.
+
                 // 3. Check if they run on any of the same *days of the week*
+                // Skip standalone routines (no pattern - from "change only this occurrence")
+                if (existingRoutine.getPattern() == null || existingRoutine.getPattern().getDaysOfWeek() == null
+                        || existingRoutine.getPattern().getDaysOfWeek().isEmpty()) {
+                    continue; // Standalone routine, skip pattern-based check
+                }
                 List<DayOfWeek> existingDays = existingRoutine.getPattern().getDaysOfWeek();
                 boolean dayOfWeekOverlaps = newDays.stream().anyMatch(existingDays::contains);
 
@@ -578,8 +581,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                             "New routine pattern overlaps with existing routine '%s' (%s - %s)",
                             existingRoutine.getName(),
                             existingStartTime,
-                            existingEndTime
-                    ));
+                            existingEndTime));
                 }
             }
         }
@@ -702,8 +704,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             TimeSlotDTO dto = request.getTimeSlot();
             TimeSlot timeSlot = new TimeSlot(
                     dto.getStartTime(),
-                    dto.getEndTime()
-            );
+                    dto.getEndTime());
             item.setTimeSlot(timeSlot);
         }
     }
@@ -856,7 +857,8 @@ public class CalendarItemServiceImpl implements CalendarItemService {
 
                     if (!scheduledRoutines.isEmpty()) {
                         // Check for overlaps
-                        Optional<String> routineOverlapError = updateRequestFindRoutineOverlap(request, itemId, scheduledRoutines);
+                        Optional<String> routineOverlapError = updateRequestFindRoutineOverlap(request, itemId,
+                                scheduledRoutines);
                         if (routineOverlapError.isPresent()) {
                             String errorMessage = routineOverlapError.get();
                             log.warn("Routine overlap detected for userId={}: {}", userId, errorMessage);
@@ -873,8 +875,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                         itemId,
                         timeSlotDTO.getStartTime(),
                         timeSlotDTO.getEndTime(),
-                        item.getType()
-                );
+                        item.getType());
 
                 if (!violations.isEmpty()) {
                     log.warn(Constant.LOG_CONSTRAINT_VIOLATIONS, userId, violations);
@@ -883,27 +884,32 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             }
 
             // 5. Update common fields
-            if (request.getName() != null) {
-                item.setName(request.getName());
-            }
-            if (request.getNote() != null) {
-                item.setNote(request.getNote());
-            }
-            if (request.getColor() != null) {
-                item.setColor(request.getColor());
-            }
-            if (request.getStatus() != null) {
-                try {
-                    item.setStatus(ItemStatus.valueOf(request.getStatus().toUpperCase()));
-                } catch (IllegalArgumentException e) {
-                    log.warn(Constant.LOG_INVALID_STATUS_UPDATE, request.getStatus());
-                    return new BaseResponse<>(0, Constant.MSG_INVALID_STATUS_VALUE, null);
+            // For Routines, we do NOT update in-place because we handle "Split Series"
+            // later.
+            // We want the Old Routine to keep its original values (History).
+            if (!(item instanceof Routine)) {
+                if (request.getName() != null) {
+                    item.setName(request.getName());
                 }
-            }
-            if (request.getTimeSlot() != null) {
-                TimeSlotDTO dto = request.getTimeSlot();
-                TimeSlot timeSlot = new TimeSlot(dto.getStartTime(), dto.getEndTime());
-                item.setTimeSlot(timeSlot);
+                if (request.getNote() != null) {
+                    item.setNote(request.getNote());
+                }
+                if (request.getColor() != null) {
+                    item.setColor(request.getColor());
+                }
+                if (request.getStatus() != null) {
+                    try {
+                        item.setStatus(ItemStatus.valueOf(request.getStatus().toUpperCase()));
+                    } catch (IllegalArgumentException e) {
+                        log.warn(Constant.LOG_INVALID_STATUS_UPDATE, request.getStatus());
+                        return new BaseResponse<>(0, Constant.MSG_INVALID_STATUS_VALUE, null);
+                    }
+                }
+                if (request.getTimeSlot() != null) {
+                    TimeSlotDTO dto = request.getTimeSlot();
+                    TimeSlot timeSlot = new TimeSlot(dto.getStartTime(), dto.getEndTime());
+                    item.setTimeSlot(timeSlot);
+                }
             }
 
             // 6. Update type-specific fields
@@ -915,33 +921,81 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 if (request.getTaskDetails().getDueDate() != null) {
                     task.setDueDate(request.getTaskDetails().getDueDate());
                 }
-            } else if (item instanceof Routine && request.getRoutineDetails() != null) {
-                Routine routine = (Routine) item;
-                if (request.getRoutineDetails().getPattern() != null) {
+            } else if (item instanceof Routine) {
+                // SPLIT SERIES LOGIC:
+                // Instead of updating in-place, we terminate the old routine and create a new
+                // one.
+                Routine oldRoutine = (Routine) item;
+
+                // 1. Determine Split Time
+                LocalDateTime splitTime;
+                if (request.getTimeSlot() != null) {
+                    // Set end date to START of the split day to ensure the old routine
+                    // does not generate an instance on this day.
+                    splitTime = request.getTimeSlot().getStartTime().toLocalDate().atStartOfDay();
+                } else {
+                    // Fallback using server time
+                    splitTime = LocalDateTime.now().toLocalDate().atStartOfDay();
+                }
+
+                // 2. Terminate Old Routine
+                // End date is set to the split time.
+                oldRoutine.setEndDate(splitTime);
+                calendarItemRepository.save(oldRoutine);
+
+                // 3. Create New Routine
+                Routine newRoutine = new Routine();
+                newRoutine.setUserId(userId);
+                newRoutine.setCalendarId(oldRoutine.getCalendarId());
+                newRoutine.setMonthPlanId(oldRoutine.getMonthPlanId());
+                newRoutine.setWeekPlanId(oldRoutine.getWeekPlanId());
+                newRoutine.setMemorableEventId(oldRoutine.getMemorableEventId());
+
+                newRoutine.setName(request.getName() != null ? request.getName() : oldRoutine.getName());
+                newRoutine.setNote(request.getNote() != null ? request.getNote() : oldRoutine.getNote());
+                newRoutine.setColor(request.getColor() != null ? request.getColor() : oldRoutine.getColor());
+                newRoutine.setStatus(request.getStatus() != null ? ItemStatus.valueOf(request.getStatus().toUpperCase())
+                        : oldRoutine.getStatus());
+
+                // TimeSlot
+                if (request.getTimeSlot() != null) {
+                    newRoutine.setTimeSlot(
+                            new TimeSlot(request.getTimeSlot().getStartTime(), request.getTimeSlot().getEndTime()));
+                } else {
+                    newRoutine.setTimeSlot(oldRoutine.getTimeSlot());
+                }
+
+                // Pattern
+                RecurringPattern newPattern = new RecurringPattern();
+                RecurringPattern oldPattern = oldRoutine.getPattern();
+
+                if (request.getRoutineDetails() != null && request.getRoutineDetails().getPattern() != null) {
                     var patternDTO = request.getRoutineDetails().getPattern();
-                    RecurringPattern pattern = routine.getPattern();
-
-                    if (pattern == null) {
-                        pattern = new RecurringPattern();
-                        routine.setPattern(pattern);
-                    }
-
                     if (patternDTO.getDaysOfWeek() != null && !patternDTO.getDaysOfWeek().isEmpty()) {
                         var daysOfWeek = patternDTO.getDaysOfWeek().stream()
                                 .map(day -> {
                                     try {
                                         return DayOfWeek.valueOf(day.toUpperCase());
                                     } catch (IllegalArgumentException e) {
-                                        log.warn(Constant.LOG_INVALID_DAY_OF_WEEK, day);
                                         return null;
                                     }
                                 })
                                 .filter(day -> day != null)
                                 .collect(Collectors.toList());
-
-                        pattern.setDaysOfWeek(daysOfWeek);
+                        newPattern.setDaysOfWeek(daysOfWeek);
                     }
+                } else if (oldPattern != null) {
+                    // Copy old pattern if not provided in request
+                    newPattern.setDaysOfWeek(new ArrayList<>(oldPattern.getDaysOfWeek()));
                 }
+                newRoutine.setPattern(newPattern);
+
+                // 4. Save New Routine
+                CalendarItem savedNewRoutine = calendarItemRepository.save(newRoutine);
+
+                log.info("Routine split successfully. Old ID: {}, New ID: {}", oldRoutine.getId(),
+                        savedNewRoutine.getId());
+                return new BaseResponse<>(1, Constant.MSG_ITEM_UPDATE_SUCCESS, savedNewRoutine.getId());
             }
 
             // 7. Save updated item
@@ -950,7 +1004,9 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             log.info(Constant.LOG_ITEM_UPDATED_SUCCESS, itemId);
             return new BaseResponse<>(1, Constant.MSG_ITEM_UPDATE_SUCCESS, updatedItem.getId());
 
-        } catch (Exception e) {
+        } catch (
+
+        Exception e) {
             log.error(Constant.LOG_UPDATE_ITEM_FAILED, itemId, e);
             return new BaseResponse<>(0, Constant.MSG_ITEM_UPDATE_FAILED, null);
         }
@@ -1004,11 +1060,12 @@ public class CalendarItemServiceImpl implements CalendarItemService {
      * @return A list of violation messages.
      */
     private List<String> validateConstraintsForUpdate(Long userId, Long itemId,
-                                                      LocalDateTime startTime, LocalDateTime endTime,
-                                                      ItemType itemType) {
+            LocalDateTime startTime, LocalDateTime endTime,
+            ItemType itemType) {
 
         // --- FIX: ---
-        // 1. Call a method that validates *only* non-overlap constraints (like sleep, daily limits).
+        // 1. Call a method that validates *only* non-overlap constraints (like sleep,
+        // daily limits).
         // We assume this method is named 'validateBaseConstraints'.
         // We NO LONGER call the all-in-one 'validateConstraints' method here, as it
         // would incorrectly find an overlap with the item itself.
@@ -1041,13 +1098,11 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                             timeString = String.format("%s, %s - %s",
                                     itemStart.format(DateTimeFormatter.ofPattern("MMM d")),
                                     itemStart.format(timeFormatter),
-                                    itemEnd.format(timeFormatter)
-                            );
+                                    itemEnd.format(timeFormatter));
                         } else {
                             timeString = String.format("%s - %s",
                                     itemStart.format(fullFormatter),
-                                    itemEnd.format(fullFormatter)
-                            );
+                                    itemEnd.format(fullFormatter));
                         }
                         return String.format("'%s' (%s)", item.getName(), timeString);
                     })
@@ -1083,6 +1138,18 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 LocalTime newEndTime = endTime.toLocalTime();
 
                 for (Routine existingRoutine : scheduledRoutines) {
+                    // Skip standalone routines (no pattern - from "change only this occurrence")
+                    if (existingRoutine.getPattern() == null || existingRoutine.getPattern().getDaysOfWeek() == null
+                            || existingRoutine.getPattern().getDaysOfWeek().isEmpty()) {
+                        continue; // Standalone routine, skip pattern-based check
+                    }
+
+                    // Skip routines that have already ended before the item's start date
+                    if (existingRoutine.getEndDate() != null
+                            && !existingRoutine.getEndDate().toLocalDate().isAfter(startTime.toLocalDate())) {
+                        continue; // Routine ended on or before the item's date, skip
+                    }
+
                     // 3a. Check if the routine runs on the same day of the week
                     List<DayOfWeek> existingDays = existingRoutine.getPattern().getDaysOfWeek();
                     if (existingDays.contains(newDayOfWeek)) {
@@ -1093,14 +1160,14 @@ public class CalendarItemServiceImpl implements CalendarItemService {
 
                         // Assuming you have a 'timesOverlap' helper method
                         if (timesOverlap(newStartTime, newEndTime, existingStartTime, existingEndTime)) {
-                            String friendlyDayOfWeek = newDayOfWeek.toString().substring(0, 1) + newDayOfWeek.toString().substring(1).toLowerCase();
+                            String friendlyDayOfWeek = newDayOfWeek.toString().substring(0, 1)
+                                    + newDayOfWeek.toString().substring(1).toLowerCase();
                             violations.add(String.format(
                                     "Time slot overlaps with your recurring routine '%s' on %s (%s - %s)",
                                     existingRoutine.getName(),
                                     friendlyDayOfWeek,
                                     existingStartTime.format(timeFormatter),
-                                    existingEndTime.format(timeFormatter)
-                            ));
+                                    existingEndTime.format(timeFormatter)));
                         }
                     }
                 }
@@ -1130,8 +1197,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
         if (item.getTimeSlot() != null) {
             dto.setTimeSlot(new TimeSlotResponseDTO(
                     item.getTimeSlot().getStartTime(),
-                    item.getTimeSlot().getEndTime()
-            ));
+                    item.getTimeSlot().getEndTime()));
         }
 
         // Type-specific fields
@@ -1150,8 +1216,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                             subtask.getName(),
                             subtask.getDescription(),
                             subtask.getIsComplete(),
-                            subtask.getCompletedAt()
-                    ))
+                            subtask.getCompletedAt()))
                     .collect(Collectors.toList());
             dto.setSubtasks(subtaskDTOs);
 
@@ -1190,7 +1255,8 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             }
 
             // 2. 5-year window validation
-            if (referenceDate.isAfter(LocalDate.now().plusYears(5)) || referenceDate.isBefore(LocalDate.now().minusYears(5))) {
+            if (referenceDate.isAfter(LocalDate.now().plusYears(5))
+                    || referenceDate.isBefore(LocalDate.now().minusYears(5))) {
                 log.warn(Constant.LOG_DATE_OUTSIDE_WINDOW, referenceDate);
                 return new BaseResponse<>(0, Constant.MSG_DATE_OUTSIDE_WINDOW, null);
             }
@@ -1207,8 +1273,9 @@ public class CalendarItemServiceImpl implements CalendarItemService {
 
             // 5. --- FIX: FETCH NON-RECURRING ITEMS (TASKS/EVENTS) ---
             // This gets all Tasks, Events, and non-recurring Routines
-            List<CalendarItem> nonRecurringItems = calendarItemRepository.findScheduledItemsExcludingRoutinesByDateRange(
-                    userId, calendarIds, dateRange.getStart(), dateRange.getEnd());
+            List<CalendarItem> nonRecurringItems = calendarItemRepository
+                    .findScheduledItemsExcludingRoutinesByDateRange(
+                            userId, calendarIds, dateRange.getStart(), dateRange.getEnd());
 
             // 6. Add Task, Event items to the list
             nonRecurringItems.stream()
@@ -1217,8 +1284,8 @@ public class CalendarItemServiceImpl implements CalendarItemService {
 
             // 7. Fetch data from repository (Recurring Routines)
             // This gets all potentially active recurring routines
-            List<Routine> recurringRoutines = calendarItemRepository.findAllRecurringRoutinesStartedBefore(
-                    userId, calendarIds, dateRange.getEnd());
+            List<Routine> recurringRoutines = calendarItemRepository.findActiveRecurringRoutines(
+                    userId, calendarIds, dateRange.getStart(), dateRange.getEnd());
 
             // 8. Filter routines whose active month overlaps the date range
             LocalDate rangeStartDate = dateRange.getStart().toLocalDate();
@@ -1227,11 +1294,11 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             List<Routine> activeRoutines = recurringRoutines.stream()
                     .filter(routine -> {
                         LocalDate routineActiveStartDate = routine.getTimeSlot().getStartTime().toLocalDate();
-                        LocalDate routineActiveEndDate = routineActiveStartDate.with(TemporalAdjusters.lastDayOfMonth());
 
-                        // Check for overlap: (StartA <= EndB) and (StartB <= EndA)
-                        boolean overlaps = (routineActiveStartDate.isBefore(rangeEndDate) || routineActiveStartDate.isEqual(rangeEndDate)) &&
-                                (rangeStartDate.isBefore(routineActiveEndDate) || rangeStartDate.isEqual(routineActiveEndDate));
+                        // Treat routine as infinite (no end date check)
+                        // It is active if it started on or before the range end date.
+                        boolean overlaps = (routineActiveStartDate.isBefore(rangeEndDate)
+                                || routineActiveStartDate.isEqual(rangeEndDate));
 
                         return overlaps;
                     })
@@ -1239,6 +1306,13 @@ public class CalendarItemServiceImpl implements CalendarItemService {
 
             // 9. Add the *original* Routine objects (not expanded)
             activeRoutines.stream()
+                    .map(this::mapToScheduledItemDTO)
+                    .forEach(finalItemList::add);
+
+            // 9.5. Fetch and add Standalone Routines (detached single occurrences)
+            List<Routine> standaloneRoutines = calendarItemRepository.findStandaloneRoutines(
+                    userId, calendarIds, dateRange.getStart(), dateRange.getEnd());
+            standaloneRoutines.stream()
                     .map(this::mapToScheduledItemDTO)
                     .forEach(finalItemList::add);
 
@@ -1291,12 +1365,13 @@ public class CalendarItemServiceImpl implements CalendarItemService {
         if (item.getTimeSlot() != null) {
             dto.setTimeSlot(new TimeSlotResponseDTO(
                     item.getTimeSlot().getStartTime(),
-                    item.getTimeSlot().getEndTime()
-            ));
+                    item.getTimeSlot().getEndTime()));
         }
         if (item instanceof Routine) {
             Routine routine = (Routine) item;
             dto.setPattern(routine.getPattern());
+            dto.setExceptions(routine.getExceptions());
+            dto.setEndDate(routine.getEndDate());
         }
         return dto;
     }
@@ -1344,8 +1419,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                     itemToSchedule.getItemId(),
                     timeSlotDTO.getStartTime(),
                     timeSlotDTO.getEndTime(),
-                    item.getType()
-            );
+                    item.getType());
 
             if (!violations.isEmpty()) {
                 constraintViolations.addAll(violations);
@@ -1361,7 +1435,57 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             calendarItemRepository.saveAll(itemsToUpdate);
         }
 
-        return new BaseResponse<>(1, "Batch schedule operation completed.", new BatchScheduleResponse(true, scheduledCount, constraintViolations));
+        return new BaseResponse<>(1, "Batch schedule operation completed.",
+                new BatchScheduleResponse(true, scheduledCount, constraintViolations));
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> detachRoutineInstance(Long userId, Long routineId,
+            com.graduation.schedulingservice.payload.request.DetachRoutineRequest request) {
+        try {
+            log.info("Detaching routine instance: userId={}, routineId={}, exceptionDate={}",
+                    userId, routineId, request.getExceptionDate());
+
+            // 1. Find the original routine
+            java.util.Optional<CalendarItem> itemOpt = calendarItemRepository.findById(routineId);
+            if (itemOpt.isEmpty()) {
+                return new BaseResponse<>(0, Constant.MSG_ITEM_NOT_FOUND, null);
+            }
+
+            CalendarItem item = itemOpt.get();
+            if (!(item instanceof Routine)) {
+                return new BaseResponse<>(0, "Item is not a routine", null);
+            }
+            Routine routine = (Routine) item;
+
+            // 2. Verify ownership
+            if (!routine.getUserId().equals(userId)) {
+                return new BaseResponse<>(0, Constant.MSG_UNAUTHORIZED_ACCESS, null);
+            }
+
+            // 3. Add exception to the original routine
+            routine.addException(request.getExceptionDate());
+            calendarItemRepository.save(routine);
+
+            // 4. Create the new standalone item (Task or Routine)
+            // The request.getNewDetails() contains the payload for the new item.
+            // We reuse the existing createItem logic but ensure it's treated as a new
+            // standalone item by removing the pattern.
+            CreateCalendarItemRequest newDetails = request.getNewDetails();
+            if (newDetails != null && "ROUTINE".equalsIgnoreCase(newDetails.getType())
+                    && newDetails.getRoutineDetails() != null) {
+                newDetails.getRoutineDetails().setPattern(null);
+            }
+
+            log.info(newDetails.toString());
+
+            return createItem(userId, newDetails);
+
+        } catch (Exception e) {
+            log.error("Failed to detach routine instance", e);
+            return new BaseResponse<>(0, "Failed to detach routine instance", null);
+        }
     }
 
 }
