@@ -24,6 +24,8 @@ public class Routine extends CalendarItem {
     @Column(name = "exception_date")
     private List<LocalDateTime> exceptions = new ArrayList<>();
 
+    private LocalDateTime endDate;
+
     @PostLoad
     private void postLoad() {
         setType(ItemType.ROUTINE);
