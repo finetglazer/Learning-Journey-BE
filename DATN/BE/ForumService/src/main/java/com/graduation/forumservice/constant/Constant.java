@@ -20,6 +20,8 @@ public class Constant {
     public static final String ERROR_UNAUTHORIZED_ACCESS = "You don't have permission to access this resource";
     public static final String ERROR_INVALID_REQUEST = "Invalid request";
     public static final String ERROR_RESOURCE_NOT_FOUND = "Resource not found";
+    public static final String INVALID_PARAM = "Invalid parameter";
+    public static final String FEED_RETRIEVED = "Post feed retrieved successfully";
 
     // ============================================
     // Log Messages

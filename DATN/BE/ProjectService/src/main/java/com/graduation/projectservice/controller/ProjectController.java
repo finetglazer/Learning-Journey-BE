@@ -81,4 +81,17 @@ public class ProjectController {
 
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/inviteable-projects/{invitedId}")
+    public ResponseEntity<BaseResponse<?>> getInviteableProjects(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long invitedId) {
+
+        log.info("GET /inviteable-projects/{} - User {} checking projects to invite user {}",
+                invitedId, userId, invitedId);
+
+        BaseResponse<?> response = projectService.getInviteableProjects(userId, invitedId);
+
+        return ResponseEntity.ok(response);
+    }
 }

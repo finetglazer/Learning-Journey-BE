@@ -25,7 +25,7 @@ public class ForumPost {
     private Long postId;
 
     @Column(name = "user_id", nullable = false)
-    private Integer userId;
+    private Long userId;
 
     @Column(length = 1000)
     private String title;
@@ -34,12 +34,13 @@ public class ForumPost {
     private String plainTextPreview;
 
     @Column(name = "mongo_content_id")
-    private String mongoContentId;
+    private Integer mongoContentId;
 
     @Column(name = "is_solved")
     private Boolean isSolved = false;
 
     @Column(columnDefinition = "varchar default 'ACTIVE'")
+    @Enumerated(EnumType.STRING)
     private PostStatus status = PostStatus.ACTIVE; // Matches 'ACTIVE'::character varying
 
     // TSVector requires a custom mapping or can be handled as a String for JPA

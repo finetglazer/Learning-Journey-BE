@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -223,6 +224,57 @@ public class ProjectServiceImpl implements ProjectService {
                     Constant.ERROR_STATUS,
                     e.getMessage(),
                     null);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BaseResponse<?> getInviteableProjects(Long userId, Long invitedId) {
+        try {
+            log.info("Fetching inviteable projects: userId={}, invitedId={}", userId, invitedId);
+
+            // 1. Get all project IDs where the current user (userId) is a member
+            // Note: Filter for MEMBER or OWNER to ensure they have permission to see the project
+            List<Long> userProjectIds = projectMemberRepository.findAllByUserId(userId).stream()
+                    .filter(m -> m.getRole() == ProjectMembershipRole.MEMBER || m.getRole() == ProjectMembershipRole.OWNER)
+                    .map(PM_ProjectMember::getProjectId)
+                    .toList();
+
+            if (userProjectIds.isEmpty()) {
+                return new BaseResponse<>(1, "No projects found for the user", List.of());
+            }
+
+            // 2. Get all project IDs where the invitedId is ALREADY present (any role: INVITED, MEMBER, etc.)
+            List<Long> invitedMemberProjectIds = projectMemberRepository.findAllByUserId(invitedId).stream()
+                    .map(PM_ProjectMember::getProjectId)
+                    .toList();
+
+            // 3. Filter: Keep project IDs that are in userProjectIds but NOT in invitedMemberProjectIds
+            List<Long> inviteableProjectIds = userProjectIds.stream()
+                    .filter(id -> !invitedMemberProjectIds.contains(id))
+                    .collect(Collectors.toList());
+
+            if (inviteableProjectIds.isEmpty()) {
+                return new BaseResponse<>(1, "Target user is already a member of all your projects", List.of());
+            }
+
+            // 4. Fetch the actual project details
+            List<PM_Project> projects = projectRepository.findAllById(inviteableProjectIds);
+
+            // 5. Map to a clean response (you can use a specific DTO here)
+            List<Map<String, Object>> response = projects.stream().map(p -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("projectId", p.getProjectId());
+                map.put("projectName", p.getName());
+                return map;
+            }).collect(Collectors.toList());
+
+            log.info("Found {} inviteable projects for invitedId {}", response.size(), invitedId);
+            return new BaseResponse<>(1, "Inviteable projects retrieved", response);
+
+        } catch (Exception e) {
+            log.error("Failed to fetch inviteable projects: {}", e.getMessage(), e);
+            return new BaseResponse<>(0, "Error retrieving projects: " + e.getMessage(), null);
         }
     }
 

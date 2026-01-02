@@ -30,7 +30,7 @@ public class PostVote {
      * Type: 1 for Upvote, -1 for Downvote.
      */
     @Column(name = "type", nullable = false)
-    private Integer type;
+    private Integer type = 0;
 
     @CreationTimestamp // Matches 'CURRENT_TIMESTAMP' default in image_61e0a8.png
     @Column(name = "created_at", updatable = false)

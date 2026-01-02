@@ -25,4 +25,6 @@ public interface ProjectService {
      * Batch update the order of items (Tasks or Phases)
      */
     BaseResponse<?> reorderList(Long userId, Long projectId, ReorderRequest request); // <-- ADD THIS METHOD
+
+    BaseResponse<?> getInviteableProjects(Long userId, Long invitedId);
 }

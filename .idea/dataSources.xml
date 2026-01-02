@@ -74,7 +74,7 @@
       </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="forum_management_db@forumservice.ydrgx8q.mongodb.net" uuid="6ab57c6a-dc23-47e7-8d01-37292d6935dd">
+    <data-source source="LOCAL" name="@forumservice.ydrgx8q.mongodb.net" uuid="1f9002b3-1947-48f8-8d89-da86c29cd178">
       <driver-ref>mongo.4</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>com.dbschema.MongoJdbcDriver</jdbc-driver>
