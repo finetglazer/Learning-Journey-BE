@@ -15,4 +15,6 @@ public class ScheduledItemDTO {
     private String color;
     private String status;
     private RecurringPattern pattern;
+    private java.util.List<java.time.LocalDateTime> exceptions;
+    private java.time.LocalDateTime endDate;
 }

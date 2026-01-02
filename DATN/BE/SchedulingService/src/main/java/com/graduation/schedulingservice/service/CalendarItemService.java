@@ -2,70 +2,90 @@ package com.graduation.schedulingservice.service;
 
 import com.graduation.schedulingservice.payload.request.BatchScheduleRequest;
 import com.graduation.schedulingservice.payload.request.CreateCalendarItemRequest;
+import com.graduation.schedulingservice.payload.request.DetachRoutineRequest;
 import com.graduation.schedulingservice.payload.request.UpdateCalendarItemRequest;
 import com.graduation.schedulingservice.payload.response.BaseResponse;
 import java.util.List;
 
-
 public interface CalendarItemService {
 
-    /**
-     * Create a new calendar item (Task, Routine, or Event)
-     * @param userId The authenticated user ID
-     * @param request The calendar item creation request
-     * @return BaseResponse containing creation result
-     */
-    BaseResponse<?> createItem(Long userId, CreateCalendarItemRequest request);
+        /**
+         * Create a new calendar item (Task, Routine, or Event)
+         * 
+         * @param userId  The authenticated user ID
+         * @param request The calendar item creation request
+         * @return BaseResponse containing creation result
+         */
+        BaseResponse<?> createItem(Long userId, CreateCalendarItemRequest request);
 
-    /**
-     * Get a single calendar item by ID
-     * @param userId The authenticated user ID
-     * @param itemId The calendar item ID
-     * @return BaseResponse containing item details
-     */
-    BaseResponse<?> getItemById(Long userId, Long itemId);
+        /**
+         * Get a single calendar item by ID
+         * 
+         * @param userId The authenticated user ID
+         * @param itemId The calendar item ID
+         * @return BaseResponse containing item details
+         */
+        BaseResponse<?> getItemById(Long userId, Long itemId);
 
-    /**
-     * Update an existing calendar item
-     * @param userId The authenticated user ID
-     * @param itemId The calendar item ID
-     * @param request The update request
-     * @return BaseResponse containing update result
-     */
-    BaseResponse<?> updateItem(Long userId, Long itemId, UpdateCalendarItemRequest request);
+        /**
+         * Update an existing calendar item
+         * 
+         * @param userId  The authenticated user ID
+         * @param itemId  The calendar item ID
+         * @param request The update request
+         * @return BaseResponse containing update result
+         */
+        BaseResponse<?> updateItem(Long userId, Long itemId, UpdateCalendarItemRequest request);
 
-    /**
-     * Delete a calendar item
-     * @param userId The authenticated user ID
-     * @param itemId The calendar item ID
-     * @return BaseResponse containing deletion result
-     */
-    BaseResponse<?> deleteItem(Long userId, Long itemId);
+        /**
+         * Delete a calendar item
+         * 
+         * @param userId The authenticated user ID
+         * @param itemId The calendar item ID
+         * @return BaseResponse containing deletion result
+         */
+        BaseResponse<?> deleteItem(Long userId, Long itemId);
 
-    /**
-     * Convert timezone for all calendar items of a user
-     * @param userId The user ID
-     * @param oldTimezone Previous timezone
-     * @param newTimezone New timezone
-     * @return BaseResponse containing conversion result
-     */
-    BaseResponse<?> convertUserTimezone(Long userId, String oldTimezone, String newTimezone);
+        /**
+         * Detach a specific instance of a routine, creating a new exception and a new
+         * standalone item.
+         * 
+         * @param userId    The authenticated user ID
+         * @param routineId The ID of the routine to detach from
+         * @param request   The detach request containing exception date and new item
+         *                  details
+         * @return BaseResponse containing the result
+         */
+        BaseResponse<?> detachRoutineInstance(Long userId, Long routineId,
+                        DetachRoutineRequest request);
 
-    /**
-     * Get calendar items by date range and view type.
-     * @param userId The authenticated user ID.
-     * @param view The view type (DAY, WEEK, MONTH, YEAR).
-     * @param date The reference date string.
-     * @param calendarIds A list of calendar IDs to filter by.
-     * @return BaseResponse containing a list of scheduled items.
-     */
-    BaseResponse<?> getItemsByDateRange(Long userId, String view, String date, List<Long> calendarIds);
+        /**
+         * Convert timezone for all calendar items of a user
+         * 
+         * @param userId      The user ID
+         * @param oldTimezone Previous timezone
+         * @param newTimezone New timezone
+         * @return BaseResponse containing conversion result
+         */
+        BaseResponse<?> convertUserTimezone(Long userId, String oldTimezone, String newTimezone);
 
-    /**
-     * Schedule multiple unscheduled items at once.
-     * @param userId The authenticated user ID.
-     * @param request The batch schedule request.
-     * @return BaseResponse containing the result of the batch operation.
-     */
-    BaseResponse<?> batchScheduleItems(Long userId, BatchScheduleRequest request);
+        /**
+         * Get calendar items by date range and view type.
+         * 
+         * @param userId      The authenticated user ID.
+         * @param view        The view type (DAY, WEEK, MONTH, YEAR).
+         * @param date        The reference date string.
+         * @param calendarIds A list of calendar IDs to filter by.
+         * @return BaseResponse containing a list of scheduled items.
+         */
+        BaseResponse<?> getItemsByDateRange(Long userId, String view, String date, List<Long> calendarIds);
+
+        /**
+         * Schedule multiple unscheduled items at once.
+         * 
+         * @param userId  The authenticated user ID.
+         * @param request The batch schedule request.
+         * @return BaseResponse containing the result of the batch operation.
+         */
+        BaseResponse<?> batchScheduleItems(Long userId, BatchScheduleRequest request);
 }
