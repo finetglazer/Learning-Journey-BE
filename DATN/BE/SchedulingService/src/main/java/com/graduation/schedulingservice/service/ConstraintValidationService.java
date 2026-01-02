@@ -34,17 +34,19 @@ public class ConstraintValidationService {
      * Validate all constraints for scheduling a calendar item
      */
     public List<String> validateConstraints(Long userId, LocalDateTime startTime,
-                                            LocalDateTime endTime, ItemType itemType) {
+            LocalDateTime endTime, ItemType itemType) {
         List<String> violations = new ArrayList<>();
 
         // 1. ALWAYS validate overlapping (hard rule, not user preference)
         validateOverlapping(userId, startTime, endTime, violations);
 
-        // 2. Fetch user constraints from the User Service for sleep hours and daily limits
+        // 2. Fetch user constraints from the User Service for sleep hours and daily
+        // limits
         Optional<UserConstraintsDTO> constraintsOpt = userServiceClient.fetchUserConstraints(userId);
 
         if (constraintsOpt.isEmpty()) {
-            log.warn("No constraints found for user {} or User Service is down. Skipping sleep/limit validation.", userId);
+            log.warn("No constraints found for user {} or User Service is down. Skipping sleep/limit validation.",
+                    userId);
             return violations; // Return only overlapping violations
         }
 
@@ -62,18 +64,20 @@ public class ConstraintValidationService {
     }
 
     /**
-     * Validates *only* the user's configured constraints (Sleep Hours, Daily Limits).
+     * Validates *only* the user's configured constraints (Sleep Hours, Daily
+     * Limits).
      * This method does NOT check for overlaps.
      */
     public List<String> validateBaseConstraints(Long userId, LocalDateTime startTime,
-                                                LocalDateTime endTime, ItemType itemType) {
+            LocalDateTime endTime, ItemType itemType) {
         List<String> violations = new ArrayList<>();
 
         // 1. Fetch user constraints from the User Service
         Optional<UserConstraintsDTO> constraintsOpt = userServiceClient.fetchUserConstraints(userId);
 
         if (constraintsOpt.isEmpty()) {
-            log.warn("No constraints found for user {} or User Service is down. Skipping sleep/limit validation.", userId);
+            log.warn("No constraints found for user {} or User Service is down. Skipping sleep/limit validation.",
+                    userId);
             return violations; // Return empty list
         }
 
@@ -91,16 +95,43 @@ public class ConstraintValidationService {
     }
 
     /**
-     * HARD RULE: Check if the new time slot overlaps with any existing scheduled items
+     * HARD RULE: Check if the new time slot overlaps with any existing scheduled
+     * items
      * This is ALWAYS validated regardless of user preferences
      */
     private void validateOverlapping(Long userId, LocalDateTime startTime,
-                                     LocalDateTime endTime, List<String> violations) {
+            LocalDateTime endTime, List<String> violations) {
         log.debug("Checking overlapping items for user {} between {} and {}",
                 userId, startTime, endTime);
 
-        List<CalendarItem> overlappingItems = calendarItemRepository
-                .findOverlappingItems(userId, startTime, endTime);
+        List<CalendarItem> overlappingItems = new ArrayList<>(calendarItemRepository
+                .findOverlappingItems(userId, startTime, endTime));
+
+        // Filter out routines that have an exception for this date OR have ended
+        LocalDate dateToCheck = startTime.toLocalDate();
+        overlappingItems.removeIf(item -> {
+            if (item instanceof com.graduation.schedulingservice.model.Routine) {
+                com.graduation.schedulingservice.model.Routine routine = (com.graduation.schedulingservice.model.Routine) item;
+
+                // Check if routine has ended before this new item starts
+                if (routine.getEndDate() != null && !routine.getEndDate().isAfter(startTime)) {
+                    log.debug("Ignoring overlap with routine '{}' due to endDate {}", routine.getName(),
+                            routine.getEndDate());
+                    return true;
+                }
+
+                if (routine.getExceptions() != null) {
+                    boolean hasException = routine.getExceptions().stream()
+                            .anyMatch(ex -> ex.toLocalDate().isEqual(dateToCheck));
+                    if (hasException) {
+                        log.debug("Ignoring overlap with routine '{}' due to exception on {}", routine.getName(),
+                                dateToCheck);
+                        return true;
+                    }
+                }
+            }
+            return false;
+        });
 
         if (!overlappingItems.isEmpty()) {
             log.warn("Found {} overlapping items for user {}", overlappingItems.size(), userId);
@@ -121,15 +152,15 @@ public class ConstraintValidationService {
                         if (startTime.toLocalDate().isEqual(endTime.toLocalDate())) {
                             // Same day: 'Task Name' (Nov 7, 6:30 PM - 6:45 PM)
                             formattedTime = String.format("%s, %s - %s",
-                                    startDateTime.format(dateFormatter),  // "Nov 7"
+                                    startDateTime.format(dateFormatter), // "Nov 7"
                                     startDateTime.format(timeFormatter), // "6:30 PM"
-                                    endDateTime.format(timeFormatter)    // "6:45 PM"
+                                    endDateTime.format(timeFormatter) // "6:45 PM"
                             );
                         } else {
                             // Different days: 'Task Name' (Nov 7, 11:00 PM - Nov 8, 1:00 AM)
                             formattedTime = String.format("%s - %s",
                                     startDateTime.format(fullFormatter), // "Nov 7, 11:00 PM"
-                                    endDateTime.format(fullFormatter)    // "Nov 8, 1:00 AM"
+                                    endDateTime.format(fullFormatter) // "Nov 8, 1:00 AM"
                             );
                         }
 
@@ -151,7 +182,7 @@ public class ConstraintValidationService {
      * Check if start or end time falls within any sleep hour range
      */
     private void validateSleepHours(UserConstraintsDTO constraints, LocalDateTime startTime,
-                                    LocalDateTime endTime, List<String> violations) {
+            LocalDateTime endTime, List<String> violations) {
         List<TimeRangeDto> sleepHours = constraints.getSleepHours();
 
         if (sleepHours == null || sleepHours.isEmpty()) {
@@ -171,7 +202,8 @@ public class ConstraintValidationService {
             boolean startInSleep = isTimeInRange(startLocalTime, sleepStart, sleepEnd);
             boolean endInSleep = isTimeInRange(endLocalTime, sleepStart, sleepEnd);
 
-            // Note: You also need to check if the sleep time is entirely *inside* the task time
+            // Note: You also need to check if the sleep time is entirely *inside* the task
+            // time
             // (e.g. Task is 10PM-8AM, Sleep is 2AM-4AM)
             boolean sleepInsideTask = isTimeInRange(sleepStart, startLocalTime, endLocalTime);
 
@@ -188,7 +220,6 @@ public class ConstraintValidationService {
         }
     }
 
-
     /**
      * Helper method to check if a time falls within a range
      * Handles overnight ranges (e.g., 22:00 - 06:00)
@@ -204,8 +235,8 @@ public class ConstraintValidationService {
      * Check if adding this item would exceed the daily limit for the item type
      */
     private void validateDailyLimit(Long userId, UserConstraintsDTO constraints,
-                                    LocalDateTime startTime, LocalDateTime endTime,
-                                    ItemType itemType, List<String> violations) {
+            LocalDateTime startTime, LocalDateTime endTime,
+            ItemType itemType, List<String> violations) {
 
         // Get the configured daily limit for this item type
         Integer dailyLimitHours = constraints.getDailyLimits()
@@ -228,8 +259,7 @@ public class ConstraintValidationService {
                 .filter(slot -> slot.getStartTime() != null && slot.getEndTime() != null)
                 .mapToLong(slot -> Duration.between(
                         slot.getStartTime(),
-                        slot.getEndTime()
-                ).toMinutes())
+                        slot.getEndTime()).toMinutes())
                 .sum();
 
         // Calculate the duration of the new item
