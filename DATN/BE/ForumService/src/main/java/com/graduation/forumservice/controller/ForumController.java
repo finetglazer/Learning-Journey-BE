@@ -5,9 +5,12 @@ import com.graduation.forumservice.service.ForumService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -35,18 +38,24 @@ public class ForumController {
     @PostMapping("/posts")
     public ResponseEntity<?> createPost(
             @RequestHeader("X-User-Id") Long userId,
-            @RequestBody @Valid CreatePostRequest request) {
-        log.info("POST /api/forum/posts - userId={}, title={}", userId, request.getTitle());
-        return ResponseEntity.ok(forumService.createNewPost(userId, request));
+            @RequestPart("request") @Valid CreatePostRequest request,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+
+        log.info("POST /api/forum/posts - userId={}, title={}, fileCount={}",
+                userId, request.getTitle(), (files != null ? files.size() : 0));
+
+        return ResponseEntity.ok(forumService.createNewPost(userId, request, files));
     }
 
-    @PutMapping("/posts/{postId}")
+    @PutMapping(value = "/posts/{postId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updatePost(
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long postId,
-            @RequestBody @Valid UpdatePostRequest request) {
-        log.info("PUT /api/forum/posts - userId={}, title={}", userId, request.getTitle());
-        return ResponseEntity.ok(forumService.updatePost(userId, postId, request));
+            @RequestPart("request") @Valid UpdatePostRequest request,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+
+        log.info("PUT /api/forum/posts/{} - userId={}, title={}", postId, userId, request.getTitle());
+        return ResponseEntity.ok(forumService.updatePost(userId, postId, request, files));
     }
 
     // --- 2. POST DETAIL & ACTIONS ---

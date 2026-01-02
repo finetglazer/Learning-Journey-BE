@@ -1,5 +1,6 @@
 package com.graduation.forumservice.service.impl;
 
+import com.graduation.forumservice.client.ProjectServiceClient;
 import com.graduation.forumservice.client.UserServiceClient;
 import com.graduation.forumservice.constant.Constant;
 import com.graduation.forumservice.exception.NotFoundException;
@@ -15,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -38,6 +40,8 @@ public class ForumServiceImpl implements ForumService {
     private final ForumCommentRepository forumCommentRepository;
     private final UserInfoCacheRepository userInfoCacheRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
+    private final ProjectServiceClient projectServiceClient;
+    private final ForumPostFileRepository forumPostFileRepository;
 
     @Override
     public BaseResponse<?> getPostFeed(Long userId, int page, int limit, String filter, String sort, String search) {
@@ -80,20 +84,20 @@ public class ForumServiceImpl implements ForumService {
 
     @Override
     @Transactional
-    public BaseResponse<?> createNewPost(Long userId, CreatePostRequest request) {
-        log.info("Creating new post: userId={}, title={}", userId, request.getTitle());
+    public BaseResponse<?> createNewPost(Long userId, CreatePostRequest request, List<MultipartFile> files) {
+        log.info("Creating new post with files: userId={}, title={}", userId, request.getTitle());
 
         try {
-            // 1. Extract plain text preview for PostgresSQL storage
+            // 1. Extract plain text preview for PostgresSQL
             String plainTextPreview = extractPlainText(request.getContent());
 
-            // 2. Save rich content to MongoDB first to get the Document ID
+            // 2. Save rich content to MongoDB
             MongoContent mongoContent = new MongoContent();
             mongoContent.setContent(request.getContent());
             mongoContent.setId(sequenceGeneratorService.generateSequence("mongo_content_sequence"));
             mongoContent = mongoContentRepository.save(mongoContent);
 
-            // 3. Handle Tags: Sync incoming tags with the master dictionary
+            // 3. Handle Tags
             List<String> synchronizedTags = syncTags(request.getTags());
 
             // 4. Create and save the ForumPost entity in PostgresSQL
@@ -110,67 +114,134 @@ public class ForumServiceImpl implements ForumService {
             post = forumPostRepository.save(post);
             Long postId = post.getPostId();
 
+            // 5. Handle File Uploads via ProjectServiceClient
+            if (files != null && !files.isEmpty()) {
+                // Internal call to ProjectService to upload to GCS
+                // We use a dummy projectId (e.g., 0L) or a specific one if your forum posts belong to projects
+                BaseResponse<?> uploadResponse = projectServiceClient.uploadMultipleFiles(userId, 0L, files);
+
+                if (uploadResponse.getStatus() == Constant.SUCCESS_STATUS) {
+                    // Extract the list of URLs or FileUploadDTOs from the response
+                    Map<String, Object> data = (Map<String, Object>) uploadResponse.getData();
+                    List<String> fileUrls = (List<String>) data.get("urls");
+
+                    // 6. Save File Metadata to PostgresSQL (forum_post_files table)
+                    List<ForumPostFile> postFiles = new ArrayList<>();
+                    for (int i = 0; i < files.size(); i++) {
+                        MultipartFile file = files.get(i);
+                        String url = fileUrls.get(i);
+
+                        postFiles.add(ForumPostFile.builder()
+                                .postId(postId)
+                                .storageRef(url)
+                                .fileName(file.getOriginalFilename())
+                                .extension(getFileExtension(file.getOriginalFilename()))
+                                .fileSize(file.getSize())
+                                .build());
+                    }
+                    forumPostFileRepository.saveAll(postFiles);
+                    log.info("Attached {} files to post {}", postFiles.size(), postId);
+                } else {
+                    log.error("File upload failed via ProjectService");
+                    // Decide if you want to fail the whole post or continue without files
+                }
+            }
+
             log.info("Successfully created post with ID: {}", postId);
             PostAuthorDTO author = fetchAuthorInfo(userId);
-            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Post created successfully", Map.of("post", toPostFeedDTO(post, author, 0, 0L, 0)));
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Post created successfully",
+                    Map.of("post", toPostFeedDTO(post, author, 0, 0L, 0)));
 
         } catch (Exception e) {
-            log.error("Failed to create post: {}", e.getMessage());
+            log.error("Failed to create post with files: {}", e.getMessage());
             throw e; // Triggers @Transactional rollback
         }
     }
 
+
+
     @Override
     @Transactional
-    public BaseResponse<?> updatePost(Long userId, Long postId, UpdatePostRequest request) {
-        log.info("Updating post: postId={}, userId={}", postId, userId);
+    public BaseResponse<?> updatePost(Long userId, Long postId, UpdatePostRequest request, List<MultipartFile> files) {
+        log.info("Updating post with file management: postId={}, userId={}", postId, userId);
 
         try {
-            // 1. Fetch existing post & Verify ownership
+            // 1. Authorization and Existence Check
             ForumPost post = forumPostRepository.findById(postId)
                     .orElseThrow(() -> new NotFoundException("Post not found!"));
 
             if (!post.getUserId().equals(userId)) {
-                log.warn("Unauthorized update attempt: userId {} on postId {}", userId, postId);
-                return new BaseResponse<>(Constant.ERROR_STATUS, "You can only edit your own posts!", null);
+                return new BaseResponse<>(Constant.ERROR_STATUS, "Unauthorized access", null);
             }
 
-            // 2. Update Rich Content in MongoDB
+            // 2. Handle Old File Removal
+            if (request.getFilesToRemove() != null && !request.getFilesToRemove().isEmpty()) {
+                List<ForumPostFile> filesToDelete = forumPostFileRepository.findAllById(request.getFilesToRemove());
+
+                // Extract storage references to clean up physical storage in GCS
+                List<String> storageRefs = filesToDelete.stream()
+                        .map(ForumPostFile::getStorageRef)
+                        .toList();
+
+                // Internal call to ProjectService to delete physical files
+                projectServiceClient.deleteMultipleFiles(userId, storageRefs);
+
+                // Remove metadata from PostgresSQL
+                forumPostFileRepository.deleteAllInBatch(filesToDelete);
+                log.info("Removed {} old files from post {}", filesToDelete.size(), postId);
+            }
+
+            // 3. Handle New File Uploads
+            if (files != null && !files.isEmpty()) {
+                BaseResponse<?> uploadRes = projectServiceClient.uploadMultipleFiles(userId, 0L, files);
+
+                if (uploadRes.getStatus() == Constant.SUCCESS_STATUS) {
+                    Map<String, Object> data = (Map<String, Object>) uploadRes.getData();
+                    List<String> newStorageRefs = (List<String>) data.get("urls");
+
+                    List<ForumPostFile> newFiles = new ArrayList<>();
+                    for (int i = 0; i < files.size(); i++) {
+                        newFiles.add(ForumPostFile.builder()
+                                .postId(postId)
+                                .storageRef(newStorageRefs.get(i))
+                                .fileName(files.get(i).getOriginalFilename())
+                                .extension(files.get(i).getContentType())
+                                .fileSize(files.get(i).getSize())
+                                .build());
+                    }
+                    forumPostFileRepository.saveAll(newFiles);
+                    log.info("Attached {} new files to post {}", newFiles.size(), postId);
+                }
+            }
+
+            // 4. Update Content (MongoDB) and Metadata (Postgres)
             if (request.getContent() != null) {
                 MongoContent mongoContent = mongoContentRepository.findByIntId(post.getMongoContentId())
-                        .orElseThrow(() -> new NotFoundException("Rich content not found!"));
-
+                        .orElseThrow(() -> new NotFoundException("Content not found!"));
                 mongoContent.setContent(request.getContent());
                 mongoContentRepository.save(mongoContent);
-
-                // Update the plain text preview for PostgresSQL
                 post.setPlainTextPreview(extractPlainText(request.getContent()));
             }
 
-            // 3. Update Metadata in PostgresSQL
-            if (request.getTitle() != null) {
-                post.setTitle(request.getTitle());
-            }
-
-            if (request.getTags() != null) {
-                post.setTags(syncTags(request.getTags()));
-            }
-
+            if (request.getTitle() != null) post.setTitle(request.getTitle());
+            if (request.getTags() != null) post.setTags(syncTags(request.getTags()));
             post.setUpdatedAt(LocalDateTime.now());
+
             forumPostRepository.save(post);
 
-            log.info("Successfully updated post ID: {}", postId);
-            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Post updated successfully", post);
+            PostAuthorDTO author = fetchAuthorInfo(userId);
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Post updated successfully",
+                    toPostFeedDTO(post, author, 0, 0L, 0));
 
         } catch (Exception e) {
-            log.error("Failed to update post: {}", e.getMessage());
-            throw e; // Triggers @Transactional rollback
+            log.error("Failed to update post {}: {}", postId, e.getMessage());
+            throw e; // Triggers rollback for all SQL operations
         }
     }
 
     @Override
     public BaseResponse<?> getPostDetail(Long userId, Long postId) {
-        log.info("Fetching post detail with flat structure: postId={}", postId);
+        log.info("Fetching post detail with files: postId={}", postId);
 
         // 1. Fetch Post Detail (Native Mapping)
         Optional<Object[]> optionalResult = forumPostRepository.findPostDetailByIdNative(postId);
@@ -186,21 +257,25 @@ public class ForumServiceImpl implements ForumService {
                 ? Arrays.asList(tagsStr.split(","))
                 : Collections.emptyList();
 
-        // 2. Fetch Top 5 Answers (Flattened - no nested comments here)
-        List<AnswerDTO> answers = fetchTopAnswers(postId);
+        // 2. NEW: Fetch Attached Files from PostgresSQL
+        List<FileUploadDTO> attachedFiles = forumPostFileRepository.findAllByPostId(postId)
+                .stream()
+                .map(this::mapToFileDTO)
+                .toList();
 
-        // 3. Fetch Comments for all these answers (at the root level)
+        // 3. Fetch Answers and Comments
+        List<AnswerDTO> answers = fetchTopAnswers(postId);
         List<Long> answerIds = answers.stream().map(AnswerDTO::getAnswerId).toList();
         List<CommentDTO> rootComments = fetchRootComments(postId, answerIds);
 
-        // 4. Resolve Post Metadata
+        // 4. Resolve Content and Author
         MongoContent postContent = mongoContentRepository.findByIntId(mongoContentId).orElse(new MongoContent());
         PostAuthorDTO postAuthor = fetchAuthorInfo(authorUserId);
 
-        // 5. Interaction checks
+        // 5. Interaction checks (Fixed parameter order for isSaved)
         Integer userVote = postVoteRepository.findPostVoteByPostIdAndUserId(postId, userId)
                 .map(PostVote::getType).orElse(0);
-        boolean isSaved = savedPostRepository.existsByPostIdAndUserId(postId, userId);
+        boolean isSaved = savedPostRepository.existsByPostIdAndUserId(postId, userId); //
         List<Long> savedToProjectIds = projectSavedPostRepository.findByPostId(postId)
                 .stream().map(item -> item.getId().getProjectId())
                 .collect(Collectors.toList());
@@ -212,6 +287,7 @@ public class ForumServiceImpl implements ForumService {
                 .content(postContent.getContent())
                 .author(postAuthor)
                 .tags(tags)
+                .files(attachedFiles) // Include the new files list
                 .stats(PostStatsDTO.builder()
                         .score(((Number) data[9]).intValue())
                         .viewCount(((Number) data[10]).longValue() + 1)
@@ -220,7 +296,7 @@ public class ForumServiceImpl implements ForumService {
                         .build())
                 .answers(answers)
                 .savedToProjectIds(savedToProjectIds)
-                .comments(rootComments) // Comments are now here at the root level
+                .comments(rootComments)
                 .userVote(userVote)
                 .isSaved(isSaved)
                 .createdAt(((java.sql.Timestamp) data[6]).toLocalDateTime())
@@ -229,6 +305,16 @@ public class ForumServiceImpl implements ForumService {
 
         postStatsRepository.incrementViewCount(postId);
         return new BaseResponse<>(Constant.SUCCESS_STATUS, "Success", detailDTO);
+    }
+
+    private FileUploadDTO mapToFileDTO(ForumPostFile file) {
+        return FileUploadDTO.builder()
+                .fileId(file.getFileId())
+                .url(file.getStorageRef())
+                .name(file.getFileName())
+                .extension(file.getExtension())
+                .size(file.getFileSize())
+                .build();
     }
 
     private List<AnswerDTO> fetchTopAnswers(Long postId) {
@@ -1127,5 +1213,11 @@ public class ForumServiceImpl implements ForumService {
             // Add a space after block-level elements to prevent words sticking together
             sb.append(" ");
         }
+    }
+
+    private String getFileExtension(String filename) {
+        return filename != null && filename.lastIndexOf(".") != -1
+                ? filename.substring(filename.lastIndexOf(".") + 1)
+                : "";
     }
 }

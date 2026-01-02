@@ -2,6 +2,9 @@ package com.graduation.forumservice.service;
 
 import com.graduation.forumservice.payload.request.*;
 import com.graduation.forumservice.payload.response.BaseResponse;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 public interface ForumService {
 
@@ -15,9 +18,9 @@ public interface ForumService {
     /**
      * Handles the logic for creating a new post, including syncing tags.
      */
-    BaseResponse<?> createNewPost(Long userId, CreatePostRequest request);
+    BaseResponse<?> createNewPost(Long userId, CreatePostRequest request, List<MultipartFile> files);
 
-    BaseResponse<?> updatePost(Long userId, Long postId, UpdatePostRequest request);
+    BaseResponse<?> updatePost(Long userId, Long postId, UpdatePostRequest request, List<MultipartFile> files);
     // --- 2. POST DETAIL & ACTIONS ---
 
     /**

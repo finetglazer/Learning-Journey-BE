@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -75,6 +78,42 @@ public class ProjectFileStorageService {
             }
         } catch (Exception e) {
             log.error("Error deleting file from GCS: {}", fullUrl, e);
+        }
+    }
+
+    /**
+     * Upload multiple files to GCS and return a list of their URLs.
+     */
+    public List<String> uploadMultipleFiles(List<MultipartFile> files) throws IOException {
+        if (files == null || files.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<String> urls = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                String url = uploadFile((long) -1, file);
+                urls.add(url);
+            }
+        }
+
+        return urls;
+    }
+
+    /**
+     * Deletes multiple files from GCS given a list of their full URLs.
+     */
+    public void deleteMultipleFiles(List<String> fullUrls) {
+        if (fullUrls == null || fullUrls.isEmpty()) {
+            log.debug("No URLs provided for multiple deletion.");
+            return;
+        }
+
+        log.info("Attempting to delete {} files from GCS", fullUrls.size());
+
+        // Iterate through each URL and call the existing delete logic
+        for (String url : fullUrls) {
+            deleteFile(url);
         }
     }
 

@@ -25,6 +25,9 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
     @Value("${app.security.trusted-services.document-service}")
     private String documentServiceApiKey;
 
+    @Value("${app.security.trusted-services.forum-service}")
+    private String forumServiceApiKey;
+
     @Value("${app.security.trusted-services.hocuspocus-service}")
     private String hocuspocusServiceApiKey;
 
@@ -54,7 +57,8 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
                     schedulingServiceApiKey,
                     userServiceApiKey,
                     documentServiceApiKey,
-                    hocuspocusServiceApiKey
+                    hocuspocusServiceApiKey,
+                    forumServiceApiKey
             );
 
             if (!validKeys.contains(apiKey)) {

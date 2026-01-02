@@ -19,4 +19,5 @@ public class UpdatePostRequest {
     private Map<String, Object> content; // Rich text JSON blocks
 
     private List<String> tags; // Backend creates tag if not exists
+    private List<Long> filesToRemove; // IDs of ForumPostFile to be deleted
 }

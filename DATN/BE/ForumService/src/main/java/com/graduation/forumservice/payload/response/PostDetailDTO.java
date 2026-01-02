@@ -1,5 +1,6 @@
 package com.graduation.forumservice.payload.response;
 
+import com.graduation.forumservice.model.FileUploadDTO;
 import lombok.Builder;
 import lombok.Data;
 
@@ -21,6 +22,7 @@ public class PostDetailDTO {
     private Integer userVote; // Specific to current user
     private Boolean isSaved; // Specific to current user
     private List<Long> savedToProjectIds;
+    private List<FileUploadDTO> files;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
