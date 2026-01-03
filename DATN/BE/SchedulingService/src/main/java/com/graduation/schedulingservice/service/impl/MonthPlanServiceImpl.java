@@ -61,7 +61,8 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             monthPlan.setStatus(PlanStatus.DRAFT);
 
             // 3. Auto-copy routines from previous month
-            List<String> approvedRoutines = copyRoutinesFromPreviousMonth(userId, request.getYear(), request.getMonth());
+            List<String> approvedRoutines = copyRoutinesFromPreviousMonth(userId, request.getYear(),
+                    request.getMonth());
             monthPlan.setApprovedRoutineNames(approvedRoutines);
 
             // 4. Save month plan
@@ -75,8 +76,7 @@ public class MonthPlanServiceImpl implements MonthPlanService {
                     savedMonthPlan.getId(),
                     approvedRoutines,
                     weekPlanIds,
-                    "Month plan created"
-            );
+                    "Month plan created");
 
             log.info("Month plan created successfully: monthPlanId={}", savedMonthPlan.getId());
             return new BaseResponse<>(1, "Month plan created successfully", response);
@@ -117,12 +117,19 @@ public class MonthPlanServiceImpl implements MonthPlanService {
 
             // --- MODIFIED LOGIC ---
             // 2.5. Get unscheduled routines for this month
-            // This now filters all user items for Routines that match this monthPlanId and are unscheduled (no time slot)
+            // This now filters all user items for Routines that match this monthPlanId and
+            // are unscheduled (no time slot)
             List<String> unscheduledRoutineNames = allUserItems.stream()
                     .filter(item -> item instanceof Routine) // Filter for Routine type
-                    .filter(item -> item.getMonthPlanId() != null && item.getMonthPlanId().equals(monthPlanId)) // Filter for this month plan
+                    .filter(item -> item.getMonthPlanId() != null && item.getMonthPlanId().equals(monthPlanId)) // Filter
+                                                                                                                // for
+                                                                                                                // this
+                                                                                                                // month
+                                                                                                                // plan
                     .map(item -> (Routine) item) // Cast to Routine
-                    .filter(routine -> routine.getTimeSlot() == null || routine.getTimeSlot().getStartTime() == null) // Filter for unscheduled
+//                    .filter(routine -> routine.getTimeSlot() == null || routine.getTimeSlot().getStartTime() == null) // Filter
+                                                                                                                      // for
+                                                                                                                      // unscheduled
                     .map(Routine::getName) // Get the name
                     .collect(Collectors.toList());
 
@@ -193,7 +200,8 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             response.setEvents(eventDTOs);
 
             // 5. Get week plans
-            List<WeekPlanDTO> weekPlanDTOs = weekPlanRepository.findByMonthPlanIdOrderByWeekNumberAsc(monthPlanId).stream()
+            List<WeekPlanDTO> weekPlanDTOs = weekPlanRepository.findByMonthPlanIdOrderByWeekNumberAsc(monthPlanId)
+                    .stream()
                     .map(weekPlan -> {
                         WeekPlanDTO dto = new WeekPlanDTO();
                         dto.setWeekNumber(weekPlan.getWeekNumber());
@@ -213,7 +221,6 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             return new BaseResponse<>(0, "Failed to retrieve month plan", null);
         }
     }
-
 
     @Override
     @Transactional(readOnly = true)
@@ -322,15 +329,15 @@ public class MonthPlanServiceImpl implements MonthPlanService {
                     unscheduledTasks.add(task);
                 }
                 savedUnscheduledTasks = calendarItemRepository.saveAll(unscheduledTasks);
-                log.info("Created {} unscheduled tasks for bigTaskId={}", unscheduledTasks.size(), savedBigTask.getId());
+                log.info("Created {} unscheduled tasks for bigTaskId={}", unscheduledTasks.size(),
+                        savedBigTask.getId());
             }
 
             // 7. Find affected week plans (any overlap with date range)
             List<WeekPlan> affectedWeekPlans = weekPlanRepository.findByMonthPlanIdAndDateRangeOverlap(
                     monthPlanId,
                     request.getEstimatedStartDate(),
-                    request.getEstimatedEndDate()
-            );
+                    request.getEstimatedEndDate());
 
             List<Long> affectedWeekPlanIds = affectedWeekPlans.stream()
                     .map(WeekPlan::getId)
@@ -346,8 +353,7 @@ public class MonthPlanServiceImpl implements MonthPlanService {
                     savedBigTask.getId(),
                     "Big task added successfully",
                     affectedWeekPlanIds,
-                    unscheduledTaskDTOs
-            );
+                    unscheduledTaskDTOs);
 
             log.info("Big task added successfully: bigTaskId={}, affectedWeeks={}",
                     savedBigTask.getId(), affectedWeekPlanIds.size());
@@ -392,7 +398,8 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             List<Task> derivedTasks = calendarItemRepository.findAllByUserId(userId).stream()
                     .filter(item -> item instanceof Task)
                     .map(item -> (Task) item) // Cast to Task
-                    .filter(task -> task.getParentBigTaskId() != null && task.getParentBigTaskId().equals(bigTask.getId()))
+                    .filter(task -> task.getParentBigTaskId() != null
+                            && task.getParentBigTaskId().equals(bigTask.getId()))
                     .collect(Collectors.toList());
 
             // 5. Build BigTaskDTO
@@ -484,7 +491,8 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             List<Task> derivedTasks = calendarItemRepository.findAllByUserId(userId).stream()
                     .filter(item -> item instanceof Task)
                     .map(item -> (Task) item)
-                    .filter(task -> task.getParentBigTaskId() != null && task.getParentBigTaskId().equals(savedBigTask.getId()))
+                    .filter(task -> task.getParentBigTaskId() != null
+                            && task.getParentBigTaskId().equals(savedBigTask.getId()))
                     .collect(Collectors.toList());
 
             // Validate new date range against *scheduled* derived tasks
@@ -501,13 +509,13 @@ public class MonthPlanServiceImpl implements MonthPlanService {
 
                     // Check if the scheduled task's date is outside the new proposed range
                     if (taskDate.isBefore(newBigTaskStart) || taskDate.isAfter(newBigTaskEnd)) {
-                        log.warn("Big task update conflicts with scheduled sub-task: bigTaskId={}, taskId={}, taskDate={}, newRange=[{}, {}]",
+                        log.warn(
+                                "Big task update conflicts with scheduled sub-task: bigTaskId={}, taskId={}, taskDate={}, newRange=[{}, {}]",
                                 bigTaskId, scheduledTask.getId(), taskDate, newBigTaskStart, newBigTaskEnd);
 
                         String errorMessage = String.format(
                                 "Update failed: Scheduled sub-task '%s' (on %s) would be outside the new date range of %s to %s.",
-                                scheduledTask.getName(), taskDate, newBigTaskStart, newBigTaskEnd
-                        );
+                                scheduledTask.getName(), taskDate, newBigTaskStart, newBigTaskEnd);
                         return new BaseResponse<>(0, errorMessage, null);
                     }
                 }
@@ -526,7 +534,8 @@ public class MonthPlanServiceImpl implements MonthPlanService {
 
     @Override
     @Transactional
-    public BaseResponse<?> addUnscheduledTask(Long userId, Long monthPlanId, Long bigTaskId, AddUnscheduledTaskRequest request) {
+    public BaseResponse<?> addUnscheduledTask(Long userId, Long monthPlanId, Long bigTaskId,
+            AddUnscheduledTaskRequest request) {
         try {
             log.info("Adding unscheduled task to big task: userId={}, monthPlanId={}, bigTaskId={}",
                     userId, monthPlanId, bigTaskId);
@@ -571,8 +580,7 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             UnscheduledTaskResponseDTO responseDTO = new UnscheduledTaskResponseDTO(
                     savedTask.getId(),
                     savedTask.getName(),
-                    savedTask.getNote()
-            );
+                    savedTask.getNote());
 
             log.info("Unscheduled task added successfully: unscheduledTaskId={}", savedTask.getId());
             return new BaseResponse<>(1, "Unscheduled task added successfully", responseDTO);
@@ -585,7 +593,8 @@ public class MonthPlanServiceImpl implements MonthPlanService {
 
     @Override
     @Transactional
-    public BaseResponse<?> updateUnscheduledTask(Long userId, Long monthPlanId, Long bigTaskId, Long unscheduledTaskId, UpdateUnscheduledTaskRequest request) {
+    public BaseResponse<?> updateUnscheduledTask(Long userId, Long monthPlanId, Long bigTaskId, Long unscheduledTaskId,
+            UpdateUnscheduledTaskRequest request) {
         try {
             log.info("Updating unscheduled task: userId={}, monthPlanId={}, bigTaskId={}, unscheduledTaskId={}",
                     userId, monthPlanId, bigTaskId, unscheduledTaskId);
@@ -627,7 +636,8 @@ public class MonthPlanServiceImpl implements MonthPlanService {
 
             Task task = (Task) item;
             if (task.isScheduled()) {
-                log.warn("Task is already scheduled, cannot update as 'unscheduled': unscheduledTaskId={}", unscheduledTaskId);
+                log.warn("Task is already scheduled, cannot update as 'unscheduled': unscheduledTaskId={}",
+                        unscheduledTaskId);
                 return new BaseResponse<>(0, "Task is already scheduled", null);
             }
 
@@ -648,8 +658,7 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             UnscheduledTaskResponseDTO responseDTO = new UnscheduledTaskResponseDTO(
                     updatedTask.getId(),
                     updatedTask.getName(),
-                    updatedTask.getNote()
-            );
+                    updatedTask.getNote());
 
             log.info("Unscheduled task updated successfully: unscheduledTaskId={}", updatedTask.getId());
             return new BaseResponse<>(1, "Unscheduled task updated successfully", responseDTO);
@@ -683,7 +692,8 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             BigTask bigTask = bigTaskOpt.get();
 
             // 3. Validate big task belongs to the specified month plan and user
-            if (bigTask.getMonthPlan() == null || !bigTask.getMonthPlan().getId().equals(monthPlanId) || !bigTask.getMonthPlan().getUserId().equals(userId)) {
+            if (bigTask.getMonthPlan() == null || !bigTask.getMonthPlan().getId().equals(monthPlanId)
+                    || !bigTask.getMonthPlan().getUserId().equals(userId)) {
                 log.warn("Big task {} does not belong to month plan {} or user {}", bigTaskId, monthPlanId, userId);
                 return new BaseResponse<>(0, "Big task not found in this month plan", null);
             }
@@ -692,7 +702,8 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             List<Task> derivedTasks = calendarItemRepository.findAllByUserId(userId).stream()
                     .filter(item -> item instanceof Task)
                     .map(item -> (Task) item)
-                    .filter(task -> task.getParentBigTaskId() != null && task.getParentBigTaskId().equals(bigTask.getId()))
+                    .filter(task -> task.getParentBigTaskId() != null
+                            && task.getParentBigTaskId().equals(bigTask.getId()))
                     .collect(Collectors.toList());
 
             // 5. Delete all derived tasks
@@ -765,27 +776,31 @@ public class MonthPlanServiceImpl implements MonthPlanService {
                 return new BaseResponse<>(0, "Unauthorized access to calendar", null);
             }
 
-//            // 6. Check for duplicate event on the same date in this month plan
-//            boolean duplicateExists = calendarItemRepository.findAllByUserId(userId).stream()
-//                    .filter(item -> item instanceof Event)
-//                    .filter(item -> item.getMonthPlanId() != null)
-//                    .filter(item -> item.getMonthPlanId().equals(monthPlanId))
-//                    .filter(item -> item.getTimeSlot() != null && item.getTimeSlot().getStartTime() != null)
-//                    .anyMatch(item -> item.getTimeSlot().getStartTime().toLocalDate().equals(request.getSpecificDate()));
-//
-//            if (duplicateExists) {
-//                log.warn("Event already exists on this date in month plan: date={}, monthPlanId={}",
-//                        request.getSpecificDate(), monthPlanId);
-//                return new BaseResponse<>(0,
-//                        "An event already exists on " + request.getSpecificDate() + " in this month plan",
-//                        null);
-//            }
+            // // 6. Check for duplicate event on the same date in this month plan
+            // boolean duplicateExists =
+            // calendarItemRepository.findAllByUserId(userId).stream()
+            // .filter(item -> item instanceof Event)
+            // .filter(item -> item.getMonthPlanId() != null)
+            // .filter(item -> item.getMonthPlanId().equals(monthPlanId))
+            // .filter(item -> item.getTimeSlot() != null &&
+            // item.getTimeSlot().getStartTime() != null)
+            // .anyMatch(item ->
+            // item.getTimeSlot().getStartTime().toLocalDate().equals(request.getSpecificDate()));
+            //
+            // if (duplicateExists) {
+            // log.warn("Event already exists on this date in month plan: date={},
+            // monthPlanId={}",
+            // request.getSpecificDate(), monthPlanId);
+            // return new BaseResponse<>(0,
+            // "An event already exists on " + request.getSpecificDate() + " in this month
+            // plan",
+            // null);
+            // }
 
             // 7. Find the week plan that contains this date
             Optional<WeekPlan> weekPlanOpt = weekPlanRepository.findByMonthPlanIdAndDateWithin(
                     monthPlanId,
-                    request.getSpecificDate()
-            );
+                    request.getSpecificDate());
 
             if (weekPlanOpt.isEmpty()) {
                 log.warn("No week plan found for date: date={}, monthPlanId={}",
@@ -814,8 +829,7 @@ public class MonthPlanServiceImpl implements MonthPlanService {
                     userId,
                     startDateTime,
                     endDateTime,
-                    ItemType.EVENT
-            );
+                    ItemType.EVENT);
 
             if (!violations.isEmpty()) {
                 return new BaseResponse<>(0, "Constraint violations", violations);
@@ -832,8 +846,7 @@ public class MonthPlanServiceImpl implements MonthPlanService {
                     savedEvent.getId(),
                     savedEvent.getId(), // calendarItemId is same as eventId
                     "Event added and scheduled successfully",
-                    weekPlan.getId()
-            );
+                    weekPlan.getId());
 
             log.info("Event added successfully: eventId={}, weekPlanId={}", savedEvent.getId(), weekPlan.getId());
 
@@ -871,6 +884,10 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             Set<String> addedRoutines = new HashSet<>(newRoutines);
             addedRoutines.removeAll(oldRoutines);
 
+            // DEBUG: Log the comparison details
+            log.info("Routine list update comparison: oldRoutines={}, newRoutines={}, added={}, removed={}",
+                    oldRoutines, newRoutines, addedRoutines, removedRoutines);
+
             // 4. Update the routine list
             monthPlan.setApprovedRoutineNames(new ArrayList<>(request.getApprovedRoutineNames()));
 
@@ -886,7 +903,8 @@ public class MonthPlanServiceImpl implements MonthPlanService {
 
                 if (!routinesToDelete.isEmpty()) {
                     calendarItemRepository.deleteAll(routinesToDelete);
-                    log.info("Deleted {} removed routines from calendar for monthPlanId={}", routinesToDelete.size(), monthPlanId);
+                    log.info("Deleted {} removed routines from calendar for monthPlanId={}", routinesToDelete.size(),
+                            monthPlanId);
                 }
             }
 
@@ -914,7 +932,8 @@ public class MonthPlanServiceImpl implements MonthPlanService {
                     routinesToCreate.add(newRoutine);
                 }
                 calendarItemRepository.saveAll(routinesToCreate);
-                log.info("Created {} new routines in calendar for monthPlanId={}", routinesToCreate.size(), monthPlanId);
+                log.info("Created {} new routines in calendar for monthPlanId={}", routinesToCreate.size(),
+                        monthPlanId);
             }
 
             // 5. Save changes
@@ -924,8 +943,7 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             UpdateRoutineListResponse response = new UpdateRoutineListResponse(
                     "Routine list updated successfully",
                     new ArrayList<>(removedRoutines),
-                    new ArrayList<>(addedRoutines)
-            );
+                    new ArrayList<>(addedRoutines));
 
             log.info("Routine list updated: monthPlanId={}, added={}, removed={}",
                     monthPlanId, addedRoutines.size(), removedRoutines.size());
@@ -1046,7 +1064,8 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             long completedCount = scheduledDerivedTasks.stream()
                     .filter(task -> task.getStatus() == ItemStatus.COMPLETE) // Correct enum comparison
                     .count();
-            dto.setCompletionPercentage((int) Math.round((double) completedCount * 100.0 / scheduledDerivedTasks.size()));
+            dto.setCompletionPercentage(
+                    (int) Math.round((double) completedCount * 100.0 / scheduledDerivedTasks.size()));
         }
 
         return dto;
@@ -1075,6 +1094,6 @@ public class MonthPlanServiceImpl implements MonthPlanService {
         // This is the Sunday of the week containing the last day of the month.
         LocalDate planningEndDate = lastDayOfMonth.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
 
-        return new LocalDate[]{planningStartDate, planningEndDate};
+        return new LocalDate[] { planningStartDate, planningEndDate };
     }
 }

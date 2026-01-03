@@ -154,16 +154,12 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                             monthPlanMonthStr,
                             monthPlan.getId());
 
-                    MonthPlanErrorResponse errorResponse = new MonthPlanErrorResponse(
-                            false,
-                            "MONTH_MISMATCH",
-                            String.format("Item's time slot (%s) does not match month plan (%s)",
-                                    timeSlotMonthStr, monthPlanMonthStr),
-                            errorDetails);
+                    String errorMessage = String.format("Item's time slot (%s) does not match month plan (%s)",
+                            timeSlotMonthStr, monthPlanMonthStr);
 
                     log.warn("Month mismatch: timeSlot={}, monthPlan={}",
                             timeSlotMonthStr, monthPlanMonthStr);
-                    return new BaseResponse<>(0, errorResponse.getMessage(), errorResponse);
+                    return new BaseResponse<>(0, errorMessage, errorDetails);
                 }
 
                 // 4.5. TYPE-SPECIFIC VALIDATION
@@ -190,6 +186,87 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                                 request.getName(), monthPlan.getId());
                         return new BaseResponse<>(0, errorResponse.getMessage(), errorResponse);
                     }
+
+                    // ===== FALLBACK: Check for existing unscheduled routine =====
+                    // If a routine with the same name and monthPlanId already exists but is
+                    // unscheduled,
+                    // directly update it instead of creating a duplicate
+                    Optional<CalendarItem> existingUnscheduledRoutine = calendarItemRepository.findAllByUserId(userId)
+                            .stream()
+                            .filter(item -> item instanceof Routine)
+                            .filter(item -> item.getMonthPlanId() != null
+                                    && item.getMonthPlanId().equals(request.getMonthPlanId()))
+                            .filter(item -> item.getName() != null && item.getName().equals(request.getName()))
+                            .filter(item -> item.getTimeSlot() == null || item.getTimeSlot().getStartTime() == null)
+                            .findFirst();
+
+                    if (existingUnscheduledRoutine.isPresent()) {
+                        Routine existingRoutine = (Routine) existingUnscheduledRoutine.get();
+                        log.info("Found existing unscheduled routine, updating directly: routineId={}, name={}",
+                                existingRoutine.getId(), request.getName());
+
+                        // Update timeSlot
+                        if (request.getTimeSlot() != null) {
+                            TimeSlot newTimeSlot = new TimeSlot(
+                                    request.getTimeSlot().getStartTime(),
+                                    request.getTimeSlot().getEndTime());
+                            existingRoutine.setTimeSlot(newTimeSlot);
+                        }
+
+                        // Update pattern - derive from timeSlot if not provided
+                        RecurringPattern pattern = existingRoutine.getPattern();
+                        if (pattern == null) {
+                            pattern = new RecurringPattern();
+                        }
+
+                        boolean hasPatternFromRequest = request.getRoutineDetails() != null
+                                && request.getRoutineDetails().getPattern() != null
+                                && request.getRoutineDetails().getPattern().getDaysOfWeek() != null
+                                && !request.getRoutineDetails().getPattern().getDaysOfWeek().isEmpty();
+
+                        if (hasPatternFromRequest) {
+                            // Use pattern from request
+                            List<DayOfWeek> daysOfWeek = request.getRoutineDetails().getPattern().getDaysOfWeek()
+                                    .stream()
+                                    .map(day -> {
+                                        try {
+                                            return DayOfWeek.valueOf(day.toUpperCase());
+                                        } catch (IllegalArgumentException e) {
+                                            return null;
+                                        }
+                                    })
+                                    .filter(day -> day != null)
+                                    .collect(Collectors.toList());
+                            if (!daysOfWeek.isEmpty()) {
+                                pattern.setDaysOfWeek(daysOfWeek);
+                            }
+                        } else if (request.getTimeSlot() != null && request.getTimeSlot().getStartTime() != null) {
+                            // Derive day of week from the drop date
+                            DayOfWeek dropDay = request.getTimeSlot().getStartTime().getDayOfWeek();
+                            pattern.setDaysOfWeek(List.of(dropDay));
+                            log.info("Pattern not provided, derived from drop date: {}", dropDay);
+                        }
+
+                        existingRoutine.setPattern(pattern);
+
+                        // Update other fields if provided
+                        if (request.getNote() != null) {
+                            existingRoutine.setNote(request.getNote());
+                        }
+                        if (request.getColor() != null) {
+                            existingRoutine.setColor(request.getColor());
+                        }
+
+                        // Set weekPlanId for the item
+                        existingRoutine.setWeekPlanId(weekPlanId);
+
+                        // Save and return success
+                        CalendarItem savedItem = calendarItemRepository.save(existingRoutine);
+                        log.info("Existing unscheduled routine updated successfully: routineId={}", savedItem.getId());
+
+                        return new BaseResponse<>(1, "Routine scheduled successfully", savedItem.getId());
+                    }
+                    // ===== END FALLBACK =====
 
                 } else if (itemType == ItemType.TASK && request.getTaskDetails() != null
                         && request.getTaskDetails().getParentBigTaskId() != null) {
@@ -890,7 +967,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                     if (request.getColor() != null) {
                         oldRoutine.setColor(request.getColor());
                     }
-                    if (request.getStatus() != null) {
+                    if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
                         try {
                             oldRoutine.setStatus(ItemStatus.valueOf(request.getStatus().toUpperCase()));
                         } catch (IllegalArgumentException e) {
@@ -902,6 +979,41 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                         TimeSlotDTO dto = request.getTimeSlot();
                         TimeSlot timeSlot = new TimeSlot(dto.getStartTime(), dto.getEndTime());
                         oldRoutine.setTimeSlot(timeSlot);
+                    }
+
+                    // Update pattern - this is needed when scheduling an unscheduled routine
+                    if (request.getRoutineDetails() != null && request.getRoutineDetails().getPattern() != null) {
+                        var patternDTO = request.getRoutineDetails().getPattern();
+                        if (patternDTO.getDaysOfWeek() != null && !patternDTO.getDaysOfWeek().isEmpty()) {
+                            RecurringPattern pattern = oldRoutine.getPattern();
+                            if (pattern == null) {
+                                pattern = new RecurringPattern();
+                            }
+                            var daysOfWeek = patternDTO.getDaysOfWeek().stream()
+                                    .map(day -> {
+                                        try {
+                                            return DayOfWeek.valueOf(day.toUpperCase());
+                                        } catch (IllegalArgumentException e) {
+                                            return null;
+                                        }
+                                    })
+                                    .filter(day -> day != null)
+                                    .collect(Collectors.toList());
+                            if (!daysOfWeek.isEmpty()) {
+                                pattern.setDaysOfWeek(daysOfWeek);
+                                oldRoutine.setPattern(pattern);
+                                log.info("Pattern set for routine ID={}: daysOfWeek={}",
+                                        oldRoutine.getId(), daysOfWeek);
+                            }
+                        }
+                    } else if (oldRoutine.getPattern() == null && request.getTimeSlot() != null) {
+                        // Fallback: derive day from timeSlot if no pattern provided
+                        DayOfWeek dropDay = request.getTimeSlot().getStartTime().getDayOfWeek();
+                        RecurringPattern pattern = new RecurringPattern();
+                        pattern.setDaysOfWeek(List.of(dropDay));
+                        oldRoutine.setPattern(pattern);
+                        log.info("Pattern derived from drop date for routine ID={}: dayOfWeek={}",
+                                oldRoutine.getId(), dropDay);
                     }
 
                     // Save and return - standalone routine updated in place
@@ -941,8 +1053,10 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                 newRoutine.setName(request.getName() != null ? request.getName() : oldRoutine.getName());
                 newRoutine.setNote(request.getNote() != null ? request.getNote() : oldRoutine.getNote());
                 newRoutine.setColor(request.getColor() != null ? request.getColor() : oldRoutine.getColor());
-                newRoutine.setStatus(request.getStatus() != null ? ItemStatus.valueOf(request.getStatus().toUpperCase())
-                        : oldRoutine.getStatus());
+                newRoutine.setStatus(
+                        (request.getStatus() != null && !request.getStatus().trim().isEmpty())
+                                ? ItemStatus.valueOf(request.getStatus().toUpperCase())
+                                : oldRoutine.getStatus());
 
                 // TimeSlot
                 if (request.getTimeSlot() != null) {
