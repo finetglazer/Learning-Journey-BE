@@ -60,4 +60,10 @@ public interface FileNodeService {
      * node)
      */
     BaseResponse<?> uploadEditorImage(Long userId, Long projectId, MultipartFile file) throws IOException;
+
+    /**
+     * Move a file or folder to a new parent directory within the same project.
+     * Handles updating parentNodeId and validating hierarchical integrity.
+     */
+    BaseResponse<?> moveNode(Long userId, Long projectId, Long nodeId, Long newParentId);
 }

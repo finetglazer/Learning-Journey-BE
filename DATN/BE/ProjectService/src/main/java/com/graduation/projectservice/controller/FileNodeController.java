@@ -65,6 +65,29 @@ public class FileNodeController {
                 return ResponseEntity.ok(response);
         }
 
+        /**
+         * PATCH /api/pm/projects/{projectId}/files/{nodeId}/move
+         * Move a file or folder to a new parent folder
+         */
+        @PatchMapping("/projects/{projectId}/files/{nodeId}/move")
+        public ResponseEntity<?> moveNode(
+                @PathVariable Long projectId,
+                @PathVariable Long nodeId,
+                @RequestBody Map<String, Object> request,
+                @RequestHeader("X-User-Id") Long userId) {
+
+            // Extract the new parent ID from the request body
+            // If new_parent_id is null, it moves the node to the project root
+            Long newParentNodeId = request.get("new_parent_id") != null
+                    ? Long.valueOf(request.get("new_parent_id").toString())
+                    : null;
+
+            log.info("User {} moving node {} to parent {} in project {}", userId, nodeId, newParentNodeId, projectId);
+
+            BaseResponse<?> response = fileNodeService.moveNode(userId, projectId, nodeId, newParentNodeId);
+            return ResponseEntity.ok(response);
+        }
+
         // DELETE /api/pm/projects/{projectId}/files/{nodeId}
         @DeleteMapping("/projects/{projectId}/files/{nodeId}")
         public ResponseEntity<?> deleteNode(

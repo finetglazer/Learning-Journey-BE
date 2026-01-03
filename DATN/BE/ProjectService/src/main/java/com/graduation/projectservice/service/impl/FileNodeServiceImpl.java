@@ -193,6 +193,77 @@ public class FileNodeServiceImpl implements FileNodeService {
 
     @Override
     @Transactional
+    public BaseResponse<?> moveNode(Long userId, Long projectId, Long nodeId, Long newParentId) {
+        log.info("User {} moving node {} to parent {} in project {}", userId, nodeId, newParentId, projectId);
+
+        // 1. Authorization: User must be an active member of the project
+        authHelper.requireActiveMember(projectId, userId);
+
+        // 2. Fetch the node to be moved
+        PM_FileNode node = fileNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new NotFoundException("File or folder not found"));
+
+        // 3. Project Validation: Ensure the node belongs to this project
+        if (!node.getProjectId().equals(projectId)) {
+            return new BaseResponse<>(0, "This item does not belong to the specified project", null);
+        }
+
+        // 4. Destination Validation
+        if (newParentId != null) {
+            // Prevent moving a node into itself
+            if (nodeId.equals(newParentId)) {
+                return new BaseResponse<>(0, "Cannot move a folder into itself", null);
+            }
+
+            PM_FileNode newParent = fileNodeRepository.findById(newParentId)
+                    .orElseThrow(() -> new NotFoundException("Destination folder not found"));
+
+            // Ensure the destination is in the same project
+            if (!newParent.getProjectId().equals(projectId)) {
+                return new BaseResponse<>(0, "Destination folder belongs to a different project", null);
+            }
+
+            // Ensure destination is actually a folder
+            if (newParent.getType() != NodeType.FOLDER) {
+                return new BaseResponse<>(0, "Destination must be a folder", null);
+            }
+
+            // Circular Reference Check: Prevent moving a folder into its own subfolders
+            if (isDescendant(nodeId, newParentId)) {
+                return new BaseResponse<>(0, "Cannot move a folder into its own subfolder", null);
+            }
+        }
+
+        // 5. Update and Persist
+        node.setParentNodeId(newParentId);
+        node.setUpdatedAt(java.time.LocalDateTime.now());
+        fileNodeRepository.save(node);
+
+        log.info("Node {} successfully moved to parent {}", nodeId, newParentId);
+        return new BaseResponse<>(1, "Item moved successfully", null);
+    }
+
+    /**
+     * Helper method to prevent circular references.
+     * Checks if the 'potentialParentId' is a descendant of 'targetNodeId'.
+     */
+    private boolean isDescendant(Long targetNodeId, Long potentialParentId) {
+        Long currentId = potentialParentId;
+        while (currentId != null) {
+            PM_FileNode current = fileNodeRepository.findById(currentId).orElse(null);
+            if (current == null) break;
+
+            // If we encounter targetNodeId while traversing up, it's a circular reference
+            if (current.getParentNodeId() != null && current.getParentNodeId().equals(targetNodeId)) {
+                return true;
+            }
+            currentId = current.getParentNodeId();
+        }
+        return false;
+    }
+
+    @Override
+    @Transactional
     public BaseResponse<?> deleteNode(Long userId, Long projectId, Long nodeId) {
         PM_FileNode node = fileNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new NotFoundException("File/Folder not found"));
