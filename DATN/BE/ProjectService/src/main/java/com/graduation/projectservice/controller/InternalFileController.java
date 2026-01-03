@@ -1,9 +1,11 @@
 package com.graduation.projectservice.controller;
 
 import com.graduation.projectservice.constant.Constant;
+import com.graduation.projectservice.payload.request.SaveFileToProjectRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
 import com.graduation.projectservice.service.FileNodeService;
 import com.graduation.projectservice.service.ProjectFileStorageService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -36,7 +38,7 @@ public class InternalFileController {
             @RequestHeader("X-User-Id") Long userId
     ) {
         log.debug("GET /api/internal/files/{}/access - User: {}", storageRef, userId);
-        
+
         BaseResponse<?> response = fileNodeService.validateDocumentAccess(userId, storageRef);
         return ResponseEntity.ok(response);
     }
@@ -92,34 +94,23 @@ public class InternalFileController {
         }
     }
 
-    /**
-     * POST /api/pm/internal/files/{projectId}/save-to-project
-     * Uploads a file and creates a FileNode in the project directory.
-     */
-    @PostMapping(value = "/{projectId}/save-to-project", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/save-to-project", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<BaseResponse<?>> saveFileToProject(
             @RequestHeader("X-User-Id") Long userId,
-            @PathVariable Long projectId,
-            @RequestParam(value = "parentNodeId", required = false) Long parentNodeId,
-            @RequestPart("file") MultipartFile file) {
+            @RequestBody @Valid SaveFileToProjectRequest request) {
 
-        log.info("POST /save-to-project - User {} saving file '{}' to project {}",
-                userId, file.getOriginalFilename(), projectId);
+        log.info("Internal Metadata Save: User {} linking storage ref '{}' to project {}",
+                userId, request.getStorageRef(), request.getProjectId());
 
         try {
-            // fileNodeService.uploadFile handles both GCS storage and DB node creation
-            BaseResponse<?> response = fileNodeService.uploadFile(userId, projectId, parentNodeId, file);
+            BaseResponse<?> response = fileNodeService.saveFileToProject(request);
 
             return ResponseEntity.ok(response);
 
-        } catch (IOException e) {
-            log.error("IO Error saving file to project {}: {}", projectId, e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new BaseResponse<>(Constant.ERROR_STATUS, "File storage failed", null));
         } catch (Exception e) {
-            log.error("Unexpected error saving file to project {}: {}", projectId, e.getMessage());
+            log.error("Failed to link file to project {}: {}", request.getProjectId(), e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new BaseResponse<>(Constant.ERROR_STATUS, e.getMessage(), null));
+                    .body(new BaseResponse<>(Constant.ERROR_STATUS, "Failed to link storage object: " + e.getMessage(), null));
         }
     }
 }

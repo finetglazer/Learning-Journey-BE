@@ -1,5 +1,7 @@
 package com.graduation.forumservice.client;
 
+import com.graduation.forumservice.model.ForumPostFile;
+import com.graduation.forumservice.payload.request.SaveFileToProjectRequest;
 import com.graduation.forumservice.payload.response.BaseResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -101,44 +103,32 @@ public class ProjectServiceClient {
     }
 
     /**
-     * Calls ProjectService to upload a file and create a managed FileNode in the project tree.
+     * Calls ProjectService to link an existing storage object to a project tree.
+     * Uses JSON metadata instead of raw file bytes for efficiency.
      */
-    public BaseResponse<?> saveFileToProject(Long userId, Long projectId, Long parentNodeId, MultipartFile file) {
-        // 1. Prepare URL with optional parentNodeId as query param
-        String url = String.format("%s/api/pm/internal/files/%d/save-to-project", projectServiceUrl, projectId);
-        if (parentNodeId != null) {
-            url += "?parentNodeId=" + parentNodeId;
-        }
+    public BaseResponse<?> saveFileToProject(SaveFileToProjectRequest request) {
+        // 1. Prepare the internal URL
+        // The endpoint was refactored to a generic save-to-project JSON handler
+        String url = String.format("%s/api/pm/internal/files/save-to-project", projectServiceUrl);
 
         // 2. Prepare Headers
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        headers.set("X-User-Id", userId.toString());
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-User-Id", request.getUserId().toString());
         headers.set("X-Internal-Api-Key", internalApiKey);
 
-        // 3. Prepare Body
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        try {
-            ByteArrayResource resource = new ByteArrayResource(file.getBytes()) {
-                @Override
-                public String getFilename() {
-                    return file.getOriginalFilename();
-                }
-            };
-            body.add("file", resource);
-        } catch (IOException e) {
-            log.error("Failed to read file bytes for project save: {}", e.getMessage());
-            return new BaseResponse<>(0, "File processing error", null);
-        }
-
-        // 4. Execute Request
-        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+        // 3. Wrap the request DTO in an HttpEntity
+        HttpEntity<SaveFileToProjectRequest> requestEntity = new HttpEntity<>(request, headers);
 
         try {
-            log.info("Saving file '{}' to project {} directory", file.getOriginalFilename(), projectId);
+            log.info("Sending metadata link request: File {} -> Project {}",
+                    request.getFileId(), request.getProjectId());
+
+            // 4. Execute the POST request
             return restTemplate.postForObject(url, requestEntity, BaseResponse.class);
+
         } catch (Exception e) {
-            log.error("Internal call to saveFileToProject failed: {}", e.getMessage());
+            log.error("Internal call to saveFileToProject (metadata) failed: {}", e.getMessage());
             return new BaseResponse<>(0, "Internal service communication error", null);
         }
     }

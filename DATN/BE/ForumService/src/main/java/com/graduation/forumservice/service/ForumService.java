@@ -97,4 +97,6 @@ public interface ForumService {
      * Performs a partial search in the forum_tags dictionary.
      */
     BaseResponse<?> searchTags(String query);
+
+    BaseResponse<?> saveFileToProject(SaveFileToProjectRequest request);
 }

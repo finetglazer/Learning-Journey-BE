@@ -1220,4 +1220,16 @@ public class ForumServiceImpl implements ForumService {
                 ? filename.substring(filename.lastIndexOf(".") + 1)
                 : "";
     }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> saveFileToProject(SaveFileToProjectRequest request) {
+        try {
+            return projectServiceClient.saveFileToProject(request);
+
+        } catch (Exception e) {
+            log.error("Failed to copy attachment to project manager: {}", e.getMessage());
+            return new BaseResponse<>(0, "Failed to save file to project", null);
+        }
+    }
 }

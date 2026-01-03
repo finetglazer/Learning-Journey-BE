@@ -11,6 +11,7 @@ import com.graduation.projectservice.model.PM_FileNode;
 import com.graduation.projectservice.model.PM_ProjectMember;
 import com.graduation.projectservice.model.ProjectMembershipRole;
 import com.graduation.projectservice.model.enums.NodeType;
+import com.graduation.projectservice.payload.request.SaveFileToProjectRequest;
 import com.graduation.projectservice.payload.response.*;
 import com.graduation.projectservice.repository.DocVersionRepository;
 import com.graduation.projectservice.repository.FileNodeRepository;
@@ -599,7 +600,10 @@ public class FileNodeServiceImpl implements FileNodeService {
     public BaseResponse<?> uploadEditorImage(Long userId, Long projectId, MultipartFile file) throws IOException {
         log.info("Uploading editor image for project {} by user {}", projectId, userId);
 
-        authHelper.requireActiveMember(projectId, userId);
+        // projectId < 0 means other use
+        if (projectId > 0) {
+            authHelper.requireActiveMember(projectId, userId);
+        }
 
         // Upload to separate GCS path for editor images
         String imageUrl = storageService.uploadEditorImage(projectId, file);
@@ -609,6 +613,35 @@ public class FileNodeServiceImpl implements FileNodeService {
         response.put("filename", file.getOriginalFilename());
 
         return new BaseResponse<>(1, "Image uploaded successfully", response);
+    }
+
+    @Override
+    public BaseResponse<?> saveFileToProject(SaveFileToProjectRequest request) {
+        // 1. Authorization Check
+        authHelper.requireActiveMember(request.getProjectId(), request.getUserId());
+
+        // 2. Validate Parent Folder if specified
+        if (request.getFolderId() != null) {
+            String error = validateParentNode(request.getProjectId(), request.getFolderId());
+            if (error != null) return new BaseResponse<>(0, error, null);
+        }
+
+        PM_FileNode fileNode = new PM_FileNode();
+        fileNode.setProjectId(request.getProjectId());
+        fileNode.setParentNodeId(request.getFolderId());
+        fileNode.setName(request.getName());
+        fileNode.setExtension(request.getExtension());
+        // We fetch original metadata to ensure the name is correct
+        // Or you can add 'fileName' and 'extension' to the SaveFileToProjectRequest
+        fileNode.setType(NodeType.STATIC_FILE);
+        fileNode.setSizeBytes(request.getFileSize());
+        fileNode.setStorageReference(request.getStorageRef()); // Link to the existing GCS object
+        fileNode.setCreatedByUserId(request.getUserId());
+
+        PM_FileNode savedNode = fileNodeRepository.save(fileNode);
+        log.info("Successfully linked storage ref to NodeId: {}", savedNode.getNodeId());
+
+        return new BaseResponse<>(1, "File linked to project successfully", savedNode);
     }
 
     // ============================================
