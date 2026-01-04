@@ -127,9 +127,10 @@ public class MonthPlanServiceImpl implements MonthPlanService {
                                                                                                                 // month
                                                                                                                 // plan
                     .map(item -> (Routine) item) // Cast to Routine
-//                    .filter(routine -> routine.getTimeSlot() == null || routine.getTimeSlot().getStartTime() == null) // Filter
-                                                                                                                      // for
-                                                                                                                      // unscheduled
+                    // .filter(routine -> routine.getTimeSlot() == null ||
+                    // routine.getTimeSlot().getStartTime() == null) // Filter
+                    // for
+                    // unscheduled
                     .map(Routine::getName) // Get the name
                     .collect(Collectors.toList());
 
@@ -405,14 +406,25 @@ public class MonthPlanServiceImpl implements MonthPlanService {
             // 5. Build BigTaskDTO
             BigTaskDTO bigTaskDTO = mapToBigTaskDTO(bigTask, derivedTasks);
 
-            // 6. Build Unscheduled Tasks List
+            // 6. Build Scheduled Tasks List
+            List<ScheduledTaskResponseDTO> scheduledTasks = derivedTasks.stream()
+                    .filter(Task::isScheduled) // Filter for scheduled
+                    .map(task -> new ScheduledTaskResponseDTO(
+                            task.getId(),
+                            task.getName(),
+                            task.getNote(),
+                            task.getTimeSlot().getStartTime(),
+                            task.getTimeSlot().getEndTime()))
+                    .collect(Collectors.toList());
+
+            // 7. Build Unscheduled Tasks List
             List<UnscheduledTaskResponseDTO> unscheduledTasks = derivedTasks.stream()
                     .filter(task -> !task.isScheduled()) // Filter for unscheduled
                     .map(task -> new UnscheduledTaskResponseDTO(task.getId(), task.getName(), task.getNote()))
                     .collect(Collectors.toList());
 
-            // 7. Build final response DTO
-            GetBigTaskResponseDTO responseDTO = new GetBigTaskResponseDTO(bigTaskDTO, unscheduledTasks);
+            // 8. Build final response DTO
+            GetBigTaskResponseDTO responseDTO = new GetBigTaskResponseDTO(bigTaskDTO, scheduledTasks, unscheduledTasks);
 
             log.info("Big task retrieved successfully: bigTaskId={}", bigTaskId);
             return new BaseResponse<>(1, "Big task retrieved successfully", responseDTO);

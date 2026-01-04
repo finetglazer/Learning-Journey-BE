@@ -24,6 +24,7 @@ public class CalendarItemResponseDTO {
 
     // Task-specific fields
     private Long parentBigTaskId;
+    private String parentBigTaskName;
     private Integer estimatedHours;
     private Integer actualHours;
     private LocalDate dueDate;

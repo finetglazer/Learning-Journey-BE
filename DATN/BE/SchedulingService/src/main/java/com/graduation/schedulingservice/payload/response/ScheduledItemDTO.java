@@ -17,4 +17,8 @@ public class ScheduledItemDTO {
     private RecurringPattern pattern;
     private java.util.List<java.time.LocalDateTime> exceptions;
     private java.time.LocalDateTime endDate;
+
+    // Task-specific fields for sub-task identification
+    private Long parentBigTaskId;
+    private String parentBigTaskName;
 }
