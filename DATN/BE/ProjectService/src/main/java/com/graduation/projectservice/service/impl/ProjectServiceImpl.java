@@ -1,5 +1,6 @@
 package com.graduation.projectservice.service.impl;
 
+import com.graduation.projectservice.client.ForumServiceClient;
 import com.graduation.projectservice.client.UserServiceClient;
 import com.graduation.projectservice.constant.Constant;
 import com.graduation.projectservice.exception.ForbiddenException;
@@ -33,7 +34,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
-    private final ProjectMemberService projectMemberService;
+    private final ForumServiceClient forumServiceClient;
     private final TaskRepository taskRepository;
     private final PhaseRepository phaseRepository;
     private final ProjectAuthorizationHelper projectAuthorizationHelper;
@@ -275,6 +276,28 @@ public class ProjectServiceImpl implements ProjectService {
         } catch (Exception e) {
             log.error("Failed to fetch inviteable projects: {}", e.getMessage(), e);
             return new BaseResponse<>(0, "Error retrieving projects: " + e.getMessage(), null);
+        }
+    }
+
+    @Override
+    public BaseResponse<?> getSharedPosts(Long userId, Long projectId) {
+        // 1. Authorization: Ensure the user is an active member of the project
+        // Assuming you have an authHelper or membership check logic
+        projectAuthorizationHelper.requireActiveMember(projectId, userId);
+
+        try {
+            // 2. Cross-Service Call: Fetch post details from the Forum Service
+            // This internal call fetches posts where project_id matches
+            BaseResponse<?> forumResponse = forumServiceClient.getPostsByProject(projectId);
+
+            if (forumResponse.getStatus() == Constant.SUCCESS_STATUS) {
+                return new BaseResponse<>(1, "Shared posts retrieved successfully", forumResponse.getData());
+            } else {
+                return new BaseResponse<>(0, "Failed to retrieve shared posts from Forum Service", null);
+            }
+        } catch (Exception e) {
+            log.error("Error communicating with Forum Service for project {}: {}", projectId, e.getMessage());
+            return new BaseResponse<>(0, "Resource service currently unavailable", null);
         }
     }
 

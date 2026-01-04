@@ -20,18 +20,19 @@ public interface ForumAnswerRepository extends JpaRepository<ForumAnswer, Long> 
      * Index 1: Integer (calculated score)
      */
     @Query(value = """
-    SELECT 
-        a.answer_id, a.user_id, a.post_id, a.mongo_content_id, 
-        a.upvote_count, a.downvote_count, a.is_accepted, 
+    SELECT\s
+        a.answer_id, a.user_id, a.post_id, a.mongo_content_id,\s
+        a.upvote_count, a.downvote_count, a.is_accepted,\s
         a.created_at, a.updated_at,
         (a.upvote_count - a.downvote_count) as calculated_score
     FROM forum_answers a
     WHERE a.post_id = :postId
-    ORDER BY 
+    AND a.status = 'ACTIVE'
+    ORDER BY\s
         a.is_accepted DESC,  -- Always put the accepted answer at the very top
         CASE WHEN :sort = 'MOST_HELPFUL' THEN (a.upvote_count - a.downvote_count) END DESC,
         CASE WHEN :sort = 'NEWEST' THEN a.created_at END DESC
-    """, nativeQuery = true)
+   \s""", nativeQuery = true)
     List<Object[]> findAnswersByPostIdNative(
             @Param("postId") Long postId,
             @Param("sort") String sort,
@@ -65,4 +66,22 @@ public interface ForumAnswerRepository extends JpaRepository<ForumAnswer, Long> 
             @Param("answerId") Long answerId,
             @Param("upChange") int upChange,
             @Param("downChange") int downChange);
+
+    /**
+     * Retrieves the vote type (1 for upvote, -1 for downvote, 0 if none)
+     * cast by a specific user on a specific answer.
+     */
+    @Query(value = """
+        SELECT COALESCE(v.type, 0)\s
+        FROM answer_votes v\s
+        WHERE v.answer_id = :answerId AND v.user_id = :userId
+   \s""", nativeQuery = true)
+    Integer findUserVoteTypeOnAnswer(
+            @Param("answerId") Long answerId,
+            @Param("userId") Long userId);
+
+    @Query("SELECT COUNT(a) FROM ForumAnswer a " +
+            "WHERE a.postId = :postId " +
+            "AND (a.upvoteCount - a.downvoteCount) > 0")
+    long countPositiveAnswers(@Param("postId") Long postId);
 }

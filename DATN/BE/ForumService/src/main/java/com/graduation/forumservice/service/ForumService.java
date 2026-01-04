@@ -99,4 +99,9 @@ public interface ForumService {
     BaseResponse<?> searchTags(String query);
 
     BaseResponse<?> saveFileToProject(SaveFileToProjectRequest request);
-}
+
+    /**
+     * Internal: Retrieves all forum posts linked/shared to a specific project.
+     * This skips individual user authorization as it is a service-to-service call.
+     */
+    BaseResponse<?> getSharedPostsByProject(Long projectId);}

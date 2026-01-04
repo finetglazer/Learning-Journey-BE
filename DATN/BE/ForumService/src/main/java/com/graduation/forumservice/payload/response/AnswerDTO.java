@@ -37,6 +37,8 @@ public class AnswerDTO {
      */
     private Boolean isAccepted;
 
+    private Integer voteType;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

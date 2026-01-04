@@ -27,4 +27,6 @@ public interface ProjectService {
     BaseResponse<?> reorderList(Long userId, Long projectId, ReorderRequest request); // <-- ADD THIS METHOD
 
     BaseResponse<?> getInviteableProjects(Long userId, Long invitedId);
+
+    BaseResponse<?> getSharedPosts(Long userId, Long projectId);
 }

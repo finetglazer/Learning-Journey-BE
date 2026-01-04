@@ -264,7 +264,7 @@ public class ForumServiceImpl implements ForumService {
                 .toList();
 
         // 3. Fetch Answers and Comments
-        List<AnswerDTO> answers = fetchTopAnswers(postId);
+        List<AnswerDTO> answers = fetchTopAnswers(postId, userId);
         List<Long> answerIds = answers.stream().map(AnswerDTO::getAnswerId).toList();
         List<CommentDTO> rootComments = fetchRootComments(postId, answerIds);
 
@@ -317,7 +317,7 @@ public class ForumServiceImpl implements ForumService {
                 .build();
     }
 
-    private List<AnswerDTO> fetchTopAnswers(Long postId) {
+    private List<AnswerDTO> fetchTopAnswers(Long postId, Long userId) {
         Pageable answerPageable = PageRequest.of(0, 5);
         List<Object[]> answerRows = forumAnswerRepository.findAnswersByPostIdNative(postId, "MOST_HELPFUL", answerPageable);
 
@@ -332,6 +332,7 @@ public class ForumServiceImpl implements ForumService {
                             .map(MongoContent::getContent).orElse(null))
                     .score(((Number) a[9]).intValue())
                     .isAccepted((Boolean) a[6])
+                    .voteType(forumAnswerRepository.findUserVoteTypeOnAnswer(answerId, userId))
                     .createdAt(((java.sql.Timestamp) a[7]).toLocalDateTime())
                     .build();
         }).toList();
@@ -402,6 +403,8 @@ public class ForumServiceImpl implements ForumService {
         if (scoreChange != 0) {
             postStatsRepository.updateScore(postId, scoreChange);
         }
+
+        checkAndHidePost(postId);
 
         // 3. Fetch the updated score to return to the frontend
         Integer newTotalScore = postStatsRepository.findByPostId(postId).getScore();
@@ -811,6 +814,7 @@ public class ForumServiceImpl implements ForumService {
             throw new NotFoundException("Answer not found!");
         }
         ForumAnswer updatedAnswer = optionalUpdatedAnswer.get();
+        checkAndHideAnswer(updatedAnswer);
         return new BaseResponse<>(Constant.SUCCESS_STATUS, "Vote recorded", Map.of("newScore", updatedAnswer.getScore(), "upvoteCount", updatedAnswer.getUpvoteCount(), "downvoteCount", updatedAnswer.getDownvoteCount(), "userVote", voteType));
     }
 
@@ -1002,50 +1006,50 @@ public class ForumServiceImpl implements ForumService {
     }
 
     private PostFeedDTO toPostFeedDTO(Object[] row) {
-        // 1. Handle Tags String to List conversion (Index 7)
-        String tagsStr = (String) row[7];
-        List<String> tags = (tagsStr != null && !tagsStr.isEmpty())
-                ? Arrays.asList(tagsStr.split(","))
-                : Collections.emptyList();
-
-        // 2. Fix: Handle Numeric Ordinal for PostStatus (Index 6)
-        PostStatus status;
-        Object statusRaw = row[6];
-
-        if (statusRaw instanceof Number) {
-            // Standard numeric ordinal from DB
-            status = PostStatus.values()[((Number) statusRaw).intValue()];
-        } else if (statusRaw instanceof String statusStr) {
-            // Check if the string is actually a numeric index (like "0")
-            if (statusStr.matches("\\d+")) {
-                int index = Integer.parseInt(statusStr);
-                status = PostStatus.values()[index];
-            } else {
-                // Standard string name (like "ACTIVE")
-                status = PostStatus.valueOf(statusStr);
-            }
-        } else {
-            status = PostStatus.ACTIVE;
+        // 1. Safe handling for Tags (Index 7)
+        Object tagsRaw = row[7];
+        List<String> tags = Collections.emptyList();
+        if (tagsRaw instanceof String tagsStr && !tagsStr.isEmpty()) {
+            tags = Arrays.asList(tagsStr.split(","));
         }
 
-        // 3. Resolve Author Information using Cache-Aside
+        // 2. FIXED: Safe handling for Status (Index 6)
+        PostStatus status = PostStatus.ACTIVE; // Default
+        Object statusRaw = row[6];
+        if (statusRaw instanceof Number num) {
+            status = PostStatus.values()[num.intValue()];
+        } else if (statusRaw instanceof String str) {
+            try {
+                status = PostStatus.valueOf(str);
+            } catch (IllegalArgumentException e) {
+                log.warn("Unknown status string: {}", str);
+            }
+        } else if (statusRaw instanceof java.sql.Timestamp) {
+            log.error("CRITICAL: Index 6 is a Timestamp. Your SQL query columns are out of order!");
+        }
+
+        // 3. Safe handling for CreatedAt (Index 8)
+        LocalDateTime createdAt = LocalDateTime.now();
+        if (row[8] instanceof java.sql.Timestamp ts) {
+            createdAt = ts.toLocalDateTime();
+        }
+
+        // 4. Resolve Author (cached)
         Long userId = ((Number) row[1]).longValue();
         PostAuthorDTO author = fetchAuthorInfo(userId);
 
-        // 4. Construct DTO with safe casting
         return PostFeedDTO.builder()
                 .postId(((Number) row[0]).longValue())
                 .userId(userId)
-                .title((String) row[2])
-                .preview((String) row[3])
-                // mongoContentId is at Index 4, ensure it's in your DTO if needed
+                .title(String.valueOf(row[2]))
+                .preview(String.valueOf(row[3]))
                 .isSolved((Boolean) row[5])
                 .status(status)
                 .tags(tags)
                 .authorId(author.getUserId())
                 .authorName(author.getName())
                 .authorAvatar(author.getAvatar())
-                .createdAt(((java.sql.Timestamp) row[8]).toLocalDateTime())
+                .createdAt(createdAt)
                 .score(((Number) row[9]).intValue())
                 .viewCount(((Number) row[10]).longValue())
                 .answerCount(((Number) row[11]).intValue())
@@ -1221,6 +1225,48 @@ public class ForumServiceImpl implements ForumService {
                 : "";
     }
 
+    private void checkAndHideAnswer(ForumAnswer answer) {
+        long upvotes = answer.getUpvoteCount();
+        long downvotes = answer.getDownvoteCount();
+        long totalVotes = upvotes + downvotes; // User definition: sum(up + down)
+
+        // Condition: Total Votes >= 10 AND Downvotes > Upvotes
+        if (totalVotes >= 10 && downvotes > upvotes) {
+            if (answer.getStatus() != ForumAnswer.AnswerStatus.HIDDEN) {
+                log.info("Auto-hiding Answer {} due to negative community feedback.", answer.getAnswerId());
+                answer.setStatus(ForumAnswer.AnswerStatus.HIDDEN);
+                forumAnswerRepository.save(answer);
+            }
+        }
+        // Optional: Un-hide if they bounce back?
+        // else if (answer.getStatus() == AnswerStatus.HIDDEN) { ... }
+    }
+
+    private void checkAndHidePost(Long postId) {
+        // A. Get Vote Counts
+        long upvotes = postVoteRepository.countUpvotes(postId);
+        long downvotes = postVoteRepository.countDownvotes(postId);
+        long totalVotes = upvotes + downvotes;
+
+        // B. Check Threshold: Total Votes >= 10 AND Downvotes > Upvotes
+        if (totalVotes >= 10 && downvotes > upvotes) {
+
+            // C. Check Secondary Condition: Count of Positive Answers == 0
+            long positiveAnswerCount = forumAnswerRepository.countPositiveAnswers(postId);
+
+            if (positiveAnswerCount == 0) {
+                ForumPost post = forumPostRepository.findById(postId)
+                        .orElseThrow(() -> new NotFoundException("Post not found"));
+
+                if (post.getStatus() != PostStatus.HIDDEN) {
+                    log.info("Auto-hiding Post {} due to negative feedback and no helpful answers.", postId);
+                    post.setStatus(PostStatus.HIDDEN);
+                    forumPostRepository.save(post);
+                }
+            }
+        }
+    }
+
     @Override
     @Transactional
     public BaseResponse<?> saveFileToProject(SaveFileToProjectRequest request) {
@@ -1231,5 +1277,40 @@ public class ForumServiceImpl implements ForumService {
             log.error("Failed to copy attachment to project manager: {}", e.getMessage());
             return new BaseResponse<>(0, "Failed to save file to project", null);
         }
+    }
+
+    @Override
+    public BaseResponse<?> getSharedPostsByProject(Long projectId) {
+        log.info("Internal: Fetching shared resources for projectId: {}", projectId);
+
+        // 1. Fetch the mapping records from the project_saved_posts table
+        // This table links forum posts to specific projects
+        List<ProjectSavedPost> mappingRecords = projectSavedPostRepository.findByProjectId(projectId);
+
+        if (mappingRecords.isEmpty()) {
+            log.debug("No shared posts found for project {}", projectId);
+            return new BaseResponse<>(1, "No resources shared with this project", List.of());
+        }
+
+        // 2. Extract the Post IDs from the mapping records
+        List<Long> postIds = mappingRecords.stream()
+                .map(record -> record.getId().getPostId())
+                .toList();
+
+        // 3. Retrieve detailed post information for each ID
+        // We reuse the native query mapping and DTO conversion logic to ensure
+        // consistent data structure (including author info and stats)
+        List<PostFeedDTO> sharedPosts = postIds.stream()
+                .map(postId -> {
+                    Optional<Object[]> rawResult = forumPostRepository.findPostDetailByIdNative(postId);
+                    // rawResult returns an array of columns based on your PostDetail native query
+                    return rawResult.map(result -> toPostFeedDTO((Object[]) result[0])).orElse(null);
+                })
+                .filter(Objects::nonNull) // Filter out any posts that might have been deleted
+                .collect(Collectors.toList());
+
+        log.info("Successfully retrieved {} shared posts for project {}", sharedPosts.size(), projectId);
+
+        return new BaseResponse<>(1, "Shared resources retrieved successfully", sharedPosts);
     }
 }
