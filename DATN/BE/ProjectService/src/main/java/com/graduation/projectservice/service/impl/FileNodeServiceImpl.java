@@ -45,7 +45,8 @@ public class FileNodeServiceImpl implements FileNodeService {
     // ============================================
 
     @Override
-    public BaseResponse<?> getFiles(Long userId, Long projectId, Long parentNodeId, Boolean flatten, String types, String search) {
+    public BaseResponse<?> getFiles(Long userId, Long projectId, Long parentNodeId, Boolean flatten, String types,
+            String search) {
         authHelper.requireActiveMember(projectId, userId);
 
         if (search == null) {
@@ -83,9 +84,11 @@ public class FileNodeServiceImpl implements FileNodeService {
         } else {
             // Original behavior: Get files by parent
             if (parentNodeId == null) {
-                files = fileNodeRepository.findByProjectIdAndParentNodeIdIsNullAndNameContainingIgnoreCase(projectId, search);
+                files = fileNodeRepository.findByProjectIdAndParentNodeIdIsNullAndNameContainingIgnoreCase(projectId,
+                        search);
             } else {
-                files = fileNodeRepository.findByProjectIdAndParentNodeIdAndNameContainingIgnoreCase(projectId, parentNodeId, search);
+                files = fileNodeRepository.findByProjectIdAndParentNodeIdAndNameContainingIgnoreCase(projectId,
+                        parentNodeId, search);
             }
         }
 
@@ -372,7 +375,8 @@ public class FileNodeServiceImpl implements FileNodeService {
             return new BaseResponse<>(0, "This is not a Notion document", null);
         }
 
-        // Get user's role for FE to show/hide delete button - can delete later, for now, prioritize correctness
+        // Get user's role for FE to show/hide delete button - can delete later, for
+        // now, prioritize correctness
         PM_ProjectMember member = authHelper.getMember(node.getProjectId(), userId);
         String role = member.getRole().name();
 
@@ -387,6 +391,7 @@ public class FileNodeServiceImpl implements FileNodeService {
                 .role(role)
                 .createdAt(node.getCreatedAt())
                 .updatedAt(node.getUpdatedAt())
+                .createdByUserId(node.getCreatedByUserId())
                 .createdBy(userBatchDTO.getName())
                 .build();
 
@@ -452,6 +457,14 @@ public class FileNodeServiceImpl implements FileNodeService {
 
         authHelper.requireActiveMember(node.getProjectId(), userId);
 
+        // Only file creator or project owner can restore versions
+        boolean isProjectOwner = authHelper.isOwner(node.getProjectId(), userId);
+        boolean isFileCreator = node.getCreatedByUserId().equals(userId);
+
+        if (!isProjectOwner && !isFileCreator) {
+            return new BaseResponse<>(0, "Only the document creator or project owner can restore versions.", null);
+        }
+
         if (node.getType() != NodeType.NOTION_DOC) {
             return new BaseResponse<>(0, "This is not a Notion document", null);
         }
@@ -466,8 +479,7 @@ public class FileNodeServiceImpl implements FileNodeService {
         Optional<Map<String, Object>> backupResult = documentServiceClient.createSnapshot(
                 storageRef,
                 Constant.REASON_BEFORE_RESTORE,
-                userId
-        );
+                userId);
 
         if (backupResult.isPresent()) {
             // Save backup version metadata to Postgres

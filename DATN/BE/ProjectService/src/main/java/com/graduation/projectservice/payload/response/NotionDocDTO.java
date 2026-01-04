@@ -23,5 +23,6 @@ public class NotionDocDTO {
     private String role; // OWNER or MEMBER - for FE to show/hide delete button
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long createdByUserId; // User ID of creator (for permission checks)
     private String createdBy;
 }

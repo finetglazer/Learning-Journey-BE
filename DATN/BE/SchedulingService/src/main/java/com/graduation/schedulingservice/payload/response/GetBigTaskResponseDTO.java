@@ -11,5 +11,6 @@ import java.util.List;
 @AllArgsConstructor
 public class GetBigTaskResponseDTO {
     private BigTaskDTO bigTask;
+    private List<ScheduledTaskResponseDTO> scheduledTasks;
     private List<UnscheduledTaskResponseDTO> unscheduledTasks;
 }

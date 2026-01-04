@@ -13,6 +13,7 @@ import com.graduation.schedulingservice.payload.request.UpdateCalendarItemReques
 import com.graduation.schedulingservice.payload.response.*;
 import com.graduation.schedulingservice.repository.CalendarItemRepository;
 import com.graduation.schedulingservice.repository.CalendarRepository;
+import com.graduation.schedulingservice.repository.BigTaskRepository;
 import com.graduation.schedulingservice.repository.MonthPlanRepository;
 import com.graduation.schedulingservice.repository.WeekPlanRepository;
 import com.graduation.schedulingservice.service.CalendarItemService;
@@ -40,6 +41,7 @@ public class CalendarItemServiceImpl implements CalendarItemService {
     private final ConstraintValidationService constraintValidationService;
     private final CalendarItemRepository calendarItemRepository;
     private final CalendarRepository calendarRepository;
+    private final BigTaskRepository bigTaskRepository;
     private final MonthPlanRepository monthPlanRepository;
     private final WeekPlanRepository weekPlanRepository;
     private final ProjectServiceClient projectServiceClient;
@@ -1310,6 +1312,13 @@ public class CalendarItemServiceImpl implements CalendarItemService {
         if (item instanceof Task) {
             Task task = (Task) item;
             dto.setParentBigTaskId(task.getParentBigTaskId());
+
+            // Look up the parent big task name if parentBigTaskId exists
+            if (task.getParentBigTaskId() != null) {
+                bigTaskRepository.findById(task.getParentBigTaskId())
+                        .ifPresent(bigTask -> dto.setParentBigTaskName(bigTask.getName()));
+            }
+
             dto.setEstimatedHours(task.getEstimatedHours());
             dto.setActualHours(task.getActualHours());
             dto.setDueDate(task.getDueDate());
@@ -1478,6 +1487,17 @@ public class CalendarItemServiceImpl implements CalendarItemService {
             dto.setPattern(routine.getPattern());
             dto.setExceptions(routine.getExceptions());
             dto.setEndDate(routine.getEndDate());
+        }
+        // Populate parentBigTaskId and parentBigTaskName for Task items
+        if (item instanceof Task) {
+            Task task = (Task) item;
+            dto.setParentBigTaskId(task.getParentBigTaskId());
+
+            // Look up the parent big task name
+            if (task.getParentBigTaskId() != null) {
+                bigTaskRepository.findById(task.getParentBigTaskId())
+                        .ifPresent(bigTask -> dto.setParentBigTaskName(bigTask.getName()));
+            }
         }
         return dto;
     }

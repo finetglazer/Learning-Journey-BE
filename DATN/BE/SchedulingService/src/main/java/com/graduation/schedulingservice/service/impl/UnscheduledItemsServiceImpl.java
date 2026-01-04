@@ -231,36 +231,32 @@ public class UnscheduledItemsServiceImpl implements UnscheduledItemsService {
         Map<Long, List<Task>> tasksByBigTaskId = unscheduledDerivedTasks.stream()
                 .collect(Collectors.groupingBy(Task::getParentBigTaskId));
 
-        // 4. Create DTOs for big tasks that have unscheduled tasks
-        for (Map.Entry<Long, List<Task>> entry : tasksByBigTaskId.entrySet()) {
-            Long bigTaskId = entry.getKey();
-            List<Task> unscheduledTasksForBigTask = entry.getValue();
-            BigTask bigTask = bigTaskMap.get(bigTaskId);
+        // 4. Create DTOs for ALL big tasks in this month plan
+        for (BigTask bigTask : bigTasks) {
+            List<Task> unscheduledTasksForBigTask = tasksByBigTaskId.getOrDefault(bigTask.getId(), Collections.emptyList());
 
-            if (bigTask != null) {
-                UnscheduledTaskDTO dto = new UnscheduledTaskDTO();
-                dto.setBigTaskId(bigTask.getId());
-                dto.setBigTaskName(bigTask.getName());
-                dto.setSource("MONTH_PLAN");
-                dto.setEstimatedStartDate(bigTask.getEstimatedStartDate());
-                dto.setEstimatedEndDate(bigTask.getEstimatedEndDate());
+            UnscheduledTaskDTO dto = new UnscheduledTaskDTO();
+            dto.setBigTaskId(bigTask.getId());
+            dto.setBigTaskName(bigTask.getName());
+            dto.setSource("MONTH_PLAN");
+            dto.setEstimatedStartDate(bigTask.getEstimatedStartDate());
+            dto.setEstimatedEndDate(bigTask.getEstimatedEndDate());
 
-                // Convert unscheduled tasks to suggested subtasks
-                List<SuggestedSubtaskDTO> suggestedSubtasks = unscheduledTasksForBigTask.stream()
-                        .map(task -> {
-                            SuggestedSubtaskDTO subtask = new SuggestedSubtaskDTO();
-                            subtask.setId(task.getId());
-                            subtask.setName(task.getName());
-                            subtask.setDescription(task.getNote());
-                            subtask.setEstimated(task.getEstimatedHours() != null ?
-                                    task.getEstimatedHours() + "h" : null);
-                            return subtask;
-                        })
-                        .collect(Collectors.toList());
+            // Convert unscheduled tasks to suggested subtasks
+            List<SuggestedSubtaskDTO> suggestedSubtasks = unscheduledTasksForBigTask.stream()
+                    .map(task -> {
+                        SuggestedSubtaskDTO subtask = new SuggestedSubtaskDTO();
+                        subtask.setId(task.getId());
+                        subtask.setName(task.getName());
+                        subtask.setDescription(task.getNote());
+                        subtask.setEstimated(task.getEstimatedHours() != null ?
+                                task.getEstimatedHours() + "h" : null);
+                        return subtask;
+                    })
+                    .collect(Collectors.toList());
 
-                dto.setSuggestedSubtasks(suggestedSubtasks);
-                unscheduledTasks.add(dto);
-            }
+            dto.setSuggestedSubtasks(suggestedSubtasks);
+            unscheduledTasks.add(dto);
         }
 
 
