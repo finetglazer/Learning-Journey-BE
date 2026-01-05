@@ -216,11 +216,35 @@ public class TaskServiceImpl implements TaskService {
                                 task.getKey(),
                                 task.getStatus().name(),
                                 task.getPriority().name(),
-                                task.getOrder());
+                                task.getOrder(),
+                                task.getStartDate(),
+                                task.getEndDate());
                 return new BaseResponse<>(
                                 Constant.SUCCESS_STATUS,
                                 Constant.LOG_GET_TASK_SUCCESS,
                                 dto);
+        }
+
+        @Override
+        public TaskDTO getTaskByIdForInternal(Long taskId) {
+                log.info("Getting task by ID for internal call: taskId={}", taskId);
+
+                Optional<PM_Task> optionalTask = taskRepository.findPM_TaskByTaskId(taskId);
+                if (optionalTask.isEmpty()) {
+                        return null;
+                }
+
+                PM_Task task = optionalTask.get();
+                return new TaskDTO(
+                                task.getTaskId(),
+                                task.getPhaseId(),
+                                task.getName(),
+                                task.getKey(),
+                                task.getStatus().name(),
+                                task.getPriority().name(),
+                                task.getOrder(),
+                                task.getStartDate(),
+                                task.getEndDate());
         }
 
         // 5. Modified Helper Method for Filtering Tasks

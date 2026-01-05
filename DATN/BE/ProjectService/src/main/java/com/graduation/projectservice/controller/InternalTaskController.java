@@ -1,6 +1,6 @@
 package com.graduation.projectservice.controller;
 
-import com.graduation.projectservice.payload.response.BaseResponse;
+import com.graduation.projectservice.payload.response.TaskDTO;
 import com.graduation.projectservice.service.TaskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,10 +18,13 @@ public class InternalTaskController {
     private final TaskService taskService;
 
     @GetMapping("/{taskId}")
-    public ResponseEntity<?> getTaskById(@PathVariable Long taskId) {
-        log.info("Received get project task request");
+    public ResponseEntity<TaskDTO> getTaskById(@PathVariable Long taskId) {
+        log.info("Received get project task request for taskId: {}", taskId);
 
-        BaseResponse<?> response = taskService.getTaskById(taskId);
-        return ResponseEntity.ok(response);
+        TaskDTO task = taskService.getTaskByIdForInternal(taskId);
+        if (task == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(task);
     }
 }
