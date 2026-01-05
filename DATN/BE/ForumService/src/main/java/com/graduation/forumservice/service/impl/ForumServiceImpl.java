@@ -2,7 +2,9 @@ package com.graduation.forumservice.service.impl;
 
 import com.graduation.forumservice.client.ProjectServiceClient;
 import com.graduation.forumservice.client.UserServiceClient;
+import com.graduation.forumservice.config.KafkaConfig;
 import com.graduation.forumservice.constant.Constant;
+import com.graduation.forumservice.event.ForumActivityEvent;
 import com.graduation.forumservice.exception.NotFoundException;
 import com.graduation.forumservice.model.*;
 import com.graduation.forumservice.payload.request.*;
@@ -15,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -42,6 +45,7 @@ public class ForumServiceImpl implements ForumService {
     private final SequenceGeneratorService sequenceGeneratorService;
     private final ProjectServiceClient projectServiceClient;
     private final ForumPostFileRepository forumPostFileRepository;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
     public BaseResponse<?> getPostFeed(Long userId, int page, int limit, String filter, String sort, String search) {
@@ -593,6 +597,9 @@ public class ForumServiceImpl implements ForumService {
             // 2. Extract plain text preview for PostgresSQL storage (e.g., for notifications or search)
             String plainTextPreview = extractPlainText(request.getContent());
 
+            ForumPost post = forumPostRepository.findById(postId)
+                    .orElseThrow(() -> new NotFoundException("Post not found!"));
+
             // 3. Save rich content to MongoDB
             MongoContent mongoContent = new MongoContent();
             mongoContent.setContent(request.getContent());
@@ -604,6 +611,7 @@ public class ForumServiceImpl implements ForumService {
                     .builder()
                     .postId(postId)
                     .userId(userId)
+                    .status(ForumAnswer.AnswerStatus.ACTIVE)
                     .plainTextPreview(plainTextPreview)
                     .mongoContentId(mongoContent.getId())
                     .isAccepted(false)
@@ -616,6 +624,24 @@ public class ForumServiceImpl implements ForumService {
 
             // 6. Atomic Increment: Update the answer_count on the parent post
             postStatsRepository.incrementAnswerCount(postId);
+
+            if (!post.getUserId().equals(userId)) {
+                PostAuthorDTO actor = fetchAuthorInfo(userId);
+
+                ForumActivityEvent event = new ForumActivityEvent(
+                        userId,
+                        actor.getName(),
+                        actor.getAvatar(),              // Actor
+                        post.getUserId(),               // Recipient
+                        postId,                         // PostId (Long)
+                        post.getTitle(),                // PostTitle
+                        answerId,                       // AnswerId (Long)
+                        null,                           // CommentId (null)
+                        ForumActivityEvent.ForumEventType.ANSWER_ON_POST
+                );
+
+                sendKafkaNotification(event);
+            }
 
             log.info("Successfully submitted answer {} for post {}", answerId, postId);
             return new BaseResponse<>(Constant.SUCCESS_STATUS, "Answer submitted successfully", Map.of("answerId", answerId));
@@ -859,17 +885,40 @@ public class ForumServiceImpl implements ForumService {
             Long answerId = null;
             Long parentCommentId = null;
 
+            // Variables for Notification
+            Long recipientId = null;
+            String postTitle = "Unknown Post";
+            ForumActivityEvent.ForumEventType eventType = null;
+
             // 1. Resolve Target and Validate Existence
             if ("POST".equalsIgnoreCase(request.getTargetType())) {
-                if (!forumPostRepository.existsById(request.getTargetId())) {
-                    throw new NotFoundException("Target post not found!");
-                }
+                ForumPost post = forumPostRepository.findById(request.getTargetId())
+                        .orElseThrow(() -> new NotFoundException("Target post not found!"));
+
                 postId = request.getTargetId();
+
+                // Notification Info
+                recipientId = post.getUserId();
+                postTitle = post.getTitle();
+                eventType = ForumActivityEvent.ForumEventType.COMMENT_ON_POST;
+
             } else if ("ANSWER".equalsIgnoreCase(request.getTargetType())) {
-                if (!forumAnswerRepository.existsById(request.getTargetId())) {
-                    throw new NotFoundException("Target answer not found!");
-                }
+                ForumAnswer answer = forumAnswerRepository.findById(request.getTargetId())
+                        .orElseThrow(() -> new NotFoundException("Target answer not found!"));
+
                 answerId = request.getTargetId();
+                // Inherit postId from the answer so the comment links correctly in DB
+                postId = answer.getPostId();
+
+                // Notification Info
+                recipientId = answer.getUserId();
+                eventType = ForumActivityEvent.ForumEventType.COMMENT_ON_ANSWER;
+
+                // Fetch Post Title for context
+                postTitle = forumPostRepository.findById(postId)
+                        .map(ForumPost::getTitle)
+                        .orElse("Unknown Post");
+
             } else if ("COMMENT".equalsIgnoreCase(request.getTargetType())) {
                 // Case: User is replying to another comment
                 ForumComment targetComment = forumCommentRepository.findById(request.getTargetId())
@@ -879,6 +928,17 @@ public class ForumServiceImpl implements ForumService {
                 // Inherit the root scope (Post or Answer) from the parent comment
                 postId = targetComment.getPostId();
                 answerId = targetComment.getAnswerId();
+
+                // Notification Info
+                recipientId = targetComment.getUserId();
+                eventType = ForumActivityEvent.ForumEventType.REPLY_ON_COMMENT;
+
+                // Fetch Post Title for context
+                if (postId != null) {
+                    postTitle = forumPostRepository.findById(postId)
+                            .map(ForumPost::getTitle)
+                            .orElse("Unknown Post");
+                }
             }
 
             // 2. Handle Reply Preview Snapshot
@@ -901,6 +961,25 @@ public class ForumServiceImpl implements ForumService {
                     .build();
 
             comment = forumCommentRepository.save(comment);
+
+            // 4. Send Notification
+            // Only send if the recipient exists and it is NOT the user themselves
+            if (recipientId != null && !recipientId.equals(userId)) {
+                PostAuthorDTO actor = fetchAuthorInfo(userId);
+
+                ForumActivityEvent event = new ForumActivityEvent(
+                        userId,
+                        actor.getName(),
+                        actor.getAvatar(),          // Actor
+                        recipientId,                // Recipient
+                        postId,                     // PostId (Long)
+                        postTitle,                  // PostTitle
+                        answerId,                   // AnswerId (Long or null)
+                        comment.getCommentId(),     // CommentId (Long)
+                        eventType
+                );
+                sendKafkaNotification(event);
+            }
 
             log.info("Successfully saved comment with ID: {}", comment.getCommentId());
             return new BaseResponse<>(Constant.SUCCESS_STATUS, "Comment added successfully", toCommentDTO(comment));
@@ -1312,5 +1391,14 @@ public class ForumServiceImpl implements ForumService {
         log.info("Successfully retrieved {} shared posts for project {}", sharedPosts.size(), projectId);
 
         return new BaseResponse<>(1, "Shared resources retrieved successfully", sharedPosts);
+    }
+
+    private void sendKafkaNotification(ForumActivityEvent event) {
+        try {
+            kafkaTemplate.send(KafkaConfig.TOPIC_FORUM_ACTIVITY, event);
+            log.info("Sent forum activity Kafka event: {} by user {}", event.getType(), event.getActorId());
+        } catch (Exception e) {
+            log.error("Failed to send Kafka notification: {}", e.getMessage());
+        }
     }
 }
