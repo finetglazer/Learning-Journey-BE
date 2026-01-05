@@ -1,5 +1,6 @@
 package com.graduation.notificationservice.config;
 
+import com.graduation.notificationservice.event.ForumActivityEvent;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 
@@ -61,6 +62,7 @@ public class KafkaConfig {
      */
     public static final String TOPIC_PROJECT_INVITATION = "pm.project-service.invitation.v1";
     public static final String TOPIC_PROJECT_TASK_UPDATE = "pm.project-service.task-update.v1";
+    public static final String TOPIC_FORUM_ACTIVITY = "pm.forum-service.discussion.activity.v1";
 
     @Bean
     public ConsumerFactory<String, Object> consumerFactory() throws IOException {
@@ -223,6 +225,58 @@ public class KafkaConfig {
             throws IOException {
         ConcurrentKafkaListenerContainerFactory<String, TaskUpdateEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(taskUpdateConsumerFactory());
+        factory.setConcurrency(1);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        return factory;
+    }
+
+    @Bean
+    public ConsumerFactory<String, ForumActivityEvent> forumActivityConsumerFactory() throws IOException {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+
+        // 1. FIX: SSL/mTLS Configuration (MUST BE COPIED HERE)
+        props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
+
+        ClassPathResource keyResource = new ClassPathResource("service.key");
+        String serviceKey = new String(keyResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        props.put(SslConfigs.SSL_KEYSTORE_KEY_CONFIG, serviceKey);
+
+        ClassPathResource certResource = new ClassPathResource("service.cert");
+        String serviceCert = new String(certResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        props.put(SslConfigs.SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, serviceCert);
+
+        props.put(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, "PEM");
+
+        ClassPathResource resource = new ClassPathResource("ca.pem");
+        String caCertificate = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        props.put(SslConfigs.SSL_TRUSTSTORE_CERTIFICATES_CONFIG, caCertificate);
+        props.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, "PEM");
+
+        props.put(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, "");
+
+        // 2. FIX: Configure Deserializer to handle Package Mismatch
+        JsonDeserializer<ForumActivityEvent> deserializer = new JsonDeserializer<>(ForumActivityEvent.class);
+
+        // Don't trust the header class name (because it comes from ForumService package),
+        // trust the class provided in the constructor above.
+        deserializer.setUseTypeHeaders(false);
+        deserializer.setRemoveTypeHeaders(false);
+        deserializer.addTrustedPackages("*"); // Trust everything since we are ignoring headers anyway
+
+        ErrorHandlingDeserializer<ForumActivityEvent> errorDeserializer = new ErrorHandlingDeserializer<>(deserializer);
+
+        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), errorDeserializer);
+    }
+
+    // 3. Add Container Factory
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, ForumActivityEvent> forumActivityKafkaListenerContainerFactory() throws IOException {
+        ConcurrentKafkaListenerContainerFactory<String, ForumActivityEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(forumActivityConsumerFactory());
         factory.setConcurrency(1);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         return factory;

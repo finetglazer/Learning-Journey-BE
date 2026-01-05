@@ -11,6 +11,7 @@ import com.graduation.projectservice.model.PM_FileNode;
 import com.graduation.projectservice.model.PM_ProjectMember;
 import com.graduation.projectservice.model.ProjectMembershipRole;
 import com.graduation.projectservice.model.enums.NodeType;
+import com.graduation.projectservice.payload.request.SaveFileToProjectRequest;
 import com.graduation.projectservice.payload.response.*;
 import com.graduation.projectservice.repository.DocVersionRepository;
 import com.graduation.projectservice.repository.FileNodeRepository;
@@ -192,6 +193,77 @@ public class FileNodeServiceImpl implements FileNodeService {
 
         PM_FileNode savedFile = fileNodeRepository.save(fileNode);
         return new BaseResponse<>(1, "File uploaded successfully", savedFile);
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> moveNode(Long userId, Long projectId, Long nodeId, Long newParentId) {
+        log.info("User {} moving node {} to parent {} in project {}", userId, nodeId, newParentId, projectId);
+
+        // 1. Authorization: User must be an active member of the project
+        authHelper.requireActiveMember(projectId, userId);
+
+        // 2. Fetch the node to be moved
+        PM_FileNode node = fileNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new NotFoundException("File or folder not found"));
+
+        // 3. Project Validation: Ensure the node belongs to this project
+        if (!node.getProjectId().equals(projectId)) {
+            return new BaseResponse<>(0, "This item does not belong to the specified project", null);
+        }
+
+        // 4. Destination Validation
+        if (newParentId != null) {
+            // Prevent moving a node into itself
+            if (nodeId.equals(newParentId)) {
+                return new BaseResponse<>(0, "Cannot move a folder into itself", null);
+            }
+
+            PM_FileNode newParent = fileNodeRepository.findById(newParentId)
+                    .orElseThrow(() -> new NotFoundException("Destination folder not found"));
+
+            // Ensure the destination is in the same project
+            if (!newParent.getProjectId().equals(projectId)) {
+                return new BaseResponse<>(0, "Destination folder belongs to a different project", null);
+            }
+
+            // Ensure destination is actually a folder
+            if (newParent.getType() != NodeType.FOLDER) {
+                return new BaseResponse<>(0, "Destination must be a folder", null);
+            }
+
+            // Circular Reference Check: Prevent moving a folder into its own subfolders
+            if (isDescendant(nodeId, newParentId)) {
+                return new BaseResponse<>(0, "Cannot move a folder into its own subfolder", null);
+            }
+        }
+
+        // 5. Update and Persist
+        node.setParentNodeId(newParentId);
+        node.setUpdatedAt(java.time.LocalDateTime.now());
+        fileNodeRepository.save(node);
+
+        log.info("Node {} successfully moved to parent {}", nodeId, newParentId);
+        return new BaseResponse<>(1, "Item moved successfully", null);
+    }
+
+    /**
+     * Helper method to prevent circular references.
+     * Checks if the 'potentialParentId' is a descendant of 'targetNodeId'.
+     */
+    private boolean isDescendant(Long targetNodeId, Long potentialParentId) {
+        Long currentId = potentialParentId;
+        while (currentId != null) {
+            PM_FileNode current = fileNodeRepository.findById(currentId).orElse(null);
+            if (current == null) break;
+
+            // If we encounter targetNodeId while traversing up, it's a circular reference
+            if (current.getParentNodeId() != null && current.getParentNodeId().equals(targetNodeId)) {
+                return true;
+            }
+            currentId = current.getParentNodeId();
+        }
+        return false;
     }
 
     @Override
@@ -540,7 +612,10 @@ public class FileNodeServiceImpl implements FileNodeService {
     public BaseResponse<?> uploadEditorImage(Long userId, Long projectId, MultipartFile file) throws IOException {
         log.info("Uploading editor image for project {} by user {}", projectId, userId);
 
-        authHelper.requireActiveMember(projectId, userId);
+        // projectId < 0 means other use
+        if (projectId > 0) {
+            authHelper.requireActiveMember(projectId, userId);
+        }
 
         // Upload to separate GCS path for editor images
         String imageUrl = storageService.uploadEditorImage(projectId, file);
@@ -550,6 +625,35 @@ public class FileNodeServiceImpl implements FileNodeService {
         response.put("filename", file.getOriginalFilename());
 
         return new BaseResponse<>(1, "Image uploaded successfully", response);
+    }
+
+    @Override
+    public BaseResponse<?> saveFileToProject(SaveFileToProjectRequest request) {
+        // 1. Authorization Check
+        authHelper.requireActiveMember(request.getProjectId(), request.getUserId());
+
+        // 2. Validate Parent Folder if specified
+        if (request.getFolderId() != null) {
+            String error = validateParentNode(request.getProjectId(), request.getFolderId());
+            if (error != null) return new BaseResponse<>(0, error, null);
+        }
+
+        PM_FileNode fileNode = new PM_FileNode();
+        fileNode.setProjectId(request.getProjectId());
+        fileNode.setParentNodeId(request.getFolderId());
+        fileNode.setName(request.getName());
+        fileNode.setExtension(request.getExtension());
+        // We fetch original metadata to ensure the name is correct
+        // Or you can add 'fileName' and 'extension' to the SaveFileToProjectRequest
+        fileNode.setType(NodeType.STATIC_FILE);
+        fileNode.setSizeBytes(request.getFileSize());
+        fileNode.setStorageReference(request.getStorageRef()); // Link to the existing GCS object
+        fileNode.setCreatedByUserId(request.getUserId());
+
+        PM_FileNode savedNode = fileNodeRepository.save(fileNode);
+        log.info("Successfully linked storage ref to NodeId: {}", savedNode.getNodeId());
+
+        return new BaseResponse<>(1, "File linked to project successfully", savedNode);
     }
 
     // ============================================

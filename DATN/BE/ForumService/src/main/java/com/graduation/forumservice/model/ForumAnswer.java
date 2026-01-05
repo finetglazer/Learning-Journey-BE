@@ -54,6 +54,9 @@ public class ForumAnswer {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Enumerated(EnumType.STRING)
+    private AnswerStatus status = AnswerStatus.ACTIVE;
+
     /**
      * Calculates the net score of the answer.
      * net score = upvotes - downvotes
@@ -63,5 +66,10 @@ public class ForumAnswer {
         int up = (upvoteCount == null) ? 0 : upvoteCount;
         int down = (downvoteCount == null) ? 0 : downvoteCount;
         return up - down;
+    }
+
+    public enum AnswerStatus {
+        ACTIVE,
+        HIDDEN,
     }
 }

@@ -30,6 +30,7 @@ public interface ForumPostRepository extends JpaRepository<ForumPost, Long> {
         ))
         OR (:filter = 'MOST_HELPFUL' AND s.score > 0)
     )
+    AND p.status = 'ACTIVE'
     AND (:search IS NULL OR :search = '' OR p.search_vector @@ plainto_tsquery('english', :search))
     ORDER BY p.created_at DESC
    \s""",

@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -30,4 +31,11 @@ public interface ProjectSavedPostRepository extends JpaRepository<ProjectSavedPo
 
     @Query("SELECT p FROM ProjectSavedPost p WHERE p.id.postId = :postId")
     Optional<ProjectSavedPost> findByPostId(@Param("postId") Long postId);
+
+    /**
+     * Retrieves all mapping records for a specific project.
+     * This is used to populate the "Shared Resources" tab in the Project Manager.
+     */
+    @Query("SELECT p FROM ProjectSavedPost p WHERE p.id.projectId = :projectId")
+    List<ProjectSavedPost> findByProjectId(@Param("projectId") Long projectId);
 }

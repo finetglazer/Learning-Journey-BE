@@ -1,5 +1,6 @@
 package com.graduation.projectservice.service;
 
+import com.graduation.projectservice.payload.request.SaveFileToProjectRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -60,4 +61,12 @@ public interface FileNodeService {
      * node)
      */
     BaseResponse<?> uploadEditorImage(Long userId, Long projectId, MultipartFile file) throws IOException;
+
+    BaseResponse<?> saveFileToProject(SaveFileToProjectRequest request);
+
+    /**
+     * Move a file or folder to a new parent directory within the same project.
+     * Handles updating parentNodeId and validating hierarchical integrity.
+     */
+    BaseResponse<?> moveNode(Long userId, Long projectId, Long nodeId, Long newParentId);
 }

@@ -19,6 +19,8 @@ public class CommentReply {
 
     private String authorName;
 
+    private String authorAvatar;
+
     private String content;
 
     private LocalDateTime createdAt;

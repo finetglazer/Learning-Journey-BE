@@ -94,4 +94,17 @@ public class ProjectController {
 
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/{projectId}/shared-posts")
+    public ResponseEntity<BaseResponse<?>> getSharedPosts(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long projectId) {
+
+        log.info("GET /api/pm/projects/{}/shared-posts - User {} retrieving shared resources",
+                projectId, userId);
+
+        BaseResponse<?> response = projectService.getSharedPosts(userId, projectId);
+
+        return ResponseEntity.ok(response);
+    }
 }

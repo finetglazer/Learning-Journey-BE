@@ -2,7 +2,9 @@ package com.graduation.forumservice.service.impl;
 
 import com.graduation.forumservice.client.ProjectServiceClient;
 import com.graduation.forumservice.client.UserServiceClient;
+import com.graduation.forumservice.config.KafkaConfig;
 import com.graduation.forumservice.constant.Constant;
+import com.graduation.forumservice.event.ForumActivityEvent;
 import com.graduation.forumservice.exception.NotFoundException;
 import com.graduation.forumservice.model.*;
 import com.graduation.forumservice.payload.request.*;
@@ -15,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -42,6 +45,7 @@ public class ForumServiceImpl implements ForumService {
     private final SequenceGeneratorService sequenceGeneratorService;
     private final ProjectServiceClient projectServiceClient;
     private final ForumPostFileRepository forumPostFileRepository;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
     public BaseResponse<?> getPostFeed(Long userId, int page, int limit, String filter, String sort, String search) {
@@ -264,7 +268,7 @@ public class ForumServiceImpl implements ForumService {
                 .toList();
 
         // 3. Fetch Answers and Comments
-        List<AnswerDTO> answers = fetchTopAnswers(postId);
+        List<AnswerDTO> answers = fetchTopAnswers(postId, userId);
         List<Long> answerIds = answers.stream().map(AnswerDTO::getAnswerId).toList();
         List<CommentDTO> rootComments = fetchRootComments(postId, answerIds);
 
@@ -317,7 +321,7 @@ public class ForumServiceImpl implements ForumService {
                 .build();
     }
 
-    private List<AnswerDTO> fetchTopAnswers(Long postId) {
+    private List<AnswerDTO> fetchTopAnswers(Long postId, Long userId) {
         Pageable answerPageable = PageRequest.of(0, 5);
         List<Object[]> answerRows = forumAnswerRepository.findAnswersByPostIdNative(postId, "MOST_HELPFUL", answerPageable);
 
@@ -332,6 +336,7 @@ public class ForumServiceImpl implements ForumService {
                             .map(MongoContent::getContent).orElse(null))
                     .score(((Number) a[9]).intValue())
                     .isAccepted((Boolean) a[6])
+                    .voteType(forumAnswerRepository.findUserVoteTypeOnAnswer(answerId, userId))
                     .createdAt(((java.sql.Timestamp) a[7]).toLocalDateTime())
                     .build();
         }).toList();
@@ -402,6 +407,8 @@ public class ForumServiceImpl implements ForumService {
         if (scoreChange != 0) {
             postStatsRepository.updateScore(postId, scoreChange);
         }
+
+        checkAndHidePost(postId);
 
         // 3. Fetch the updated score to return to the frontend
         Integer newTotalScore = postStatsRepository.findByPostId(postId).getScore();
@@ -590,6 +597,9 @@ public class ForumServiceImpl implements ForumService {
             // 2. Extract plain text preview for PostgresSQL storage (e.g., for notifications or search)
             String plainTextPreview = extractPlainText(request.getContent());
 
+            ForumPost post = forumPostRepository.findById(postId)
+                    .orElseThrow(() -> new NotFoundException("Post not found!"));
+
             // 3. Save rich content to MongoDB
             MongoContent mongoContent = new MongoContent();
             mongoContent.setContent(request.getContent());
@@ -601,6 +611,7 @@ public class ForumServiceImpl implements ForumService {
                     .builder()
                     .postId(postId)
                     .userId(userId)
+                    .status(ForumAnswer.AnswerStatus.ACTIVE)
                     .plainTextPreview(plainTextPreview)
                     .mongoContentId(mongoContent.getId())
                     .isAccepted(false)
@@ -613,6 +624,24 @@ public class ForumServiceImpl implements ForumService {
 
             // 6. Atomic Increment: Update the answer_count on the parent post
             postStatsRepository.incrementAnswerCount(postId);
+
+            if (!post.getUserId().equals(userId)) {
+                PostAuthorDTO actor = fetchAuthorInfo(userId);
+
+                ForumActivityEvent event = new ForumActivityEvent(
+                        userId,
+                        actor.getName(),
+                        actor.getAvatar(),              // Actor
+                        post.getUserId(),               // Recipient
+                        postId,                         // PostId (Long)
+                        post.getTitle(),                // PostTitle
+                        answerId,                       // AnswerId (Long)
+                        null,                           // CommentId (null)
+                        ForumActivityEvent.ForumEventType.ANSWER_ON_POST
+                );
+
+                sendKafkaNotification(event);
+            }
 
             log.info("Successfully submitted answer {} for post {}", answerId, postId);
             return new BaseResponse<>(Constant.SUCCESS_STATUS, "Answer submitted successfully", Map.of("answerId", answerId));
@@ -811,6 +840,7 @@ public class ForumServiceImpl implements ForumService {
             throw new NotFoundException("Answer not found!");
         }
         ForumAnswer updatedAnswer = optionalUpdatedAnswer.get();
+        checkAndHideAnswer(updatedAnswer);
         return new BaseResponse<>(Constant.SUCCESS_STATUS, "Vote recorded", Map.of("newScore", updatedAnswer.getScore(), "upvoteCount", updatedAnswer.getUpvoteCount(), "downvoteCount", updatedAnswer.getDownvoteCount(), "userVote", voteType));
     }
 
@@ -855,17 +885,40 @@ public class ForumServiceImpl implements ForumService {
             Long answerId = null;
             Long parentCommentId = null;
 
+            // Variables for Notification
+            Long recipientId = null;
+            String postTitle = "Unknown Post";
+            ForumActivityEvent.ForumEventType eventType = null;
+
             // 1. Resolve Target and Validate Existence
             if ("POST".equalsIgnoreCase(request.getTargetType())) {
-                if (!forumPostRepository.existsById(request.getTargetId())) {
-                    throw new NotFoundException("Target post not found!");
-                }
+                ForumPost post = forumPostRepository.findById(request.getTargetId())
+                        .orElseThrow(() -> new NotFoundException("Target post not found!"));
+
                 postId = request.getTargetId();
+
+                // Notification Info
+                recipientId = post.getUserId();
+                postTitle = post.getTitle();
+                eventType = ForumActivityEvent.ForumEventType.COMMENT_ON_POST;
+
             } else if ("ANSWER".equalsIgnoreCase(request.getTargetType())) {
-                if (!forumAnswerRepository.existsById(request.getTargetId())) {
-                    throw new NotFoundException("Target answer not found!");
-                }
+                ForumAnswer answer = forumAnswerRepository.findById(request.getTargetId())
+                        .orElseThrow(() -> new NotFoundException("Target answer not found!"));
+
                 answerId = request.getTargetId();
+                // Inherit postId from the answer so the comment links correctly in DB
+                postId = answer.getPostId();
+
+                // Notification Info
+                recipientId = answer.getUserId();
+                eventType = ForumActivityEvent.ForumEventType.COMMENT_ON_ANSWER;
+
+                // Fetch Post Title for context
+                postTitle = forumPostRepository.findById(postId)
+                        .map(ForumPost::getTitle)
+                        .orElse("Unknown Post");
+
             } else if ("COMMENT".equalsIgnoreCase(request.getTargetType())) {
                 // Case: User is replying to another comment
                 ForumComment targetComment = forumCommentRepository.findById(request.getTargetId())
@@ -875,6 +928,17 @@ public class ForumServiceImpl implements ForumService {
                 // Inherit the root scope (Post or Answer) from the parent comment
                 postId = targetComment.getPostId();
                 answerId = targetComment.getAnswerId();
+
+                // Notification Info
+                recipientId = targetComment.getUserId();
+                eventType = ForumActivityEvent.ForumEventType.REPLY_ON_COMMENT;
+
+                // Fetch Post Title for context
+                if (postId != null) {
+                    postTitle = forumPostRepository.findById(postId)
+                            .map(ForumPost::getTitle)
+                            .orElse("Unknown Post");
+                }
             }
 
             // 2. Handle Reply Preview Snapshot
@@ -897,6 +961,25 @@ public class ForumServiceImpl implements ForumService {
                     .build();
 
             comment = forumCommentRepository.save(comment);
+
+            // 4. Send Notification
+            // Only send if the recipient exists and it is NOT the user themselves
+            if (recipientId != null && !recipientId.equals(userId)) {
+                PostAuthorDTO actor = fetchAuthorInfo(userId);
+
+                ForumActivityEvent event = new ForumActivityEvent(
+                        userId,
+                        actor.getName(),
+                        actor.getAvatar(),          // Actor
+                        recipientId,                // Recipient
+                        postId,                     // PostId (Long)
+                        postTitle,                  // PostTitle
+                        answerId,                   // AnswerId (Long or null)
+                        comment.getCommentId(),     // CommentId (Long)
+                        eventType
+                );
+                sendKafkaNotification(event);
+            }
 
             log.info("Successfully saved comment with ID: {}", comment.getCommentId());
             return new BaseResponse<>(Constant.SUCCESS_STATUS, "Comment added successfully", toCommentDTO(comment));
@@ -1002,50 +1085,50 @@ public class ForumServiceImpl implements ForumService {
     }
 
     private PostFeedDTO toPostFeedDTO(Object[] row) {
-        // 1. Handle Tags String to List conversion (Index 7)
-        String tagsStr = (String) row[7];
-        List<String> tags = (tagsStr != null && !tagsStr.isEmpty())
-                ? Arrays.asList(tagsStr.split(","))
-                : Collections.emptyList();
-
-        // 2. Fix: Handle Numeric Ordinal for PostStatus (Index 6)
-        PostStatus status;
-        Object statusRaw = row[6];
-
-        if (statusRaw instanceof Number) {
-            // Standard numeric ordinal from DB
-            status = PostStatus.values()[((Number) statusRaw).intValue()];
-        } else if (statusRaw instanceof String statusStr) {
-            // Check if the string is actually a numeric index (like "0")
-            if (statusStr.matches("\\d+")) {
-                int index = Integer.parseInt(statusStr);
-                status = PostStatus.values()[index];
-            } else {
-                // Standard string name (like "ACTIVE")
-                status = PostStatus.valueOf(statusStr);
-            }
-        } else {
-            status = PostStatus.ACTIVE;
+        // 1. Safe handling for Tags (Index 7)
+        Object tagsRaw = row[7];
+        List<String> tags = Collections.emptyList();
+        if (tagsRaw instanceof String tagsStr && !tagsStr.isEmpty()) {
+            tags = Arrays.asList(tagsStr.split(","));
         }
 
-        // 3. Resolve Author Information using Cache-Aside
+        // 2. FIXED: Safe handling for Status (Index 6)
+        PostStatus status = PostStatus.ACTIVE; // Default
+        Object statusRaw = row[6];
+        if (statusRaw instanceof Number num) {
+            status = PostStatus.values()[num.intValue()];
+        } else if (statusRaw instanceof String str) {
+            try {
+                status = PostStatus.valueOf(str);
+            } catch (IllegalArgumentException e) {
+                log.warn("Unknown status string: {}", str);
+            }
+        } else if (statusRaw instanceof java.sql.Timestamp) {
+            log.error("CRITICAL: Index 6 is a Timestamp. Your SQL query columns are out of order!");
+        }
+
+        // 3. Safe handling for CreatedAt (Index 8)
+        LocalDateTime createdAt = LocalDateTime.now();
+        if (row[8] instanceof java.sql.Timestamp ts) {
+            createdAt = ts.toLocalDateTime();
+        }
+
+        // 4. Resolve Author (cached)
         Long userId = ((Number) row[1]).longValue();
         PostAuthorDTO author = fetchAuthorInfo(userId);
 
-        // 4. Construct DTO with safe casting
         return PostFeedDTO.builder()
                 .postId(((Number) row[0]).longValue())
                 .userId(userId)
-                .title((String) row[2])
-                .preview((String) row[3])
-                // mongoContentId is at Index 4, ensure it's in your DTO if needed
+                .title(String.valueOf(row[2]))
+                .preview(String.valueOf(row[3]))
                 .isSolved((Boolean) row[5])
                 .status(status)
                 .tags(tags)
                 .authorId(author.getUserId())
                 .authorName(author.getName())
                 .authorAvatar(author.getAvatar())
-                .createdAt(((java.sql.Timestamp) row[8]).toLocalDateTime())
+                .createdAt(createdAt)
                 .score(((Number) row[9]).intValue())
                 .viewCount(((Number) row[10]).longValue())
                 .answerCount(((Number) row[11]).intValue())
@@ -1219,5 +1302,103 @@ public class ForumServiceImpl implements ForumService {
         return filename != null && filename.lastIndexOf(".") != -1
                 ? filename.substring(filename.lastIndexOf(".") + 1)
                 : "";
+    }
+
+    private void checkAndHideAnswer(ForumAnswer answer) {
+        long upvotes = answer.getUpvoteCount();
+        long downvotes = answer.getDownvoteCount();
+        long totalVotes = upvotes + downvotes; // User definition: sum(up + down)
+
+        // Condition: Total Votes >= 10 AND Downvotes > Upvotes
+        if (totalVotes >= 10 && downvotes > upvotes) {
+            if (answer.getStatus() != ForumAnswer.AnswerStatus.HIDDEN) {
+                log.info("Auto-hiding Answer {} due to negative community feedback.", answer.getAnswerId());
+                answer.setStatus(ForumAnswer.AnswerStatus.HIDDEN);
+                forumAnswerRepository.save(answer);
+            }
+        }
+        // Optional: Un-hide if they bounce back?
+        // else if (answer.getStatus() == AnswerStatus.HIDDEN) { ... }
+    }
+
+    private void checkAndHidePost(Long postId) {
+        // A. Get Vote Counts
+        long upvotes = postVoteRepository.countUpvotes(postId);
+        long downvotes = postVoteRepository.countDownvotes(postId);
+        long totalVotes = upvotes + downvotes;
+
+        // B. Check Threshold: Total Votes >= 10 AND Downvotes > Upvotes
+        if (totalVotes >= 10 && downvotes > upvotes) {
+
+            // C. Check Secondary Condition: Count of Positive Answers == 0
+            long positiveAnswerCount = forumAnswerRepository.countPositiveAnswers(postId);
+
+            if (positiveAnswerCount == 0) {
+                ForumPost post = forumPostRepository.findById(postId)
+                        .orElseThrow(() -> new NotFoundException("Post not found"));
+
+                if (post.getStatus() != PostStatus.HIDDEN) {
+                    log.info("Auto-hiding Post {} due to negative feedback and no helpful answers.", postId);
+                    post.setStatus(PostStatus.HIDDEN);
+                    forumPostRepository.save(post);
+                }
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public BaseResponse<?> saveFileToProject(SaveFileToProjectRequest request) {
+        try {
+            return projectServiceClient.saveFileToProject(request);
+
+        } catch (Exception e) {
+            log.error("Failed to copy attachment to project manager: {}", e.getMessage());
+            return new BaseResponse<>(0, "Failed to save file to project", null);
+        }
+    }
+
+    @Override
+    public BaseResponse<?> getSharedPostsByProject(Long projectId) {
+        log.info("Internal: Fetching shared resources for projectId: {}", projectId);
+
+        // 1. Fetch the mapping records from the project_saved_posts table
+        // This table links forum posts to specific projects
+        List<ProjectSavedPost> mappingRecords = projectSavedPostRepository.findByProjectId(projectId);
+
+        if (mappingRecords.isEmpty()) {
+            log.debug("No shared posts found for project {}", projectId);
+            return new BaseResponse<>(1, "No resources shared with this project", List.of());
+        }
+
+        // 2. Extract the Post IDs from the mapping records
+        List<Long> postIds = mappingRecords.stream()
+                .map(record -> record.getId().getPostId())
+                .toList();
+
+        // 3. Retrieve detailed post information for each ID
+        // We reuse the native query mapping and DTO conversion logic to ensure
+        // consistent data structure (including author info and stats)
+        List<PostFeedDTO> sharedPosts = postIds.stream()
+                .map(postId -> {
+                    Optional<Object[]> rawResult = forumPostRepository.findPostDetailByIdNative(postId);
+                    // rawResult returns an array of columns based on your PostDetail native query
+                    return rawResult.map(result -> toPostFeedDTO((Object[]) result[0])).orElse(null);
+                })
+                .filter(Objects::nonNull) // Filter out any posts that might have been deleted
+                .collect(Collectors.toList());
+
+        log.info("Successfully retrieved {} shared posts for project {}", sharedPosts.size(), projectId);
+
+        return new BaseResponse<>(1, "Shared resources retrieved successfully", sharedPosts);
+    }
+
+    private void sendKafkaNotification(ForumActivityEvent event) {
+        try {
+            kafkaTemplate.send(KafkaConfig.TOPIC_FORUM_ACTIVITY, event);
+            log.info("Sent forum activity Kafka event: {} by user {}", event.getType(), event.getActorId());
+        } catch (Exception e) {
+            log.error("Failed to send Kafka notification: {}", e.getMessage());
+        }
     }
 }

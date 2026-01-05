@@ -27,7 +27,7 @@ public class InternalFileNodeController {
             @RequestBody Map<String, Object> request
     ) {
         String snapshotRef = (String) request.get("snapshotRef");
-        Long userId = request.get("userId") != null ? Long.valueOf(request.get("userId").toString()) : 0L;
+        Long userId = request.get("userId") != null ? Long.parseLong(request.get("userId").toString()) : 0L;
         String reason = (String) request.get("reason");
 
         log.info("Internal Sync: Recording snapshot {} for node {}", snapshotRef, nodeId);

@@ -1,6 +1,8 @@
 package com.graduation.forumservice.controller;
 
+import com.graduation.forumservice.constant.Constant;
 import com.graduation.forumservice.payload.request.*;
+import com.graduation.forumservice.payload.response.BaseResponse;
 import com.graduation.forumservice.service.ForumService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -186,6 +188,32 @@ public class ForumController {
             @RequestBody @Valid UpdateCommentRequest request) {
         log.info("PUT /api/forum/comments/{} - userId={}", commentId, userId);
         return ResponseEntity.ok(forumService.editComment(userId, commentId, request));
+    }
+
+    /**
+     * POST /api/forum/attachments/{fileId}/save-to-project
+     * Copies a forum attachment into a specific project's file manager.
+     */
+    @PostMapping("/attachments/{fileId}/save-to-project")
+    public ResponseEntity<?> saveAttachmentToProject(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long fileId,
+            @RequestBody @Valid SaveFileToProjectRequest request) {
+
+        // 1. Ensure the IDs match (path variable vs request body)
+        // It's good practice to enforce consistency if the fileId is in the URL
+        request.setFileId(fileId);
+        request.setUserId(userId);
+
+        log.info("POST /save-to-project - User: {}, File: {}, Project: {}",
+                userId, fileId, request.getProjectId());
+
+        // 2. Call the service using the DTO directly
+        // This allows the service to use request.getStorageRef() and request.getFileSize()
+        // without doing an extra database lookup.
+        BaseResponse<?> response = forumService.saveFileToProject(request);
+
+        return ResponseEntity.ok(response);
     }
 
     // --- 5. UTILITIES ---

@@ -278,7 +278,7 @@ const server = Server.configure({
     async onConnect(data) {
         const { documentName, context } = data;
 
-        // Get user name safely from context (set in onAuthenticate)
+        // Get username safely from context (set in onAuthenticate)
         const userName = context && context.userName ? context.userName : "Unknown User";
 
         console.log(`[Connect] User ${userName} (ID: ${context.userId}) joined ${documentName}`);
