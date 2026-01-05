@@ -233,4 +233,109 @@ public class ProjectSummaryServiceImpl implements ProjectSummaryService {
             return new BaseResponse<>(Constant.ERROR_STATUS, e.getMessage(), null);
         }
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BaseResponse<?> getProjectDashboardSummary(Long userId, Long projectId) {
+        try {
+            // 1. Single Auth Check for the whole dashboard
+            projectAuthorizationHelper.requireActiveMember(projectId, userId);
+
+            // --- A. Deliverable Progress ---
+            List<Object[]> delResults = deliverableRepository.findDeliverableProgressStats(projectId);
+            List<DeliverableProgressDTO> progressList = new ArrayList<>();
+            for (Object[] row : delResults) {
+                Long total = (Long) row[3];
+                Long completed = (Long) row[4];
+                int pct = (total != null && total > 0) ? (int) ((completed * 100) / total) : 0;
+                progressList.add(new DeliverableProgressDTO((Long) row[0], (String) row[1], (String) row[2], pct));
+            }
+
+            // --- B. Teammate Workload ---
+            List<PM_ProjectMember> members = projectMemberRepository.findAllByProjectId(projectId);
+            List<Object[]> taskCounts = taskAssigneeRepository.countTasksByUserInProject(projectId);
+            Map<Long, Long> countMap = taskCounts.stream()
+                    .collect(Collectors.toMap(r -> (Long) r[0], r -> (Long) r[1]));
+
+            // Batch Fetch User Names
+            List<Long> memberIds = members.stream().map(PM_ProjectMember::getUserId).collect(Collectors.toList());
+            List<UserBatchDTO> users = userServiceClient.findUsersByIds(memberIds);
+            Map<Long, String> nameMap = users.stream()
+                    .collect(Collectors.toMap(UserBatchDTO::getUserId, UserBatchDTO::getName, (a, b) -> b));
+
+            long totalTasks = countMap.values().stream().mapToLong(Long::longValue).sum();
+            List<TeammateWorkloadDTO> workloadList = members.stream().map(m -> {
+                long assigned = countMap.getOrDefault(m.getUserId(), 0L);
+                int pct = (totalTasks > 0) ? (int) ((assigned * 100) / totalTasks) : 0;
+                return new TeammateWorkloadDTO(nameMap.getOrDefault(m.getUserId(), "Unknown"), pct);
+            }).collect(Collectors.toList());
+
+            // --- C. Task Stats ---
+            List<PM_Task> tasks = taskRepository.findAllByProjectId(projectId);
+            long todo = 0, inProgress = 0, inReview = 0, done = 0;
+            long completedStat = 0, dueSoon = 0, overdue = 0, unassigned = 0;
+            LocalDate today = LocalDate.now();
+            LocalDate threeDaysLater = today.plusDays(3);
+
+            for (PM_Task task : tasks) {
+                if (task.getStatus() != null) {
+                    switch (task.getStatus()) {
+                        case TO_DO -> todo++;
+                        case IN_PROGRESS -> inProgress++;
+                        case IN_REVIEW -> inReview++;
+                        case DONE -> done++;
+                    }
+                }
+                if (task.getAssignees() == null || task.getAssignees().isEmpty()) unassigned++;
+
+                if (task.getStatus() == TaskStatus.DONE) {
+                    completedStat++;
+                } else if (task.getEndDate() != null) {
+                    if (task.getEndDate().isBefore(today)) overdue++;
+                    else if (!task.getEndDate().isAfter(threeDaysLater)) dueSoon++;
+                }
+            }
+            TaskStatsDTO taskStats = new TaskStatsDTO(
+                    new TaskStatsDTO.StatsByStatus(todo, inProgress, inReview, done),
+                    new TaskStatsDTO.StatsByDeadline(completedStat, dueSoon, overdue, unassigned)
+            );
+
+            // --- D. Timeline ---
+            PM_Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+            List<PM_Milestone> milestones = milestoneRepository.findAllByProjectIdOrderByDateAsc(projectId);
+            List<TimelineMilestoneDTO> timelineDTOs = milestones.stream()
+                    .map(m -> new TimelineMilestoneDTO(m.getMilestoneId(), m.getName(), m.getDate()))
+                    .collect(Collectors.toList());
+            TimelineResponseDTO timeline = new TimelineResponseDTO(project.getStartDate(), LocalDate.now(), timelineDTOs);
+
+            // --- E. Active Risks ---
+            List<PM_Risk> risks = riskRepository.findByProjectIdAndStatus(projectId, RiskStatus.UNRESOLVED);
+            // Sort by Impact Score (Prob * Impact) Descending
+            risks.sort((r1, r2) -> Integer.compare(
+                    r2.getProbability().getValue() * r2.getImpact().getValue(),
+                    r1.getProbability().getValue() * r1.getImpact().getValue()
+            ));
+
+            List<ActiveRiskItemDTO> topRisks = risks.stream().limit(5)
+                    .map(r -> new ActiveRiskItemDTO(r.getKey(), r.getRiskStatement()))
+                    .collect(Collectors.toList());
+            ActiveRiskSummaryDTO riskSummary = new ActiveRiskSummaryDTO(risks.size(), topRisks.size(), topRisks);
+
+            // 3. Construct Final Response
+            ProjectDashboardSummaryDTO dashboardData = new ProjectDashboardSummaryDTO(
+                    progressList,
+                    workloadList,
+                    taskStats,
+                    timeline,
+                    riskSummary
+            );
+
+            return new BaseResponse<>(Constant.SUCCESS_STATUS, "Project dashboard summary retrieved", dashboardData);
+
+        } catch (Exception e) {
+            log.error("Error getting dashboard summary: {}", e.getMessage());
+            return new BaseResponse<>(Constant.ERROR_STATUS, e.getMessage(), null);
+        }
+    }
 }

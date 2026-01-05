@@ -64,4 +64,14 @@ public class ProjectSummaryController {
         BaseResponse<?> response = projectSummaryService.getActiveRisks(userId, projectId);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/{projectId}/summary/dashboard")
+    public ResponseEntity<BaseResponse<?>> getProjectDashboardSummary(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long projectId) {
+
+        log.info("Request: Get dashboard summary for project {} by user {}", projectId, userId);
+        BaseResponse<?> response = projectSummaryService.getProjectDashboardSummary(userId, projectId);
+        return ResponseEntity.ok(response);
+    }
 }

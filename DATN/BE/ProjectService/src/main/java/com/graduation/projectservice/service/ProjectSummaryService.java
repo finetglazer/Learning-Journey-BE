@@ -13,4 +13,6 @@ public interface ProjectSummaryService {
     BaseResponse<?> getProjectTimeline(Long userId, Long projectId);
 
     BaseResponse<?> getActiveRisks(Long userId, Long projectId);
+
+    BaseResponse<?> getProjectDashboardSummary(Long userId, Long projectId);
 }
