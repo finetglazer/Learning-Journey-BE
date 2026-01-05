@@ -1,11 +1,11 @@
 package com.graduation.schedulingservice.service;
 
-import com.graduation.schedulingservice.client.UserServiceClient;
 import com.graduation.schedulingservice.model.CalendarItem;
+import com.graduation.schedulingservice.model.TimeRange;
+import com.graduation.schedulingservice.model.UserConstraints;
 import com.graduation.schedulingservice.model.enums.ItemType;
-import com.graduation.schedulingservice.payload.response.TimeRangeDto;
-import com.graduation.schedulingservice.payload.response.UserConstraintsDTO;
 import com.graduation.schedulingservice.repository.CalendarItemRepository;
+import com.graduation.schedulingservice.repository.UserConstraintsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,9 +25,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ConstraintValidationService {
 
-    private final UserServiceClient userServiceClient;
+    private final UserConstraintsRepository userConstraintsRepository;
     private final CalendarItemRepository calendarItemRepository;
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
     private static final DateTimeFormatter DISPLAY_FORMATTER = DateTimeFormatter.ofPattern("h:mm a");
 
     /**
@@ -40,23 +39,21 @@ public class ConstraintValidationService {
         // 1. ALWAYS validate overlapping (hard rule, not user preference)
         validateOverlapping(userId, startTime, endTime, violations);
 
-        // 2. Fetch user constraints from the User Service for sleep hours and daily
-        // limits
-        Optional<UserConstraintsDTO> constraintsOpt = userServiceClient.fetchUserConstraints(userId);
+        // 2. Fetch user constraints from local repository
+        Optional<UserConstraints> constraintsOpt = userConstraintsRepository.findByUserId(userId);
 
         if (constraintsOpt.isEmpty()) {
-            log.warn("No constraints found for user {} or User Service is down. Skipping sleep/limit validation.",
-                    userId);
+            log.debug("No constraints configured for user {}. Skipping sleep/limit validation.", userId);
             return violations; // Return only overlapping violations
         }
 
-        UserConstraintsDTO constraints = constraintsOpt.get();
+        UserConstraints constraints = constraintsOpt.get();
 
         // 3. Validate sleep hours
         validateSleepHours(constraints, startTime, endTime, violations);
 
         // 4. Validate daily limits (if feature is enabled)
-        if (constraints.getDailyLimitFeatureEnabled()) {
+        if (Boolean.TRUE.equals(constraints.getDailyLimitFeatureEnabled())) {
             validateDailyLimit(userId, constraints, startTime, endTime, itemType, violations);
         }
 
@@ -72,22 +69,21 @@ public class ConstraintValidationService {
             LocalDateTime endTime, ItemType itemType) {
         List<String> violations = new ArrayList<>();
 
-        // 1. Fetch user constraints from the User Service
-        Optional<UserConstraintsDTO> constraintsOpt = userServiceClient.fetchUserConstraints(userId);
+        // 1. Fetch user constraints from local repository
+        Optional<UserConstraints> constraintsOpt = userConstraintsRepository.findByUserId(userId);
 
         if (constraintsOpt.isEmpty()) {
-            log.warn("No constraints found for user {} or User Service is down. Skipping sleep/limit validation.",
-                    userId);
+            log.debug("No constraints configured for user {}. Skipping sleep/limit validation.", userId);
             return violations; // Return empty list
         }
 
-        UserConstraintsDTO constraints = constraintsOpt.get();
+        UserConstraints constraints = constraintsOpt.get();
 
         // 2. Validate sleep hours
         validateSleepHours(constraints, startTime, endTime, violations);
 
         // 3. Validate daily limits (if feature is enabled)
-        if (constraints.getDailyLimitFeatureEnabled() != null && constraints.getDailyLimitFeatureEnabled()) {
+        if (Boolean.TRUE.equals(constraints.getDailyLimitFeatureEnabled())) {
             validateDailyLimit(userId, constraints, startTime, endTime, itemType, violations);
         }
 
@@ -181,9 +177,9 @@ public class ConstraintValidationService {
     /**
      * Check if start or end time falls within any sleep hour range
      */
-    private void validateSleepHours(UserConstraintsDTO constraints, LocalDateTime startTime,
+    private void validateSleepHours(UserConstraints constraints, LocalDateTime startTime,
             LocalDateTime endTime, List<String> violations) {
-        List<TimeRangeDto> sleepHours = constraints.getSleepHours();
+        List<TimeRange> sleepHours = constraints.getSleepHours();
 
         if (sleepHours == null || sleepHours.isEmpty()) {
             return;
@@ -192,12 +188,9 @@ public class ConstraintValidationService {
         LocalTime startLocalTime = startTime.toLocalTime();
         LocalTime endLocalTime = endTime.toLocalTime();
 
-        for (TimeRangeDto sleepRange : sleepHours) {
-            // --- FIX STARTS HERE ---
-            // 1. Parse the String from DTO into LocalTime
-            LocalTime sleepStart = LocalTime.parse(sleepRange.getStartTime(), TIME_FORMATTER);
-            LocalTime sleepEnd = LocalTime.parse(sleepRange.getEndTime(), TIME_FORMATTER);
-            // --- FIX ENDS HERE ---
+        for (TimeRange sleepRange : sleepHours) {
+            LocalTime sleepStart = sleepRange.getStartTime();
+            LocalTime sleepEnd = sleepRange.getEndTime();
 
             boolean startInSleep = isTimeInRange(startLocalTime, sleepStart, sleepEnd);
             boolean endInSleep = isTimeInRange(endLocalTime, sleepStart, sleepEnd);
@@ -234,7 +227,7 @@ public class ConstraintValidationService {
     /**
      * Check if adding this item would exceed the daily limit for the item type
      */
-    private void validateDailyLimit(Long userId, UserConstraintsDTO constraints,
+    private void validateDailyLimit(Long userId, UserConstraints constraints,
             LocalDateTime startTime, LocalDateTime endTime,
             ItemType itemType, List<String> violations) {
 

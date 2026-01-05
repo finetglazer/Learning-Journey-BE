@@ -6,12 +6,20 @@ import com.graduation.projectservice.payload.request.UpdateTaskRequest;
 import com.graduation.projectservice.payload.request.UpdateTaskStatusRequest;
 import com.graduation.projectservice.payload.response.BaseResponse;
 
+import com.graduation.projectservice.payload.response.TaskDTO;
+
 public interface TaskService {
     BaseResponse<?> getTasks(Long userId, Long projectId, GetTaskRequest request);
 
     BaseResponse<?> getTaskDetail(Long userId, Long projectId, Long taskId);
 
     BaseResponse<?> getTaskById(Long taskId);
+
+    /**
+     * Get task by ID for internal service-to-service calls.
+     * Returns TaskDTO directly (not wrapped in BaseResponse).
+     */
+    TaskDTO getTaskByIdForInternal(Long taskId);
 
     BaseResponse<?> createTask(Long userId, Long projectId, Long phaseId, CreateTaskRequest request);
 

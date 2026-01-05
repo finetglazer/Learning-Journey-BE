@@ -322,6 +322,33 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                             request.getPmTaskId());
                     return new BaseResponse<>(0, "No project task found", null);
                 }
+
+                // Validate scheduled date is within project task date range
+                PM_TasKDTO pmTask = res.get();
+                if (request.getTimeSlot() != null && request.getTimeSlot().getStartTime() != null) {
+                    LocalDate scheduledDate = request.getTimeSlot().getStartTime().toLocalDate();
+                    LocalDate taskStartDate = pmTask.getStartDate();
+                    LocalDate taskEndDate = pmTask.getEndDate();
+
+                    // Check if scheduled date is outside the valid range
+                    boolean isBeforeStart = taskStartDate != null && scheduledDate.isBefore(taskStartDate);
+                    boolean isAfterEnd = taskEndDate != null && scheduledDate.isAfter(taskEndDate);
+
+                    if (isBeforeStart || isAfterEnd) {
+                        String startDateStr = taskStartDate != null ? taskStartDate.toString() : "N/A";
+                        String endDateStr = taskEndDate != null ? taskEndDate.toString() : "N/A";
+
+                        String warningMessage = String.format(
+                                "This task must be scheduled between %s and %s. The selected date (%s) is outside the valid range.",
+                                startDateStr, endDateStr, scheduledDate.toString());
+
+                        log.warn(
+                                "Project task date range violation: pmTaskId={}, scheduledDate={}, validRange={} to {}",
+                                request.getPmTaskId(), scheduledDate, startDateStr, endDateStr);
+
+                        return new BaseResponse<>(0, warningMessage, null);
+                    }
+                }
             }
 
             // 5. Validate constraints (overlapping, sleep hours, daily limits)
@@ -906,6 +933,43 @@ public class CalendarItemServiceImpl implements CalendarItemService {
                     log.warn(Constant.LOG_CONSTRAINT_VIOLATIONS, userId, violations);
                     return new BaseResponse<>(0, Constant.MSG_CONSTRAINT_VIOLATIONS, violations);
                 }
+
+                // ===== PM TASK DATE RANGE VALIDATION =====
+                // Validate that the new scheduled date is within the PM task's date range
+                if (item instanceof com.graduation.schedulingservice.model.ProjectTask) {
+                    com.graduation.schedulingservice.model.ProjectTask projectTask = (com.graduation.schedulingservice.model.ProjectTask) item;
+                    Long pmTaskId = projectTask.getPmTaskId();
+
+                    if (pmTaskId != null) {
+                        Optional<PM_TasKDTO> pmTaskOpt = projectServiceClient.getProjectTaskById(pmTaskId);
+                        if (pmTaskOpt.isPresent()) {
+                            PM_TasKDTO pmTask = pmTaskOpt.get();
+                            LocalDate scheduledDate = request.getTimeSlot().getStartTime().toLocalDate();
+                            LocalDate taskStartDate = pmTask.getStartDate();
+                            LocalDate taskEndDate = pmTask.getEndDate();
+
+                            // Check if scheduled date is outside the valid range
+                            boolean isBeforeStart = taskStartDate != null && scheduledDate.isBefore(taskStartDate);
+                            boolean isAfterEnd = taskEndDate != null && scheduledDate.isAfter(taskEndDate);
+
+                            if (isBeforeStart || isAfterEnd) {
+                                String startDateStr = taskStartDate != null ? taskStartDate.toString() : "N/A";
+                                String endDateStr = taskEndDate != null ? taskEndDate.toString() : "N/A";
+
+                                String warningMessage = String.format(
+                                        "This task must be scheduled between %s and %s. The selected date (%s) is outside the valid range.",
+                                        startDateStr, endDateStr, scheduledDate.toString());
+
+                                log.warn(
+                                        "Project task date range violation on update: pmTaskId={}, scheduledDate={}, validRange={} to {}",
+                                        pmTaskId, scheduledDate, startDateStr, endDateStr);
+
+                                return new BaseResponse<>(0, warningMessage, null);
+                            }
+                        }
+                    }
+                }
+                // ===== END PM TASK DATE RANGE VALIDATION =====
             }
 
             // 5. Update common fields

@@ -49,7 +49,8 @@ public interface CalendarItemRepository extends JpaRepository<CalendarItem, Long
                         "AND ci.timeSlot.startTime IS NOT NULL " +
                         "AND ci.timeSlot.endTime IS NOT NULL " +
                         "AND ci.timeSlot.startTime < :endTime " +
-                        "AND ci.timeSlot.endTime > :startTime")
+                        "AND ci.timeSlot.endTime > :startTime " +
+                        "AND TYPE(ci) != MemorableEventCalendarItem")
         List<CalendarItem> findOverlappingItems(@Param("userId") Long userId,
                         @Param("startTime") LocalDateTime startTime,
                         @Param("endTime") LocalDateTime endTime);
