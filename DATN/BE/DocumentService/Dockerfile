@@ -1,8 +1,7 @@
 # ==============================================
-# APIGatewayService Dockerfile - Simple Pre-built JAR
+# DocumentService Dockerfile - Simple Pre-built JAR
 # ==============================================
 # Build JAR first: mvn clean package -DskipTests
-# Then: docker-compose build
 
 FROM eclipse-temurin:17-jre-jammy
 
@@ -12,8 +11,8 @@ WORKDIR /app
 ARG JAR_FILE=target/*.jar
 COPY ${JAR_FILE} app.jar
 
-# Expose the gateway port
-EXPOSE 8080
+# Expose the service port
+EXPOSE 8087
 
 # Run the application with docker profile
 ENTRYPOINT ["java", "-jar", "-Dspring.profiles.active=docker", "app.jar"]
