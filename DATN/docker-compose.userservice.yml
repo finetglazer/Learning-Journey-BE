@@ -1,0 +1,36 @@
+# ==============================================
+# Docker Compose - UserService Only (Testing)
+# ==============================================
+# Use this file to test UserService in isolation before
+# integrating with other services.
+#
+# Usage:
+#   docker-compose -f docker-compose.userservice.yml build
+#   docker-compose -f docker-compose.userservice.yml up
+#
+# ==============================================
+
+services:
+  user-service:
+    build:
+      context: ./BE/UserService
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    # Load environment variables from .env file
+    env_file:
+      - ./BE/UserService/.env
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8081/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - backend-network
+
+networks:
+  backend-network:
+    driver: bridge

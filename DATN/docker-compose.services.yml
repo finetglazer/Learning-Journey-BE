@@ -1,0 +1,150 @@
+# ==============================================
+# Docker Compose - All Services
+# ==============================================
+# Usage:
+#   1. Build JARs for all services
+#   2. docker-compose -f docker-compose.services.yml build
+#   3. docker-compose -f docker-compose.services.yml up -d
+# ==============================================
+
+services:
+  # API Gateway - Entry point on port 8080
+  api-gateway:
+    build:
+      context: ./BE/APIGatewayService
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./BE/UserService/.env
+    depends_on:
+      - user-service
+      - scheduling-service
+      - project-service
+      - document-service
+    restart: unless-stopped
+    networks:
+      - backend-network
+
+  # User Service - port 8081
+  user-service:
+    build:
+      context: ./BE/UserService
+      dockerfile: Dockerfile
+    container_name: user-service
+    expose:
+      - "8081"
+    env_file:
+      - ./BE/UserService/.env
+    restart: unless-stopped
+    networks:
+      - backend-network
+
+  # Scheduling Service - port 8082
+  scheduling-service:
+    build:
+      context: ./BE/SchedulingService
+      dockerfile: Dockerfile
+    container_name: scheduling-service
+    expose:
+      - "8082"
+    env_file:
+      - ./BE/UserService/.env
+    depends_on:
+      - user-service
+    restart: unless-stopped
+    networks:
+      - backend-network
+
+  # Project Service - port 8086
+  project-service:
+    build:
+      context: ./BE/ProjectService
+      dockerfile: Dockerfile
+    container_name: project-service
+    expose:
+      - "8086"
+    env_file:
+      - ./BE/UserService/.env
+    depends_on:
+      - user-service
+      - document-service
+    restart: unless-stopped
+    networks:
+      - backend-network
+
+  # Document Service - port 8087
+  document-service:
+    build:
+      context: ./BE/DocumentService
+      dockerfile: Dockerfile
+    container_name: document-service
+    expose:
+      - "8087"
+    env_file:
+      - ./BE/UserService/.env
+    restart: unless-stopped
+    networks:
+      - backend-network
+
+  # Forum Service - port 8088
+  forum-service:
+    build:
+      context: ./BE/ForumService
+      dockerfile: Dockerfile
+    container_name: forum-service
+    expose:
+      - "8088"
+    env_file:
+      - ./BE/UserService/.env
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      - user-service
+      - project-service
+    restart: unless-stopped
+    networks:
+      - backend-network
+
+  # Notification Service - port 8090
+  notification-service:
+    build:
+      context: ./BE/NotificationService
+      dockerfile: Dockerfile
+    container_name: notification-service
+    expose:
+      - "8090"
+    env_file:
+      - ./BE/UserService/.env
+    depends_on:
+      - user-service
+    restart: unless-stopped
+    networks:
+      - backend-network
+
+  # Collab Server (Hocuspocus) - port 1234
+  collab-server:
+    build:
+      context: ./collab-server
+      dockerfile: Dockerfile
+    container_name: collab-server
+    ports:
+      - "1234:1234"
+    environment:
+      - PORT=1234
+      - API_GATEWAY_URL=http://api-gateway:8080
+      - DOCUMENT_SERVICE_URL=http://document-service:8087
+      - INTERNAL_API_KEY=hocuspocus-service-secret-key-2024
+      - DOCUMENT_SERVICE_API_KEY=hocuspocus-service-secret-key-2024
+    depends_on:
+      - api-gateway
+      - document-service
+    restart: unless-stopped
+    networks:
+      - backend-network
+
+networks:
+  backend-network:
+    driver: bridge

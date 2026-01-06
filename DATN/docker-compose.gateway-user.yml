@@ -1,0 +1,50 @@
+# ==============================================
+# Docker Compose - Gateway + UserService (Testing)
+# ==============================================
+# Use this file to test Gateway routing to UserService
+#
+# Usage:
+#   1. Build JARs first:
+#      cd BE/UserService && mvn clean package -DskipTests
+#      cd BE/APIGatewayService && mvn clean package -DskipTests
+#   2. docker-compose -f docker-compose.gateway-user.yml build
+#   3. docker-compose -f docker-compose.gateway-user.yml up -d
+#
+# Test: http://localhost:8080/api/users/auth/login
+# ==============================================
+
+services:
+  # API Gateway - Entry point on port 8080
+  api-gateway:
+    build:
+      context: ./BE/APIGatewayService
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    # Use same .env as UserService for shared secrets (JWT_SECRET, REDIS_URL)
+    env_file:
+      - ./BE/UserService/.env
+    depends_on:
+      - user-service
+    restart: unless-stopped
+    networks:
+      - backend-network
+
+  # User Service - Internal on port 8081
+  user-service:
+    build:
+      context: ./BE/UserService
+      dockerfile: Dockerfile
+    container_name: user-service
+    expose:
+      - "8081" # Internal only, accessed via Gateway
+    env_file:
+      - ./BE/UserService/.env
+    restart: unless-stopped
+    networks:
+      - backend-network
+
+networks:
+  backend-network:
+    driver: bridge
