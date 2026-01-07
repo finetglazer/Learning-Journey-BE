@@ -127,8 +127,13 @@ public class UserProfileServiceImpl implements UserProfileService {
             // 5. Save user
             userRepository.save(user);
 
-            // 6. Publish event to RabbitMQ for cache sync (async)
+            // 6. Publish event to Kafka for cache sync (async)
             userProfileEventPublisher.publishUserUpdatedEvent(user);
+
+            // 6.1. Publish birthday event if date of birth was updated
+            if (user.getDateOfBirth() != null) {
+                userProfileEventPublisher.publishBirthdayUpdatedEvent(userId, user.getDateOfBirth());
+            }
 
             // 7. Build response
             ProfileResponse response = new ProfileResponse(

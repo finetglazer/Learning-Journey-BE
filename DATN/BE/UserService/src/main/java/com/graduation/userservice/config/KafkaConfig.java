@@ -34,17 +34,23 @@ public class KafkaConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-//    @Value("${KAFKA_USER}")
-//    private String kafkaUser;
-//
-//    @Value("${KAFKA_PASSWORD}")
-//    private String kafkaPassword;
+    // @Value("${KAFKA_USER}")
+    // private String kafkaUser;
+    //
+    // @Value("${KAFKA_PASSWORD}")
+    // private String kafkaPassword;
 
     /**
      * Topic name for user updated events.
      * Following convention: domain.service.entity.event.version
      */
     public static final String TOPIC_USER_UPDATED = "pm.user-service.user.updated.v1";
+
+    /**
+     * Topic name for birthday updated events.
+     * SchedulingService consumes this to create birthday memorable events.
+     */
+    public static final String TOPIC_BIRTHDAY_UPDATED = "pm.user-service.birthday.updated.v1";
 
     @Bean
     public ProducerFactory<String, Object> producerFactory() throws IOException {
@@ -126,5 +132,10 @@ public class KafkaConfig {
     @Bean
     public NewTopic userUpdatedTopic() {
         return new NewTopic(TOPIC_USER_UPDATED, 1, (short) 1);
+    }
+
+    @Bean
+    public NewTopic birthdayUpdatedTopic() {
+        return new NewTopic(TOPIC_BIRTHDAY_UPDATED, 1, (short) 1);
     }
 }
