@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
@@ -17,6 +19,7 @@ import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -42,6 +45,18 @@ public class BirthdayKafkaConfig {
      */
     public static final String TOPIC_BIRTHDAY_UPDATED = "pm.user-service.birthday.updated.v1";
 
+    /**
+     * Get resource from filesystem if exists (Docker), otherwise from classpath
+     * (local).
+     */
+    private Resource getResource(String filename) {
+        File dockerFile = new File("/app/" + filename);
+        if (dockerFile.exists()) {
+            return new FileSystemResource(dockerFile);
+        }
+        return new ClassPathResource(filename);
+    }
+
     @Bean
     public ConsumerFactory<String, BirthdayEvent> birthdayConsumerFactory() throws IOException {
         Map<String, Object> props = new HashMap<>();
@@ -53,18 +68,18 @@ public class BirthdayKafkaConfig {
         // SSL/mTLS Configuration for Aiven
         props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
 
-        ClassPathResource keyResource = new ClassPathResource("service.key");
+        Resource keyResource = getResource("service.key");
         String serviceKey = new String(keyResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         props.put(SslConfigs.SSL_KEYSTORE_KEY_CONFIG, serviceKey);
 
-        ClassPathResource certResource = new ClassPathResource("service.cert");
+        Resource certResource = getResource("service.cert");
         String serviceCert = new String(certResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         props.put(SslConfigs.SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, serviceCert);
 
         props.put(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, "PEM");
 
-        ClassPathResource resource = new ClassPathResource("ca.pem");
-        String caCertificate = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        Resource caResource = getResource("ca.pem");
+        String caCertificate = new String(caResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         props.put(SslConfigs.SSL_TRUSTSTORE_CERTIFICATES_CONFIG, caCertificate);
         props.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, "PEM");
 
