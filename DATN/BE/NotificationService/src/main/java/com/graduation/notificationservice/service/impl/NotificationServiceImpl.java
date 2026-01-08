@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -37,7 +38,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final UserInfoCacheRepository userInfoCacheRepository;
     private final UserServiceClient userServiceClient;
 
-    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     @Override
     public BaseResponse<?> getNotifications(Long userId, String filter, int page, int limit) {
@@ -139,7 +140,7 @@ public class NotificationServiceImpl implements NotificationService {
         dto.setReferenceId(notification.getReferenceId());
 
         // Format createdAt to ISO 8601 string
-        dto.setCreatedAt(notification.getCreatedAt().format(ISO_FORMATTER));
+        dto.setCreatedAt(notification.getCreatedAt().atOffset(ZoneOffset.UTC).format(ISO_FORMATTER));
 
         return dto;
     }

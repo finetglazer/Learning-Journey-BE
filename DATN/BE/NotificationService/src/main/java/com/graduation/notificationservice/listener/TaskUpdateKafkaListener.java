@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
@@ -37,7 +38,7 @@ public class TaskUpdateKafkaListener {
     private final UserInfoCacheRepository userInfoCacheRepository;
     private final UserServiceClient userServiceClient;
 
-    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     @KafkaListener(topics = KafkaConfig.TOPIC_PROJECT_TASK_UPDATE, groupId = "${spring.kafka.consumer.group-id}", containerFactory = "taskUpdateKafkaListenerContainerFactory")
     public void handleTaskUpdateEvent(ConsumerRecord<String, TaskUpdateEvent> record, Acknowledgment ack) {
@@ -120,7 +121,7 @@ public class TaskUpdateKafkaListener {
         dto.setReferenceId(notification.getReferenceId());
 
         // Format createdAt to ISO 8601 string
-        dto.setCreatedAt(notification.getCreatedAt().format(ISO_FORMATTER));
+        dto.setCreatedAt(notification.getCreatedAt().atOffset(ZoneOffset.UTC).format(ISO_FORMATTER));
 
         return dto;
     }
