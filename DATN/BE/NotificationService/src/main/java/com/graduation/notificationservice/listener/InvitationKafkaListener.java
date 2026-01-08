@@ -25,6 +25,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
@@ -39,7 +40,7 @@ public class InvitationKafkaListener {
     private final UserInfoCacheRepository userInfoCacheRepository;
     private final SseService sseService;
     private final UserServiceClient userServiceClient;
-    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     @KafkaListener(topics = KafkaConfig.TOPIC_PROJECT_INVITATION, groupId = "${spring.kafka.consumer.group-id}", containerFactory = "invitationKafkaListenerContainerFactory")
     public void handleInvitationEvent(ConsumerRecord<String, ProjectInvitationEvent> record, Acknowledgment ack) {
@@ -205,7 +206,7 @@ public class InvitationKafkaListener {
         dto.setReferenceId(notification.getReferenceId());
 
         // Format createdAt to ISO 8601 string
-        dto.setCreatedAt(notification.getCreatedAt().format(ISO_FORMATTER));
+        dto.setCreatedAt(notification.getCreatedAt().atOffset(ZoneOffset.UTC).format(ISO_FORMATTER));
 
         return dto;
     }
@@ -220,10 +221,9 @@ public class InvitationKafkaListener {
         if (optionalUserInfoCache.isPresent()) {
             UserInfoCache userInfoCache = optionalUserInfoCache.get();
             return new SenderDTO(
-                userInfoCache.getUserId(),
-                userInfoCache.getDisplayName(),
-                userInfoCache.getAvatarUrl()
-            );
+                    userInfoCache.getUserId(),
+                    userInfoCache.getDisplayName(),
+                    userInfoCache.getAvatarUrl());
         }
 
         // Sender not found in cache - call UserService to fetch and cache user info

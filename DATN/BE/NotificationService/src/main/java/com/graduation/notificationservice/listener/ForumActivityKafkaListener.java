@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 @Slf4j
@@ -30,7 +31,7 @@ public class ForumActivityKafkaListener {
     private final ProcessedMessageRepository processedMessageRepository;
     private final SseService sseService;
 
-    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     @KafkaListener(topics = KafkaConfig.TOPIC_FORUM_ACTIVITY, groupId = "${spring.kafka.consumer.group-id}", containerFactory = "forumActivityKafkaListenerContainerFactory")
     public void handleForumEvent(ConsumerRecord<String, ForumActivityEvent> record, Acknowledgment ack) {
@@ -97,7 +98,8 @@ public class ForumActivityKafkaListener {
 
     /**
      * Converts Entity to DTO using the Actor info from the Event.
-     * This avoids calling User Service or Cache because the Event already has the latest Name/Avatar.
+     * This avoids calling User Service or Cache because the Event already has the
+     * latest Name/Avatar.
      */
     private NotificationDTO toNotificationDTO(Notification notification, ForumActivityEvent event) {
         NotificationDTO dto = new NotificationDTO();
@@ -108,8 +110,7 @@ public class ForumActivityKafkaListener {
         SenderDTO sender = new SenderDTO(
                 event.getActorId(),
                 event.getActorName(),
-                event.getActorAvatarUrl()
-        );
+                event.getActorAvatarUrl());
         dto.setSender(sender);
 
         dto.setContentMessage(notification.getContentMessage());
@@ -126,7 +127,7 @@ public class ForumActivityKafkaListener {
         dto.setReferenceId(notification.getReferenceId());
 
         // Format createdAt to ISO 8601 string
-        dto.setCreatedAt(notification.getCreatedAt().format(ISO_FORMATTER));
+        dto.setCreatedAt(notification.getCreatedAt().atOffset(ZoneOffset.UTC).format(ISO_FORMATTER));
 
         return dto;
     }
