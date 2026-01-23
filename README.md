@@ -41,9 +41,3 @@ Please use the following **pre-verified administrator account** to access and ev
 4. You will be redirected to the main dashboard to begin your review.
 
 ---
-
-### 💡 Tip for your Presentation:
-
-If a teacher asks *why* these features are disabled, you can confidently answer:
-
-> *"The code for OAuth and Email works perfectly in the local environment. These are infrastructure restrictions imposed by Google and DigitalOcean for security on public IPs, which is standard for non-enterprise deployments."*
