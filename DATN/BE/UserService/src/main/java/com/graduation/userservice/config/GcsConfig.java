@@ -1,46 +1,51 @@
 package com.graduation.userservice.config;
 
-import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.util.StringUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.Base64;
 
 @Configuration
 public class GcsConfig {
 
-    // 1. Inject the properties from application.properties
     @Value("${gcs.project-id}")
     private String projectId;
 
     @Value("${gcs.credentials.json}")
     private String credentialsJson;
 
-    /**
-     * This @Bean creates the central Storage object that
-     * your entire application will use to interact with GCS.
-     */
     @Bean
     public Storage storage() throws IOException {
+        // 1. Clean the input (remove potential accidental quotes added by env parsers)
+        String cleanedCredentials = credentialsJson.replace("'", "").trim();
 
-        Credentials credentials;
+        byte[] credentialBytes;
 
-        if (StringUtils.hasText(credentialsJson)) {
-            // Use the JSON credentials from the environment variable
-            credentials = GoogleCredentials.fromStream(
-                    new ByteArrayInputStream(credentialsJson.getBytes())
-            );
+        // 2. Smart Detection: Is it JSON or Base64?
+        // JSON always starts with '{'. Base64 usually starts with alphanumeric chars.
+        if (cleanedCredentials.startsWith("{")) {
+            // It is raw JSON (Local environment)
+            credentialBytes = cleanedCredentials.getBytes();
         } else {
-            // Fallback: Use "Application Default Credentials"
-            // This is good for production (e.g., Cloud Run, GKE)
-            credentials = GoogleCredentials.getApplicationDefault();
+            // It is Base64 encoded (Cloud environment)
+            // This fixes the "MalformedJsonException" you are seeing!
+            try {
+                credentialBytes = Base64.getDecoder().decode(cleanedCredentials);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalStateException("Failed to decode GCS credentials. Check if GCS_CREDENTIALS_JSON is valid JSON or Base64.", e);
+            }
         }
+
+        // 3. Create Credentials from the bytes (whether they were raw or decoded)
+        GoogleCredentials credentials = GoogleCredentials.fromStream(
+                new ByteArrayInputStream(credentialBytes)
+        );
 
         return StorageOptions.newBuilder()
                 .setProjectId(projectId)
