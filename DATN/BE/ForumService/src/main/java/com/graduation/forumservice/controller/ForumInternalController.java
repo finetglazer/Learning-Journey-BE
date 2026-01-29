@@ -1,7 +1,7 @@
 package com.graduation.forumservice.controller;
 
 import com.graduation.forumservice.payload.response.BaseResponse;
-import com.graduation.forumservice.service.ForumService;
+import com.graduation.forumservice.service.PostService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ForumInternalController {
 
-    private final ForumService forumService;
+    private final PostService postService;
 
     /**
      * GET /api/internal/forum/projects/{projectId}
@@ -25,10 +25,7 @@ public class ForumInternalController {
 
         log.info("Internal request: Fetching shared posts for projectId {}", projectId);
 
-        // Optional: Simple manual check if not using a global security filter
-        // if (!isValidInternalKey(internalKey)) return unauthorizedResponse();
-
-        BaseResponse<?> response = forumService.getSharedPostsByProject(projectId);
+        BaseResponse<?> response = postService.getSharedPostsByProject(projectId);
 
         return ResponseEntity.ok(response);
     }

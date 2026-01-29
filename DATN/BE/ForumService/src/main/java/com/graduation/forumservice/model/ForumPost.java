@@ -43,11 +43,6 @@ public class ForumPost {
     @Enumerated(EnumType.STRING)
     private PostStatus status = PostStatus.ACTIVE; // Matches 'ACTIVE'::character varying
 
-    // TSVector requires a custom mapping or can be handled as a String for JPA
-    // but usually updated via DB triggers or native queries
-    @Column(name = "search_vector", columnDefinition = "tsvector", insertable = false, updatable = false)
-    private String searchVector;
-
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

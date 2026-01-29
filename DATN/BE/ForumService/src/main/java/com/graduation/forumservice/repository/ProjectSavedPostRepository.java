@@ -27,10 +27,11 @@ public interface ProjectSavedPostRepository extends JpaRepository<ProjectSavedPo
      * Accesses the 'projectId' and 'postId' inside the @EmbeddedId 'id'.
      */
     @Query("SELECT p FROM ProjectSavedPost p WHERE p.id.projectId = :projectId AND p.id.postId = :postId")
-    Optional<ProjectSavedPost> findByProjectIdAndPostId(@Param("projectId") Long projectId, @Param("postId") Long postId);
+    Optional<ProjectSavedPost> findByProjectIdAndPostId(@Param("projectId") Long projectId,
+            @Param("postId") Long postId);
 
     @Query("SELECT p FROM ProjectSavedPost p WHERE p.id.postId = :postId")
-    Optional<ProjectSavedPost> findByPostId(@Param("postId") Long postId);
+    List<ProjectSavedPost> findByPostId(@Param("postId") Long postId);
 
     /**
      * Retrieves all mapping records for a specific project.

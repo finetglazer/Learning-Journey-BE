@@ -42,10 +42,6 @@ public class ForumAnswer {
     @Column(name = "downvote_count")
     private Integer downvoteCount = 0;
 
-    // TSVector is managed at the DB level for search performance
-    @Column(name = "search_vector", columnDefinition = "tsvector", insertable = false, updatable = false)
-    private String searchVector;
-
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
